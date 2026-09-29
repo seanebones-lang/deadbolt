@@ -39,6 +39,10 @@ artifact download; distribute the versioned ZIP and its checksum, not the outer
 Actions wrapper. After merge, run against the exact candidate source revision so
 the release's source identity is unambiguous.
 
+Windows packaging requests static C-runtime linkage to reduce runtime installation
+requirements; the native job still needs to pass. This does not remove the need
+to validate your Windows edition and any OS-managed DLL dependencies.
+
 ## Install an archive
 
 Download only from the selected repository release, alongside its SHA-256 file.

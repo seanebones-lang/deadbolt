@@ -3,15 +3,6 @@ name: release candidate
 on:
   workflow_dispatch:
   pull_request:
-    paths:
-      - '.github/workflows/release-candidate.yml'
-      - 'dist/package_release.py'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'src/**'
-      - 'tests/hermes_mcp_acceptance.py'
-      - 'tests/hermes-acceptance-requirements.txt'
-      - 'tests/upgrade_acceptance.py'
 
 permissions:
   contents: read
@@ -39,6 +30,7 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             binary: target/release/deadbolt.exe
+            rustflags: '-C target-feature=+crt-static'
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -47,6 +39,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: cargo build --locked --release --bin deadbolt
+        env:
+          RUSTFLAGS: ${{ matrix.rustflags }}
       - run: python dist/package_release.py --binary ${{ matrix.binary }} --target ${{ matrix.target }}
       - uses: actions/upload-artifact@v4
         with:
