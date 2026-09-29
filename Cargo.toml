@@ -22,6 +22,8 @@ include = [
     "README.md",
     "LICENSE",
     "NOTICE",
+    "THIRD-PARTY.md",
+    "third-party/**/*",
     "SECURITY.md",
     "CONTRIBUTING.md",
     "CHANGELOG.md",
@@ -30,6 +32,7 @@ include = [
     "dist/docker-compose.yml",
     "dist/deadbolt.env.example",
     "dist/package_release.py",
+    "dist/collect_licenses.py",
     "Cargo.toml",
     "Cargo.lock",
 ]

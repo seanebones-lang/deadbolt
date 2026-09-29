@@ -31,7 +31,9 @@ uses `python` and `target/release/deadbolt.exe`. The packager refuses mismatched
 binary versions and host labels, builds a ZIP plus SHA-256 file, extracts the
 archive and runs its executable's version, drill and help commands. The archive
 contains source, docs, examples, tests, license/notice, deployment templates and
-`BUILD.json` with its exact source revision and binary hash.
+`BUILD.json` with its exact source revision and binary hash. It also includes a
+generated locked-dependency license inventory and the third-party source/license
+distribution described in [THIRD-PARTY.md](../THIRD-PARTY.md).
 
 Run the workflow on the candidate PR. Review every matrix result, retrieve the
 archives and check their contents. The ZIP itself is nested inside the Actions

@@ -148,6 +148,7 @@ certification. See [operations](docs/OPERATIONS.md) for deployment and recovery.
 | [Hermes showcase](docs/HERMES-SHOWCASE.md) | Independent MCP host and real filesystem execution acceptance |
 | [Compatibility](docs/COMPATIBILITY.md) | Intended v1 API, lifecycle and upgrade contract |
 | [V1 roadmap](docs/V1-READINESS.md) | Verified milestones and remaining release gates |
+| [Third-party components](THIRD-PARTY.md) | Dependency notices and included MPL source distribution |
 
 Apache-2.0. Copyright NextEleven LLC 2026. [License](LICENSE) and [notice](NOTICE).
 Harness is one consumer; this repository does not include or relicense it.

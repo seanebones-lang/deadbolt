@@ -13,6 +13,8 @@ import tempfile
 import tomllib
 import zipfile
 
+from collect_licenses import collect
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -48,6 +50,9 @@ def main():
         for file in ("README.md", "LICENSE", "NOTICE", "SECURITY.md", "CHANGELOG.md",
                      "CONTRIBUTING.md", "Cargo.toml", "Cargo.lock", "Dockerfile"):
             shutil.copy2(ROOT / file, staging / file)
+        shutil.copy2(ROOT / "THIRD-PARTY.md", staging / "THIRD-PARTY.md")
+        shutil.copytree(ROOT / "third-party", staging / "third-party")
+        collect(staging / "THIRD-PARTY-NOTICES.txt")
         shutil.copytree(ROOT / "docs", staging / "docs")
         shutil.copytree(ROOT / "examples", staging / "examples",
                         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
@@ -55,7 +60,8 @@ def main():
         shutil.copytree(ROOT / "tests", staging / "tests",
                         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
         (staging / "dist").mkdir()
-        for file in ("deadbolt.service", "docker-compose.yml", "deadbolt.env.example", "package_release.py"):
+        for file in ("deadbolt.service", "docker-compose.yml", "deadbolt.env.example",
+                     "package_release.py", "collect_licenses.py"):
             shutil.copy2(ROOT / "dist" / file, staging / "dist" / file)
         metadata = {"version": version, "source_revision": revision,
                     "target": args.target, "builder_platform": platform.platform(),
