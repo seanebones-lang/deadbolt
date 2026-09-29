@@ -47,7 +47,21 @@ if admit(agent, "shell")["decision"] != "allow":
 
 ## Run as a service
 
-TCP requires `DEADBOLT_TOKEN`. Bind stays `127.0.0.1:9782`. Unit: `dist/deadbolt.service`. Env file mode `0600`: `dist/deadbolt.env.example`. Compose publishes only `127.0.0.1:9782:9782`.
+TCP requires `DEADBOLT_TOKEN`. Bind stays `127.0.0.1:9782`. `0.0.0.0` and `[::]` are refused. Unit: `dist/deadbolt.service`. Env file mode `0600`: `dist/deadbolt.env.example`. Compose publishes only `127.0.0.1:9782:9782`.
+
+```bash
+sudo install -d -m 0755 /etc/deadbolt
+sudo install -m 0600 dist/deadbolt.env.example /etc/deadbolt/deadbolt.env
+sudo install -m 0644 dist/deadbolt.service /etc/systemd/system/deadbolt.service
+sudo systemctl enable --now deadbolt
+```
+
+```bash
+cp dist/deadbolt.env.example dist/deadbolt.env && chmod 0600 dist/deadbolt.env
+docker compose -f dist/docker-compose.yml up --build
+```
+
+The unit runs `deadbolt serve --bind 127.0.0.1:9782`. Compose does not publish `0.0.0.0`. Incident steps for a 24-hour notice are in `docs/INCIDENT.md`. The operator sends the notice. Deadbolt does not.
 
 ## MCP proxy
 

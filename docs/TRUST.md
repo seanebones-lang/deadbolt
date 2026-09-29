@@ -18,7 +18,7 @@ Default `fail_closed=true`. A missing store, a down sidecar, a timeout, an empty
 
 `ensure` issues the lease. Default TTL is 60 seconds. Every admit rechecks it. Expiry is deny `lease_expired`.
 
-A successful admit renews the TTL. `slide` sets `expires_at` to now plus the TTL, and only on the allow path. An already-expired lease is not slid. A deny does not renew. Silence longer than the TTL expires the hands: the next admit is `lease_expired`.
+A live admit, allow or deny, renews the TTL inside `evaluate` before the deny return. `killed` and `lease_expired` return before that update and are not slid. Silence does not renew.
 
 ## Agent id
 
