@@ -32,6 +32,11 @@ server version recorded in [candidate results](evidence/hermes-mcp-rc.1-2026-09-
 The release-candidate workflow also runs this path on Linux; consult its actual
 job result before claiming that platform passed.
 
+The stable 1.0.0 executable also passed the 13 checks locally; its version and
+binary hash are in [v1 results](evidence/hermes-mcp-v1-2026-09-29.json).
+The final release workflow repeats this acceptance on Linux at the selected
+release source revision.
+
 ## Reproduce
 
 Use an isolated directory and a Python 3.12 virtual environment. Install the

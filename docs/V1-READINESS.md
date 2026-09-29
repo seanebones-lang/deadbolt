@@ -6,6 +6,15 @@ the candidate Cargo version is 1.0.0-rc.1. PR #1 was merged at
 `84b8c135b44e32e17ac54d8bde37f984a8c9e490` after passing source CI; the merge
 commit's source CI passed too. Candidate preparation follows on `codex/v1-readiness`.
 
+## Stable release cut
+
+After all candidate source/platform checks passed, PR #2 was merged at
+`620b026d815c189826ca5e8c5754b8ffbd0d708a`. The stable cut prepares version 1.0.0
+on `codex/v1-release`; it requires its own final source and native archive checks.
+The candidate's independent-host, backup/restore, upgrade and dependency evidence
+remains recorded below. Final publication is still a gate, not an accomplished
+claim. No new runtime policy feature is added in the version promotion.
+
 ## The v1 promise
 
 Deadbolt is a local admission gate owned by a trusted executor. Before each
@@ -58,7 +67,7 @@ first release's enforcement or installation contract.
 | Independent-host MCP acceptance | Passed for the selected route | Hermes' real MCP transport and reference filesystem server passed 13 checks; see [showcase](HERMES-SHOWCASE.md). Whole-agent Hermes coverage is not claimed |
 | Stable API and compatibility policy | Defined for candidate review | See [compatibility](COMPATIBILITY.md); stable 1.0 starts only with final publication |
 | Release packaging | Four native targets passed at initial candidate | [Candidate run](https://github.com/seanebones-lang/deadbolt/actions/runs/36583922121) passed Linux x86_64, Windows x86_64, Mac arm64/x86_64 archive extraction and drills. Repeat for the final release source identity |
-| Candidate version/changelog | Prepared | Candidate is 1.0.0-rc.1; assign stable 1.0.0 only when final gates pass |
+| Version/changelog | Stable cut prepared | 1.0.0 requires its own final checks and publication; 1.0.0-rc.1 was the tested candidate |
 | Native systemd deployment | Unvalidated | Validate on a disposable systemd host, or clearly keep this deployment template experimental for v1 |
 | Registry distribution | Unpublished | Source/binary distribution can support v1; publish crates.io only if selected and prepared. Python/Node remain source clients unless separately packaged |
 | Final source review and publication | Open | Review the candidate and its evidence before merge/tag/release |

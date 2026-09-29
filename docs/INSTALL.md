@@ -26,6 +26,20 @@ cargo --version
 git --version
 ```
 
+## Native release archives
+
+V1 ZIP archives target Linux x86_64, Windows x86_64 and macOS arm64/x86_64.
+Download the matching ZIP and checksum from
+[v1.0.0](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.0).
+Follow [checksum verification and archive installation](RELEASING.md#install-an-archive),
+then run the drill. This path does not require Rust or a C compiler. Python and
+Node are needed only for their source clients and demonstrations.
+
+Release binaries are unsigned; macOS downloads are not notarized. Consult the
+release's tested OS requirements. Source builds remain an alternative. A ZIP
+download is available only for a published release; the release page identifies
+the exact source revision.
+
 ## Install the source checkout
 
 Run these commands in Terminal, a Linux shell, or PowerShell:

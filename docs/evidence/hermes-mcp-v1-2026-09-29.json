@@ -1,0 +1,74 @@
+{
+  "hermes_revision": "5eb1381f3965fd96454d1c32f6bbefcd99cda347",
+  "binary_version": "deadbolt 1.0.0",
+  "binary_sha256": "350784d06b1fa63d3a1c52bcc45e89424bf695c205d7ef8e84168b4e559e163b",
+  "filesystem_server_version": "2026.8.31",
+  "checks": [
+    {
+      "case": "allowed.txt",
+      "decision": "allow",
+      "body_ran": true
+    },
+    {
+      "case": "off-list.txt",
+      "decision": "purpose_exceeded",
+      "body_ran": false
+    },
+    {
+      "case": "unapproved.txt",
+      "decision": "needs_human",
+      "body_ran": false
+    },
+    {
+      "case": "approved-once.txt",
+      "decision": "allow",
+      "body_ran": true
+    },
+    {
+      "case": "approval-consumed.txt",
+      "decision": "needs_human",
+      "body_ran": false
+    },
+    {
+      "case": "killed-parent.txt",
+      "decision": "killed",
+      "body_ran": false
+    },
+    {
+      "case": "killed-child.txt",
+      "decision": "killed",
+      "body_ran": false
+    },
+    {
+      "case": "unrelated.txt",
+      "decision": "allow",
+      "body_ran": true
+    },
+    {
+      "case": "ensure-does-not-resurrect.txt",
+      "decision": "killed",
+      "body_ran": false
+    },
+    {
+      "case": "outage.txt",
+      "decision": "store_unavailable",
+      "body_ran": false
+    },
+    {
+      "case": "restart-revoked.txt",
+      "decision": "killed",
+      "body_ran": false
+    },
+    {
+      "case": "restart-unrelated.txt",
+      "decision": "allow",
+      "body_ran": true
+    },
+    {
+      "case": "wrong-token.txt",
+      "decision": "unauthorized",
+      "body_ran": false
+    }
+  ],
+  "scope": "Hermes MCP transport only; no model turn"
+}

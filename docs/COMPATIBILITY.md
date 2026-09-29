@@ -54,6 +54,9 @@ policy, approvals, spend and evidence. See [the upgrade record](evidence/upgrade
 and `tests/upgrade_acceptance.py`. Other historical revisions require fresh
 acceptance; version 0.1.0 alone does not identify an exact development commit.
 
+The same upgrade passes against the 1.0.0 executable in
+[the v1 upgrade record](evidence/upgrade-v1-2026-09-29.json).
+
 ## Platforms and boundaries
 
 Source CI validates Linux, macOS, Windows and Rust 1.85. Native Windows uses
