@@ -30,7 +30,7 @@ git --version
 
 V1 ZIP archives target Linux x86_64, Windows x86_64 and macOS arm64/x86_64.
 Download the matching ZIP and checksum from
-[v1.0.0](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.0).
+[v1.0.1](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.1).
 Follow [checksum verification and archive installation](RELEASING.md#install-an-archive),
 then run the drill. This path does not require Rust or a C compiler. Python and
 Node are needed only for their source clients and demonstrations.
@@ -45,7 +45,7 @@ the exact source revision.
 Run these commands in Terminal, a Linux shell, or PowerShell:
 
 ```sh
-git clone --branch v1.0.0 --depth 1 https://github.com/seanebones-lang/deadbolt.git
+git clone --branch v1.0.1 --depth 1 https://github.com/seanebones-lang/deadbolt.git
 cd deadbolt
 cargo install --path . --locked --bin deadbolt
 deadbolt --version
@@ -62,7 +62,7 @@ version. Record `git rev-parse HEAD` as well for an exact source identity.
 ## Install directly from Git
 
 ```sh
-cargo install --git https://github.com/seanebones-lang/deadbolt.git --tag v1.0.0 --locked --bin deadbolt
+cargo install --git https://github.com/seanebones-lang/deadbolt.git --tag v1.0.1 --locked --bin deadbolt
 ```
 
 For a reviewed, reproducible deployment, replace `REVIEWED_COMMIT` below with
