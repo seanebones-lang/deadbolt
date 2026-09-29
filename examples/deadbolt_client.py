@@ -7,12 +7,15 @@ import json
 import os
 import socket
 import sys
+from urllib.parse import quote
 
 
 def sock_path():
     raw = os.environ.get("DEADBOLT_SOCK")
     if raw:
         return raw
+    if os.name == "nt":
+        return "127.0.0.1:9782"
     return os.path.join(os.path.expanduser("~"), ".deadbolt", "deadbolt.sock")
 
 
@@ -21,7 +24,7 @@ def _tcp_target(raw):
     if text.startswith("http://"):
         text = text[len("http://") :]
     elif text.startswith("https://"):
-        raise SystemExit("deadbolt:bind_refused")
+        raise ValueError("deadbolt:bind_refused")
     if text.startswith("/") or text.startswith(".") or "/" in text:
         return None
     host = None
@@ -34,7 +37,7 @@ def _tcp_target(raw):
     if not host or not port or not port.isdigit():
         return None
     if host not in ("127.0.0.1", "::1"):
-        raise SystemExit("deadbolt:bind_refused")
+        raise ValueError("deadbolt:bind_refused")
     return host, int(port)
 
 
@@ -78,7 +81,7 @@ def _call(method, path, body=None):
         raw = resp.read()
         status = resp.status
         conn.close()
-        if status >= 500 or not raw:
+        if not 200 <= status < 300 or not raw:
             return _down(path)
         return json.loads(raw.decode("utf-8"))
     except Exception:
@@ -89,8 +92,22 @@ def ensure(agent_id):
     return _call("POST", "/ensure", {"agent_id": agent_id})
 
 
-def admit(agent_id, tool):
-    return _call("POST", "/admit", {"agent_id": agent_id, "tool": tool})
+def admit(agent_id, tool, dest=None):
+    body = {"agent_id": agent_id, "tool": tool}
+    if dest is not None:
+        body["dest"] = dest
+    result = _call("POST", "/admit", body)
+    if not isinstance(result, dict) or result.get("decision") not in ("allow", "deny"):
+        return _down("/admit")
+    return result
+
+
+def policy(agent_id, **fields):
+    return _call("POST", "/policy", {**fields, "agent_id": agent_id})
+
+
+def spend(agent_id, usd):
+    return _call("POST", "/spend", {"agent_id": agent_id, "usd": usd})
 
 
 def register_child(parent, child, swarm_task_id=None):
@@ -101,7 +118,7 @@ def register_child(parent, child, swarm_task_id=None):
 
 
 def status(agent_id=None):
-    path = "/status" if not agent_id else "/status?agent=" + agent_id
+    path = "/status" if not agent_id else "/status?agent=" + quote(agent_id, safe="")
     return _call("GET", path)
 
 
@@ -118,6 +135,7 @@ def main(argv):
     p_admit = sub.add_parser("admit")
     p_admit.add_argument("--agent", required=True)
     p_admit.add_argument("--tool", required=True)
+    p_admit.add_argument("--dest")
     p_reg = sub.add_parser("register-child")
     p_reg.add_argument("--parent", required=True)
     p_reg.add_argument("--child", required=True)
@@ -128,7 +146,7 @@ def main(argv):
     if args.cmd == "ensure":
         _print(ensure(args.agent))
     elif args.cmd == "admit":
-        _print(admit(args.agent, args.tool))
+        _print(admit(args.agent, args.tool, args.dest))
     elif args.cmd == "register-child":
         _print(register_child(args.parent, args.child, args.swarm_task))
     elif args.cmd == "status":

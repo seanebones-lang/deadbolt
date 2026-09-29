@@ -6,7 +6,7 @@ Deadbolt denies the next tool, MCP, or spawn call. It does not shut down a model
 
 The trust boundary is the process that can run a tool without calling admit. Inside that boundary, the body cannot start unless admit returned allow. Outside it, Deadbolt only denies callers that ask.
 
-Enforced: build-in (`Deadbolt::admit` in the executor), `deadbolt mcp-proxy`, and any in-executor hook that refuses to dispatch the tool on deny. The tool body cannot run without admit.
+Enforcement belongs to the dispatcher: build-in works when every tool path checks `Deadbolt::admit` and stops on deny. The library cannot intercept an arbitrary tool body. `deadbolt mcp-proxy` gates routed `tools/call`; other MCP methods and server startup are outside that gate. Neither mode cancels a body already running.
 
 Cooperative: `examples/deadbolt_client.py` and `examples/deadbolt_client.js`. They ask serve, then the caller is supposed to stop. A compromised agent that skips admit is outside the trust boundary. The client cannot prove the tool did not run.
 

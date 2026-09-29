@@ -7,14 +7,37 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - run: cargo fmt --check
-      - run: cargo test
-      - run: cargo clippy -- -D warnings
-      - run: cargo build --bin deadbolt
-      - run: ./target/debug/deadbolt drill
+      - run: cargo test --locked
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo build --locked --bin deadbolt
+      - run: cargo run --locked --bin deadbolt -- drill
+      - run: cargo run --locked --example build_in
+      - run: python tests/client_contract.py
+        if: runner.os != 'Windows'
+      - run: python tests/client_contract.py
+        if: runner.os == 'Windows'
+        env:
+          DEADBOLT_BIN: target/debug/deadbolt.exe
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.85.0
+      - run: cargo check --locked --all-targets

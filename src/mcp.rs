@@ -6,6 +6,7 @@
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr, TcpStream};
+#[cfg(unix)]
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -390,6 +391,7 @@ fn http_json(
 }
 
 enum Dial {
+    #[cfg(unix)]
     Unix(UnixStream),
     Tcp(TcpStream),
 }
@@ -397,6 +399,7 @@ enum Dial {
 impl Dial {
     fn write_all(&mut self, bytes: &[u8]) -> std::io::Result<()> {
         match self {
+            #[cfg(unix)]
             Self::Unix(s) => s.write_all(bytes),
             Self::Tcp(s) => s.write_all(bytes),
         }
@@ -404,6 +407,7 @@ impl Dial {
 
     fn shutdown_write(&mut self) -> std::io::Result<()> {
         match self {
+            #[cfg(unix)]
             Self::Unix(s) => s.shutdown(Shutdown::Write),
             Self::Tcp(s) => s.shutdown(Shutdown::Write),
         }
@@ -411,6 +415,7 @@ impl Dial {
 
     fn read_to_string(&mut self, out: &mut String) -> std::io::Result<usize> {
         match self {
+            #[cfg(unix)]
             Self::Unix(s) => s.read_to_string(out),
             Self::Tcp(s) => s.read_to_string(out),
         }
@@ -429,10 +434,15 @@ fn dial(path: &Path) -> Result<Dial, DeadboltError> {
         let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
         return Ok(Dial::Tcp(stream));
     }
-    let stream = UnixStream::connect(path).map_err(|_| DeadboltError::StoreUnavailable)?;
-    let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
-    let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
-    Ok(Dial::Unix(stream))
+    #[cfg(not(unix))]
+    return Err(DeadboltError::BindRefused);
+    #[cfg(unix)]
+    {
+        let stream = UnixStream::connect(path).map_err(|_| DeadboltError::StoreUnavailable)?;
+        let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
+        let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
+        Ok(Dial::Unix(stream))
+    }
 }
 
 fn tcp_loopback(raw: &str) -> Option<SocketAddr> {

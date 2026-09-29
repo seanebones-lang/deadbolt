@@ -144,6 +144,11 @@ fn cfg() -> DeadboltConfig {
             cfg.db_path = Some(path);
         }
     }
+    if let Ok(path) = std::env::var("DEADBOLT_EVENTS") {
+        if !path.is_empty() {
+            cfg.events_path = Some(path);
+        }
+    }
     cfg
 }
 

@@ -6,12 +6,12 @@ Fail-closed execution gate for software agents.
 | --- | --- |
 | Fail-closed | Sidecar down or an unwritable store is deny `store_unavailable`. |
 | Two modes | Build-in crate `n11-deadbolt`. Bolt-on `serve` and `mcp-proxy`. |
-| Install | `cargo install n11-deadbolt --bin deadbolt` |
+| Install | `cargo install --git https://github.com/seanebones-lang/deadbolt.git --locked --bin deadbolt` |
 | Not a model tool | `approve`, `kill`, `pause`, and `resume` are operator CLI. |
 
 **Abstract.** Deadbolt is a fail-closed execution gate for software agents. It issues a lease, checks it before the tool body, and denies the next call when the lease is dead. It does not shut down GPT or any other vendor model.
 
-Two modes. Build-in links the crate `n11-deadbolt` and calls `admit` in process. Bolt-on runs `deadbolt serve`, or `deadbolt mcp-proxy` in front of an MCP child. The crate and the proxy are enforced. Python and Node clients are cooperative. Sidecar down is deny.
+Two modes. Build-in links the crate `n11-deadbolt` and calls `admit` in process. Bolt-on runs `deadbolt serve`, or `deadbolt mcp-proxy` in front of an MCP child. The proxy gates routed tool calls; build-in enforcement requires the executor to check every admission result. Python and Node clients are cooperative. Sidecar down is deny.
 
 A lease starts at `ensure`. The default TTL is 60 seconds. Every admit rechecks it. A live deny renews the TTL. Silence expires the hands. A killed lease does not slide.
 
@@ -24,12 +24,14 @@ Apache-2.0. Crate `n11-deadbolt`. Binary `deadbolt`. Lib name stays `deadbolt`, 
 Tag `v0.1.1-product` is `04a36c1`. Later commits are on `main`.
 
 ```bash
-cargo install n11-deadbolt --bin deadbolt
+cargo install --git https://github.com/seanebones-lang/deadbolt.git --locked --bin deadbolt
 ```
 
 License: [Apache-2.0](LICENSE). Repository: <https://github.com/seanebones-lang/deadbolt>.
 
 Harness is a consumer of this crate. This repository does not include Harness, and it does not relicense Harness.
+
+For complete dependency declarations, language clients, platform requirements, and deployment: [integration guide](docs/INTEGRATION.md).
 
 ## 1. Problem
 
@@ -82,7 +84,7 @@ Unset lists stay open. A default deny would break a caller that never set a poli
 
 | path | boundary |
 | --- | --- |
-| crate `admit`, `mcp-proxy` | enforced; the body cannot start on deny |
+| executor checking every `admit`, `mcp-proxy` | gates the routed tool body; direct dispatch outside that boundary is unprotected |
 | `examples/deadbolt_client.py`, `examples/deadbolt_client.js` | cooperative; a caller that skips admit is outside the boundary |
 
 ### Sidecar
@@ -223,7 +225,7 @@ The first post-kill code is `killed`. It is not rewritten to `store_unavailable`
 
 ### Tests
 
-Counted in this tree: 50 `#[test]` functions (`src/lib.rs`, `src/serve.rs`, `src/mcp.rs`, `src/witness.rs`, `tests/incident_flag.rs`).
+Run the checks below; test totals vary by platform. Consumer contract tests: `python3 tests/client_contract.py` after `cargo build --bin deadbolt` (Python 3 and Node required).
 
 | check | command |
 | --- | --- |
@@ -246,7 +248,7 @@ Detail: [docs/TRUST.md](docs/TRUST.md).
 | piece | where |
 | --- | --- |
 | systemd | `dist/deadbolt.service` runs `deadbolt serve --bind 127.0.0.1:9782` |
-| compose | `dist/docker-compose.yml` publishes `127.0.0.1:9782:9782` only |
+| compose | `dist/docker-compose.yml` shares a Unix socket and persistent state volume; no published port |
 | 24-hour notice | operator steps in [docs/INCIDENT.md](docs/INCIDENT.md). Deadbolt writes the JSON. The operator sends the notice |
 
 Install commands: [docs/INTEGRATION.md](docs/INTEGRATION.md). Security: [SECURITY.md](SECURITY.md).
@@ -255,4 +257,4 @@ Install commands: [docs/INTEGRATION.md](docs/INTEGRATION.md). Security: [SECURIT
 
 Apache-2.0. Copyright NextEleven LLC 2026.
 
-The crate name on crates.io is `n11-deadbolt` because the name `deadbolt` is taken. This project is unrelated to other "deadbolt" file-encryption projects. It does not relicense Harness.
+The package name is `n11-deadbolt`. As checked on 2026-09-29, it has not been published on crates.io; install from source. This project is unrelated to other "deadbolt" file-encryption projects. It does not relicense Harness.

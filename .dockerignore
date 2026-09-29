@@ -1,1 +1,5 @@
 target
+
+.git
+dist/deadbolt.env
+**/__pycache__

@@ -4,10 +4,13 @@
 //! and only when a token is configured. `kill`, `pause`, `clip`, and `resume`
 //! stay on the CLI.
 
+#[cfg(unix)]
 use std::fs;
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener};
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+#[cfg(unix)]
 use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
 use std::thread;
@@ -17,8 +20,11 @@ use serde_json::{json, Value};
 
 use crate::{AdmitDecision, Deadbolt, DeadboltConfig, DeadboltError};
 
-/// Default bind. Local socket, not a TCP address.
+/// Default bind: Unix socket on Unix, loopback TCP on other platforms.
 pub fn default_bind_path() -> PathBuf {
+    if cfg!(not(unix)) {
+        return PathBuf::from("127.0.0.1:9782");
+    }
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join(".deadbolt")
@@ -128,23 +134,34 @@ fn resolve_token(cfg: &DeadboltConfig) -> Result<Option<String>, DeadboltError> 
     if !path.exists() {
         return Ok(None);
     }
-    let mode = fs::metadata(path)
-        .map_err(|_| DeadboltError::BindRefused)?
-        .permissions()
-        .mode()
-        & 0o777;
-    if mode != 0o600 {
-        return Err(DeadboltError::BindRefused);
-    }
-    let raw = fs::read_to_string(path).map_err(|_| DeadboltError::BindRefused)?;
-    let value = raw.trim();
-    if value.is_empty() {
-        Ok(None)
-    } else {
-        Ok(Some(value.to_string()))
+    #[cfg(not(unix))]
+    return Err(DeadboltError::BindRefused);
+    #[cfg(unix)]
+    {
+        let mode = fs::metadata(path)
+            .map_err(|_| DeadboltError::BindRefused)?
+            .permissions()
+            .mode()
+            & 0o777;
+        if mode != 0o600 {
+            return Err(DeadboltError::BindRefused);
+        }
+        let raw = fs::read_to_string(path).map_err(|_| DeadboltError::BindRefused)?;
+        let value = raw.trim();
+        if value.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(value.to_string()))
+        }
     }
 }
 
+#[cfg(not(unix))]
+fn listen(_gate: Deadbolt, _bind: &Path, _token: Option<String>) -> Result<(), DeadboltError> {
+    Err(DeadboltError::BindRefused)
+}
+
+#[cfg(unix)]
 fn listen(gate: Deadbolt, bind: &Path, token: Option<String>) -> Result<(), DeadboltError> {
     if let Some(parent) = bind.parent() {
         if !parent.as_os_str().is_empty() {
@@ -434,7 +451,7 @@ fn err_token(err: &DeadboltError) -> &'static str {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
     use crate::DeadboltConfig;
