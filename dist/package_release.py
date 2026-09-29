@@ -74,7 +74,9 @@ def main():
                 if file.is_file():
                     package.write(file, file.relative_to(staging.parent))
         digest = hashlib.sha256(archive.read_bytes()).hexdigest()
-        archive.with_suffix(".zip.sha256").write_text(f"{digest}  {archive.name}\n")
+        # Bytes keep the checksum portable across Windows and Unix text modes.
+        archive.with_suffix(".zip.sha256").write_bytes(
+            f"{digest}  {archive.name}\n".encode("ascii"))
         extracted = Path(temp) / "extracted"
         with zipfile.ZipFile(archive) as package:
             package.extractall(extracted)

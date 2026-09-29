@@ -3,15 +3,15 @@
 Versioned GitHub releases identify publication and the exact source revision.
 The older `v0.1.1-product` tag is not the standalone hardening release.
 
-## 1.0.3 — pending publication
+## 1.0.3 — 2026-09-29
 
 - Prepare Developer ID signing and Apple notarization for the macOS native
   archives. The signed-archive tool verifies hardened runtime, secure timestamp,
   publisher identity, embedded binary hash and checksum before submission.
 - Keep Linux and Windows archive signing status explicit. No admission, storage,
   policy, protocol, API or dependency behavior changes from v1.0.2.
-- The release is not published until the exact signed archives pass Apple's
-  notarization service and final download checks; v1.0.2 remains available.
+- Publish the exact signed archives only after Apple's notarization service and
+  final download checks pass. The v1.0.2 release remains unchanged.
 
 ## 1.0.2 — 2026-09-29
 
