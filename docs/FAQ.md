@@ -103,6 +103,9 @@ Yes, on the local SQLite store: mutations and approval consumption use immediate
 transactions, and evidence sequence allocation is shared through SQLite. This
 is not a distributed service, cluster consensus or a network filesystem design.
 Validate your own workload; no throughput or latency benchmark is claimed.
+Connections use a five-second SQLite busy timeout. Slow storage
+or contention can still deny availability. Prefer a long-lived sidecar or cloned
+Rust gate, and see [concurrent-writer troubleshooting](TROUBLESHOOTING.md#concurrent-writers-and-store_unavailable).
 
 ## Are evidence records immutable or compliance proof?
 

@@ -33,13 +33,13 @@ jobs:
         with:
           node-version: '22'
       - run: cargo fmt --check
-      - name: Repeat concurrent connection stress (temporary investigation)
+      - name: Repeat independent-connection concurrency tests
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           for ($attempt = 1; $attempt -le 10; $attempt++) {
             Write-Output "Concurrency attempt $attempt"
-            cargo test --locked --test reuse concurrent_connections_preserve_evidence_and_spend -- --nocapture
+            cargo test --locked --test reuse -- --nocapture
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
       - run: cargo test --locked
