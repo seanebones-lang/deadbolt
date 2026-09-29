@@ -33,6 +33,13 @@ Bolt-on: `deadbolt serve` plus a client that admits before the tool. Python: `ex
 ## Install
 
 ```bash
+cargo install deadbolt
+deadbolt drill
+```
+
+From a checkout:
+
+```bash
 git clone https://github.com/seanebones-lang/deadbolt.git
 cd deadbolt
 cargo build --release

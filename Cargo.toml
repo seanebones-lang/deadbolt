@@ -6,9 +6,21 @@ edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/seanebones-lang/deadbolt"
 readme = "README.md"
+homepage = "https://github.com/seanebones-lang/deadbolt"
 authors = ["NextEleven LLC"]
-keywords = ["agents", "security", "kill-switch"]
+keywords = ["agents", "security", "containment"]
 categories = ["command-line-utilities"]
+include = [
+    "src/**/*",
+    "examples/**/*",
+    "docs/**/*",
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "SECURITY.md",
+    "Cargo.toml",
+    "Cargo.lock",
+]
 rust-version = "1.85"
 
 [dependencies]
