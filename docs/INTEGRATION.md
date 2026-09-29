@@ -42,3 +42,7 @@ if admit(agent, "shell")["decision"] != "allow":
 ```
 
 `DEADBOLT_SOCK` overrides `~/.deadbolt/deadbolt.sock`. A `host:port` or `http://127.0.0.1:port` value uses loopback HTTP. A Unix path still uses the socket. TCP serve requires `DEADBOLT_TOKEN`. On a Unix socket the token stays optional. If it is set, send `X-Deadbolt-Token`. Protocol: `docs/PROTOCOL.md`.
+
+## Run as a service
+
+TCP requires `DEADBOLT_TOKEN`. Bind stays `127.0.0.1:9782`. Unit: `dist/deadbolt.service`. Env file mode `0600`: `dist/deadbolt.env.example`. Compose publishes only `127.0.0.1:9782:9782`.

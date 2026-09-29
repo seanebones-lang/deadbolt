@@ -40,6 +40,24 @@ Default socket is `~/.deadbolt/deadbolt.sock` (mode `0600`; token optional). TCP
 
 `kill` requires `--agent`. It revokes that agent and its children. It does not halt a fleet and it does not shut down a model vendor.
 
+## Run as a service
+
+TCP requires `DEADBOLT_TOKEN`. The listener is `127.0.0.1` only.
+
+```bash
+sudo install -d -m 0755 /etc/deadbolt
+sudo install -m 0600 dist/deadbolt.env.example /etc/deadbolt/deadbolt.env
+sudo install -m 0644 dist/deadbolt.service /etc/systemd/system/deadbolt.service
+sudo systemctl enable --now deadbolt
+```
+
+```bash
+cp dist/deadbolt.env.example dist/deadbolt.env && chmod 0600 dist/deadbolt.env
+docker compose -f dist/docker-compose.yml up --build
+```
+
+Compose publishes `127.0.0.1:9782:9782`. It does not open `0.0.0.0`. Host network is the other way to reach a process bound to `127.0.0.1`.
+
 Security: `SECURITY.md`.
 
 ## Admit before the tool

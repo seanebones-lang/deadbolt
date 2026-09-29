@@ -5,6 +5,10 @@ version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/seanebones-lang/deadbolt"
+readme = "README.md"
+authors = ["NextEleven LLC"]
+keywords = ["agents", "security", "kill-switch"]
+categories = ["command-line-utilities"]
 rust-version = "1.85"
 
 [dependencies]

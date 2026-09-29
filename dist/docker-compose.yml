@@ -1,0 +1,8 @@
+services:
+  deadbolt:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    env_file: deadbolt.env
+    ports:
+      - "127.0.0.1:9782:9782"

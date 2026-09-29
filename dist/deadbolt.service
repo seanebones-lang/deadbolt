@@ -1,0 +1,15 @@
+[Unit]
+Description=Deadbolt lease gate
+After=network.target
+
+[Service]
+# Dedicated account. Do not run as root in production.
+# User=deadbolt
+# Group=deadbolt
+ExecStart=/usr/local/bin/deadbolt serve --bind 127.0.0.1:9782
+EnvironmentFile=-/etc/deadbolt/deadbolt.env
+Restart=on-failure
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
