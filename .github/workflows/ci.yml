@@ -20,6 +20,8 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
+    env:
+      DEADBOLT_STORE_DIAGNOSTICS: '1'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
@@ -33,6 +35,15 @@ jobs:
         with:
           node-version: '22'
       - run: cargo fmt --check
+      - name: Repeat independent-connection concurrency tests
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          for ($attempt = 1; $attempt -le 10; $attempt++) {
+            Write-Output "Concurrency attempt $attempt"
+            cargo test --locked --test reuse -- --nocapture
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
       - run: cargo test --locked
       - run: cargo clippy --all-targets --locked -- -D warnings
       - run: cargo build --locked --bin deadbolt

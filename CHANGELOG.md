@@ -3,6 +3,21 @@
 Versioned GitHub releases identify publication and the exact source revision.
 The older `v0.1.1-product` tag is not the standalone hardening release.
 
+## Unreleased
+
+- Reduce default-store writer contention: reserve an evidence sequence and insert
+  its SQLite row in one transaction; include default spend updates in that same
+  transaction. Roll back balance, pause state and sequence if primary evidence
+  writing fails. Preserve the five-second busy timeout and SQLite durability mode.
+- Add write-failure/held-lock regressions, stronger cross-store evidence checks,
+  repeated Windows independent-connection tests and concurrent-writer guidance.
+- Add opt-in, code-only diagnostics for spend and primary-evidence failures;
+  enable them in source CI without exposing SQL, paths, tokens or payloads.
+- The original intermittent Windows failure did not recur in ten diagnostic runs;
+  its precise failing stage remains unproven. This change addresses demonstrated
+  partial spend/evidence failure and reduces transaction count, not all possible
+  storage outages. Published v1.0.1 archives do not contain these changes.
+
 ## 1.0.1 — 2026-09-29
 
 - Include the evaluator brief, observable demo runbook and scoped pilot worksheet

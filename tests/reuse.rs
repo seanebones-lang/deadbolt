@@ -93,10 +93,28 @@ fn concurrent_connections_preserve_evidence_and_spend() {
     let total = gate.spend_add("agent", 0.0).unwrap();
     assert_eq!(total.spend_usd, 16.0);
     let jsonl = std::fs::read_to_string(dir.path().join("deadbolt-events.jsonl")).unwrap();
-    for line in jsonl.lines() {
-        serde_json::from_str::<serde_json::Value>(line).unwrap();
-    }
+    let records: Vec<serde_json::Value> = jsonl
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    let sequences: std::collections::BTreeSet<_> =
+        records.iter().map(|r| r["seq"].as_u64().unwrap()).collect();
+    assert_eq!(
+        sequences.len(),
+        records.len(),
+        "evidence sequences must be unique"
+    );
+    assert_eq!(records.iter().filter(|r| r["kind"] == "spend").count(), 17);
     let rows = gate.export("agent", false).unwrap();
+    assert_eq!(
+        rows.len(),
+        records.len(),
+        "SQLite and JSONL must retain every successful record"
+    );
+    let sqlite_cids: std::collections::BTreeSet<_> = rows.iter().map(|r| r.cid.as_str()).collect();
+    let jsonl_cids: std::collections::BTreeSet<_> =
+        records.iter().map(|r| r["cid"].as_str().unwrap()).collect();
+    assert_eq!(sqlite_cids, jsonl_cids);
     assert_eq!(
         rows.iter()
             .filter(|r| r.kind == "decision" && r.decision.as_deref() == Some("allow"))

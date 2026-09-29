@@ -319,7 +319,7 @@ impl JsonlSqliteSink {
         if let Some(parent) = events_path.parent() {
             fs::create_dir_all(parent).map_err(|_| SinkError::Unavailable)?;
         }
-        let conn = Connection::open(db).map_err(|_| SinkError::Unavailable)?;
+        let conn = Connection::open(db).map_err(|e| sqlite_unavailable("store.open", e))?;
         conn.execute_batch(
             "PRAGMA journal_mode=WAL;
              PRAGMA busy_timeout=5000;
@@ -374,6 +374,21 @@ impl EvidenceSink for JsonlSqliteSink {
 }
 
 fn write_record(g: &mut StoreInner, record: &EvidenceRecord) -> Result<(), SinkError> {
+    let tx =
+        rusqlite::Transaction::new_unchecked(&g.conn, rusqlite::TransactionBehavior::Immediate)
+            .map_err(|e| sqlite_unavailable("evidence.begin", e))?;
+    write_record_in_transaction(&tx, &mut g.events, record)?;
+    tx.commit()
+        .map_err(|e| sqlite_unavailable("evidence.commit", e))
+}
+
+// The caller owns the writer transaction. Do not retry the body: a failure
+// must roll back SQLite rather than replaying a spend or approval mutation.
+fn write_record_in_transaction(
+    tx: &rusqlite::Transaction<'_>,
+    events: &mut std::fs::File,
+    record: &EvidenceRecord,
+) -> Result<(), SinkError> {
     let payload = serde_json::to_string(&record.payload).map_err(|_| SinkError::Unavailable)?;
     let premises = serde_json::to_string(&record.premises).map_err(|_| SinkError::Unavailable)?;
     let class = match record.class {
@@ -381,54 +396,76 @@ fn write_record(g: &mut StoreInner, record: &EvidenceRecord) -> Result<(), SinkE
         EpistemicClass::Inferred => "inferred",
         EpistemicClass::Generated => "generated",
     };
-    let tx =
-        rusqlite::Transaction::new_unchecked(&g.conn, rusqlite::TransactionBehavior::Immediate)
-            .map_err(|_| SinkError::Unavailable)?;
-    let start = std::time::Instant::now();
-    loop {
-        match tx.execute(
-            "INSERT INTO events (seq, cid, payload_sha256, class, kind, payload, premises, ts)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            params![
-                record.seq as i64,
-                record.cid,
-                record.payload_sha256,
-                class,
-                record.kind,
-                payload,
-                premises,
-                now_secs()
-            ],
-        ) {
-            Ok(_) => break,
-            Err(e) if is_sqlite_busy(&e) && start.elapsed() < BUSY_BUDGET => {
-                std::thread::sleep(std::time::Duration::from_millis(20));
-            }
-            Err(_) => return Err(SinkError::Unavailable),
-        }
-    }
+    tx.execute(
+        "INSERT INTO events (seq, cid, payload_sha256, class, kind, payload, premises, ts)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        params![
+            record.seq as i64,
+            record.cid,
+            record.payload_sha256,
+            class,
+            record.kind,
+            payload,
+            premises,
+            now_secs()
+        ],
+    )
+    .map_err(|e| sqlite_unavailable("evidence.insert", e))?;
     let mut line = serde_json::to_string(record).map_err(|_| SinkError::Unavailable)?;
     line.push('\n');
-    g.events
+    events
         .write_all(line.as_bytes())
-        .map_err(|_| SinkError::Unavailable)?;
-    g.events.flush().map_err(|_| SinkError::Unavailable)?;
-    tx.commit().map_err(|_| SinkError::Unavailable)?;
-    Ok(())
+        .map_err(|e| io_unavailable("evidence.jsonl_write", e))?;
+    events
+        .flush()
+        .map_err(|e| io_unavailable("evidence.jsonl_flush", e))
 }
 
-const BUSY_BUDGET: std::time::Duration = std::time::Duration::from_millis(5000);
+fn emit_in_transaction(
+    tx: &rusqlite::Transaction<'_>,
+    events: &mut std::fs::File,
+    class: EpistemicClass,
+    kind: &str,
+    payload: Value,
+    premises: &[String],
+) -> Result<EvidenceRecord, SinkError> {
+    let seq = tx
+        .query_row(
+            "UPDATE event_sequence SET seq=seq+1 WHERE id=1 RETURNING seq",
+            [],
+            |row| row.get::<_, u64>(0),
+        )
+        .map_err(|e| sqlite_unavailable("evidence.sequence", e))?;
+    let record = EvidenceRecord::seal(class, kind, payload, premises, seq)?;
+    write_record_in_transaction(tx, events, &record)?;
+    Ok(record)
+}
 
-fn is_sqlite_busy(err: &rusqlite::Error) -> bool {
-    match err {
-        rusqlite::Error::SqliteFailure(e, _) => {
-            matches!(
-                e.code,
-                rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked
-            )
-        }
-        _ => false,
+// Operator opt-in. Only static stage labels and error codes are logged: never
+// SQL text, error messages, filesystem paths, tokens or evidence payloads.
+fn store_diagnostic(stage: &str, code: &str) {
+    if std::env::var_os("DEADBOLT_STORE_DIAGNOSTICS").is_some_and(|v| v == "1") {
+        eprintln!("deadbolt store_error stage={stage} code={code}");
     }
+}
+
+fn sqlite_unavailable(stage: &str, err: rusqlite::Error) -> SinkError {
+    let code = match err {
+        rusqlite::Error::SqliteFailure(e, _) => format!("{:?}/{}", e.code, e.extended_code),
+        _ => "non_sqlite".into(),
+    };
+    store_diagnostic(stage, &code);
+    SinkError::Unavailable
+}
+
+fn sqlite_store_unavailable(stage: &str, err: rusqlite::Error) -> DeadboltError {
+    sqlite_unavailable(stage, err);
+    DeadboltError::StoreUnavailable
+}
+
+fn io_unavailable(stage: &str, err: std::io::Error) -> SinkError {
+    store_diagnostic(stage, &format!("{:?}", err.kind()));
+    SinkError::Unavailable
 }
 
 fn network_class(tool: &str) -> bool {
@@ -1164,15 +1201,18 @@ impl Deadbolt {
             return Err(DeadboltError::BadRequest);
         }
         let store = self.store()?;
-        let (total, paused) = {
-            let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
+        let payload = json_tokens(&[("agent_id", agent_id), ("usd", &usd_token(usd))]);
+        let default_sink = self.uses_default_sink(&store);
+        let (total, paused, record) = {
+            let mut g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
+            let StoreInner { conn, events } = &mut *g;
             let tx = rusqlite::Transaction::new_unchecked(
-                &g.conn,
+                conn,
                 rusqlite::TransactionBehavior::Immediate,
             )
-            .map_err(|_| DeadboltError::StoreUnavailable)?;
+            .map_err(|e| sqlite_store_unavailable("spend.begin", e))?;
             let lease = load_lease(&tx, agent_id)
-                .map_err(|_| DeadboltError::StoreUnavailable)?
+                .map_err(|e| sqlite_store_unavailable("spend.read", e))?
                 .ok_or(DeadboltError::NotFound)?;
             if lease.state == "killed" {
                 return Err(DeadboltError::Killed);
@@ -1188,18 +1228,35 @@ impl Deadbolt {
                 "UPDATE leases SET spend_usd=?1, state=?2, updated_at=?3 WHERE agent_id=?4",
                 params![total, state, now_secs(), agent_id],
             )
-            .map_err(|_| DeadboltError::StoreUnavailable)?;
-            tx.commit().map_err(|_| DeadboltError::StoreUnavailable)?;
-            (total, paused)
+            .map_err(|e| sqlite_store_unavailable("spend.update", e))?;
+            let record = if default_sink {
+                Some(
+                    emit_in_transaction(
+                        &tx,
+                        events,
+                        EpistemicClass::Observed,
+                        "spend",
+                        payload.clone(),
+                        &[],
+                    )
+                    .map_err(|_| DeadboltError::StoreUnavailable)?,
+                )
+            } else {
+                None
+            };
+            tx.commit()
+                .map_err(|e| sqlite_store_unavailable("spend.commit", e))?;
+            (total, paused, record)
         };
-        let usd_tok = usd_token(usd);
-        self.emit(
-            EpistemicClass::Observed,
-            "spend",
-            json_tokens(&[("agent_id", agent_id), ("usd", &usd_tok)]),
-            &[],
-        )
-        .map_err(|_| DeadboltError::StoreUnavailable)?;
+        if let Some(record) = record {
+            // The optional second sink is outside the primary transaction.
+            // Its failure remains an error; it must not replay the balance update.
+            self.append_witness(&record)
+                .map_err(|_| DeadboltError::StoreUnavailable)?;
+        } else {
+            self.emit(EpistemicClass::Observed, "spend", payload, &[])
+                .map_err(|_| DeadboltError::StoreUnavailable)?;
+        }
         Ok(SpendAdded {
             spend_usd: total,
             paused,
@@ -1586,6 +1643,20 @@ impl Deadbolt {
         Ok(())
     }
 
+    fn uses_default_sink(&self, store: &Arc<JsonlSqliteSink>) -> bool {
+        let default: Arc<dyn EvidenceSink> = store.clone();
+        self.sink
+            .as_ref()
+            .is_some_and(|sink| Arc::ptr_eq(sink, &default))
+    }
+
+    fn append_witness(&self, record: &EvidenceRecord) -> Result<(), SinkError> {
+        if let Some(witness) = &self.witness {
+            witness.append(record)?;
+        }
+        Ok(())
+    }
+
     fn emit(
         &self,
         class: EpistemicClass,
@@ -1595,21 +1666,34 @@ impl Deadbolt {
     ) -> Result<String, SinkError> {
         let sink = self.sink.as_ref().ok_or(SinkError::Unavailable)?;
         let store = self.store.as_ref().ok_or(SinkError::Unavailable)?;
-        let seq = {
-            let g = store.lock()?;
-            g.conn
-                .query_row(
-                    "UPDATE event_sequence SET seq=seq+1 WHERE id=1 RETURNING seq",
-                    [],
-                    |row| row.get::<_, u64>(0),
-                )
-                .map_err(|_| SinkError::Unavailable)?
+        let record = if self.uses_default_sink(store) {
+            let mut g = store.lock()?;
+            let StoreInner { conn, events } = &mut *g;
+            let tx = rusqlite::Transaction::new_unchecked(
+                conn,
+                rusqlite::TransactionBehavior::Immediate,
+            )
+            .map_err(|e| sqlite_unavailable("evidence.begin", e))?;
+            let record = emit_in_transaction(&tx, events, class, kind, payload, premises)?;
+            tx.commit()
+                .map_err(|e| sqlite_unavailable("evidence.commit", e))?;
+            record
+        } else {
+            let seq = {
+                let g = store.lock()?;
+                g.conn
+                    .query_row(
+                        "UPDATE event_sequence SET seq=seq+1 WHERE id=1 RETURNING seq",
+                        [],
+                        |row| row.get::<_, u64>(0),
+                    )
+                    .map_err(|e| sqlite_unavailable("external.sequence", e))?
+            };
+            let record = EvidenceRecord::seal(class, kind, payload, premises, seq)?;
+            sink.append(&record)?;
+            record
         };
-        let record = EvidenceRecord::seal(class, kind, payload, premises, seq)?;
-        sink.append(&record)?;
-        if let Some(witness) = &self.witness {
-            witness.append(&record)?;
-        }
+        self.append_witness(&record)?;
         Ok(record.cid)
     }
 
@@ -2072,6 +2156,98 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let db = Deadbolt::open_at(dir.path(), true, 60);
         (dir, db)
+    }
+
+    #[test]
+    fn failed_default_spend_evidence_rolls_back_balance_and_sequence() {
+        let (dir, db) = gate();
+        db.ensure_agent("A").unwrap();
+        db.set_policy(
+            "A",
+            PolicyPatch {
+                spend_cap_usd: Some(1.0),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let store = db.store.as_ref().unwrap();
+        let before = {
+            let mut g = store.lock().unwrap();
+            // A portable write failure, including Windows: replace the output
+            // handle with a read-only handle rather than changing permissions.
+            g.events = std::fs::File::open(dir.path().join("deadbolt-events.jsonl")).unwrap();
+            g.conn
+                .query_row("SELECT seq FROM event_sequence WHERE id=1", [], |r| {
+                    r.get::<_, u64>(0)
+                })
+                .unwrap()
+        };
+        assert!(matches!(
+            db.spend_add("A", 1.0),
+            Err(DeadboltError::StoreUnavailable)
+        ));
+        assert_eq!(
+            db.admit("A", "shell"),
+            AdmitDecision::Deny {
+                code: DenyCode::StoreUnavailable
+            }
+        );
+        {
+            let mut g = store.lock().unwrap();
+            assert_eq!(load_lease(&g.conn, "A").unwrap().unwrap().spend_usd, 0.0);
+            assert_eq!(load_lease(&g.conn, "A").unwrap().unwrap().state, "active");
+            let after = g
+                .conn
+                .query_row("SELECT seq FROM event_sequence WHERE id=1", [], |r| {
+                    r.get::<_, u64>(0)
+                })
+                .unwrap();
+            assert_eq!(after, before);
+            assert_eq!(
+                g.conn
+                    .query_row("SELECT COUNT(*) FROM events WHERE kind='spend'", [], |r| {
+                        r.get::<_, u64>(0)
+                    })
+                    .unwrap(),
+                0
+            );
+            g.events = OpenOptions::new()
+                .append(true)
+                .open(dir.path().join("deadbolt-events.jsonl"))
+                .unwrap();
+        }
+        assert_eq!(db.spend_add("A", 1.0).unwrap().spend_usd, 1.0);
+    }
+
+    #[test]
+    fn held_writer_lock_denies_without_replaying_spend() {
+        let (dir, db) = gate();
+        db.ensure_agent("A").unwrap();
+        db.store
+            .as_ref()
+            .unwrap()
+            .lock()
+            .unwrap()
+            .conn
+            .busy_timeout(Duration::from_millis(25))
+            .unwrap();
+        let mut blocker = Connection::open(dir.path().join("deadbolt.db")).unwrap();
+        let tx = blocker
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .unwrap();
+        assert!(matches!(
+            db.spend_add("A", 1.0),
+            Err(DeadboltError::StoreUnavailable)
+        ));
+        assert_eq!(
+            db.admit("A", "shell"),
+            AdmitDecision::Deny {
+                code: DenyCode::StoreUnavailable
+            }
+        );
+        tx.rollback().unwrap();
+        assert_eq!(db.spend_add("A", 1.0).unwrap().spend_usd, 1.0);
+        assert_eq!(db.admit("A", "shell"), AdmitDecision::Allow);
     }
 
     #[test]

@@ -82,3 +82,35 @@ Include OS/compiler versions, commit, mode (embedded/sidecar/MCP/container),
 redacted configuration paths, the decision token, expected behavior and a
 minimal synthetic reproduction. Ordinary bugs go to repository issues;
 suspected gate/auth bypasses go to private [security reporting](../SECURITY.md).
+
+## Concurrent writers and `store_unavailable`
+
+SQLite permits one writer at a time, including in WAL mode. Each connection
+uses a five-second busy timeout. A held writer lock, slow disk or heavy write
+contention can exhaust that wait; `store_unavailable` denies execution when
+fail-closed enforcement is enabled. Keep the database on a local filesystem,
+reduce simultaneous independent writers, and prefer one long-lived sidecar or
+cloned Rust gate for an application. Do not disable enforcement to hide contention.
+
+On main after the concurrency maintenance change (not in the original v1.0.1
+binary archives), the default store writes a spend update, evidence sequence and
+SQLite evidence row in one immediate transaction. Other default evidence writes
+also reserve their sequence and insert the row in one transaction. A JSONL write
+failure rolls back that SQLite transaction. The JSONL file and SQLite are still
+separate resources: a partial file write or failed SQLite commit can leave JSONL
+bytes without a committed row. Reconcile against SQLite when investigating errors.
+
+An error is not a promise that a mutation had no effect. A commit error can have
+an uncertain outcome, and an optional Witness-sink failure occurs after the primary
+commit. Other mutation methods can also commit before evidence emission fails.
+Inspect current state before retrying `spend_add`; blind retries can double-count
+reported spend. No automatic mutation replay is performed. Record the exact source
+revision, OS and operation, and use the issue template with a redacted reproduction.
+
+For a reproduction, enable `DEADBOLT_STORE_DIAGNOSTICS=1` in the trusted operator's
+process environment (PowerShell: `$env:DEADBOLT_STORE_DIAGNOSTICS = "1"`). Selected
+spend and primary-evidence errors write a static stage and error code to stderr,
+for example `stage=spend.begin code=DatabaseBusy/5`. Diagnostics are off by default
+and omit SQL, error messages, paths, tokens and payloads. They do not cover every
+storage failure, change retry behavior, or replace state inspection. Windows CI
+enables this diagnostic flag so a failing repetition retains useful stage evidence.
