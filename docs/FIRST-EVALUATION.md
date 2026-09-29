@@ -1,10 +1,10 @@
 # First evaluation: real effects in disposable state
 
 This is the shortest demonstration of Deadbolt's HTTP integration. It needs
-Python 3.9 or newer and the installed v1.0.2 executable. No Python packages,
+Python 3.9 or newer and an installed v1.0.2-or-newer executable. No Python packages,
 Node, Rust compiler, model account or API key are needed.
 
-The v1.0.2 archives include `examples/evaluate.py` and
+The v1.0.2-and-newer archives include `examples/evaluate.py` and
 `examples/deadbolt_client.py`. Keep them in the same directory and record the
 release revision with your report. The older v1.0.1 archives do not contain the
 evaluation script.

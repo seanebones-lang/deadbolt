@@ -13,9 +13,10 @@ An additional Linux job repeats the pinned Hermes MCP/filesystem acceptance.
 | x86_64-pc-windows-msvc | GitHub Windows runner | Native Windows TCP; test your client OS and runtime environment |
 
 Until each job passes, these are planned asset targets rather than confirmed
-published downloads. Linux arm64, Windows arm64, notarization and signing are not
-part of this candidate. Checksums detect mismatched files; they are not a
-signature establishing publisher identity.
+published downloads. Linux arm64 and Windows arm64 are outside this matrix.
+The workflow's macOS ZIPs are unsigned candidates; the local signing procedure
+below produces the distributable macOS ZIPs. Checksums detect mismatched files;
+they are not a signature establishing publisher identity.
 
 ## Build and verify
 
@@ -45,6 +46,47 @@ Windows packaging requests static C-runtime linkage to reduce runtime installati
 requirements; the native job still needs to pass. This does not remove the need
 to validate your Windows edition and any OS-managed DLL dependencies.
 
+## Sign and notarize the Mac archives
+
+Use a locally installed **Developer ID Application** identity and a separate
+`notarytool` Keychain profile. Never pass a private key or app-specific password
+through a build log, command argument, repository file or chat. Run this on a
+Mac after retrieving the exact-source candidate ZIPs from CI:
+
+```sh
+security find-identity -v -p codesigning
+python3 dist/sign_macos_archive.py \
+  --input release-artifacts/deadbolt-1.0.3-aarch64-apple-darwin.zip \
+  --output signed/deadbolt-1.0.3-aarch64-apple-darwin.zip \
+  --identity DEVELOPER_ID_APPLICATION_SHA1
+```
+
+Repeat for `x86_64-apple-darwin`. The script checks the candidate archive's
+version, target and original binary hash, signs its executable with hardened
+runtime and a secure timestamp, verifies the Developer ID signature, updates
+`BUILD.json` with the signed executable's hash, team ID and CDHash, and writes a
+new ZIP and checksum. It leaves the source revision intact. Reject any failed
+signature or mismatched archive. Keep the unsigned CI archives only as build
+evidence; do not publish them as the signed downloads.
+
+Submit **each final signed ZIP**, not a smaller test ZIP, to Apple:
+
+```sh
+xcrun notarytool submit signed/deadbolt-1.0.3-aarch64-apple-darwin.zip \
+  --keychain-profile DeadboltNotarization --wait --output-format json
+xcrun notarytool log SUBMISSION_ID \
+  --keychain-profile DeadboltNotarization --output-format json
+```
+
+Repeat for Intel. Require `Accepted`, `issues: null`, the final ZIP's SHA-256 in
+the notary log, and the executable's CDHash in `ticketContents`. Extract each
+final ZIP afresh and verify `codesign --verify --strict`, the checksum,
+`--version`, `drill`, and the first evaluation where the host supports that
+architecture. Record both submission IDs in the release notes. Apple's online
+ticket is associated with the signed code; a bare command-line executable is
+not an app bundle and may not pass `spctl -a -t execute`'s app assessment. A
+clean, downloaded-Mac installation check remains a separate release gate.
+
 ## Install an archive
 
 Download only from the selected repository release, alongside its SHA-256 file.
@@ -57,7 +99,8 @@ deadbolt`. Run `./deadbolt --version` and `./deadbolt drill` (Windows:
 to PATH or installing it in your chosen binary directory.
 
 Do not bypass an OS security warning without reviewing the source and selected
-artifact. macOS candidates are unsigned and unnotarized. A verified source build
+artifact. Check the selected release notes for macOS signing and notarization
+status; v1.0.2's published Mac archives are unnotarized. A verified source build
 is an available alternative if your installation policy requires it.
 
 ## Final publication gates
