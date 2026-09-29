@@ -68,7 +68,8 @@ def main():
                     "binary_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
                     "distribution": "unsigned native binary; verify checksums and source"}
         (staging / "BUILD.json").write_text(json.dumps(metadata, indent=2) + "\n")
-        with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as package:
+        # Upstream license files can predate ZIP's 1980 timestamp minimum.
+        with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, strict_timestamps=False) as package:
             for file in sorted(staging.rglob("*")):
                 if file.is_file():
                     package.write(file, file.relative_to(staging.parent))
