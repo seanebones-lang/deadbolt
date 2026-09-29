@@ -12,6 +12,13 @@ refuse execution unless the decision is explicitly `allow`.
 
 ## Start here
 
+V1 native binaries target Linux x86_64, Windows x86_64, Apple Silicon and Intel
+Macs. Use the
+[v1.0.0 release](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.0)
+and verify its checksum using [the archive installation instructions](docs/RELEASING.md#install-an-archive).
+Source installation is available below; the release page is the authority for
+published downloads and their exact source identity.
+
 1. [Install](docs/INSTALL.md): prerequisites, macOS/Linux/Windows, verification.
 2. [Quick start](docs/QUICKSTART.md): allow a call, kill it, observe denial.
 3. [Integrate](docs/INTEGRATION.md): Rust, Python, Node, MCP, containers, services.
@@ -116,8 +123,10 @@ The last command requires Python 3 and Node. On Windows use `python` and set
 `DEADBOLT_BIN` to `target/debug/deadbolt.exe`.
 
 macOS and Linux container validation is recorded in [the standalone review](docs/STANDALONE-REVIEW.md).
-Remote Linux/macOS/Windows and Rust 1.85 CI passed on 2026-09-29. Native
-systemd installation and target-application acceptance remain open.
+Remote Linux/macOS/Windows and Rust 1.85 CI passed on 2026-09-29. The
+[Hermes MCP showcase](docs/HERMES-SHOWCASE.md) records independent-host execution
+acceptance on macOS and Linux. Native systemd installation remains experimental;
+each application must validate its own actual dispatch paths.
 These checks establish specific behavior, not universal integration or security
 certification. See [operations](docs/OPERATIONS.md) for deployment and recovery.
 
@@ -135,7 +144,7 @@ certification. See [operations](docs/OPERATIONS.md) for deployment and recovery.
 | [Trust](docs/TRUST.md) | Trust boundaries and limits |
 | [Incident](docs/INCIDENT.md) | Evidence taxonomy and operator workflow |
 | [Contributing](CONTRIBUTING.md) | Development checks and reporting |
-| [Changelog](CHANGELOG.md) | Unreleased integration and hardening changes |
+| [Changelog](CHANGELOG.md) | Versioned changes and candidate history |
 | [Hermes showcase](docs/HERMES-SHOWCASE.md) | Independent MCP host and real filesystem execution acceptance |
 | [Compatibility](docs/COMPATIBILITY.md) | Intended v1 API, lifecycle and upgrade contract |
 | [V1 roadmap](docs/V1-READINESS.md) | Verified milestones and remaining release gates |

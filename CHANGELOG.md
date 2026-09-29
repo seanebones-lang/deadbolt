@@ -1,22 +1,22 @@
 # Changelog
 
-Changes below are unreleased until a versioned release is published. Cargo version
-is 1.0.0-rc.1; the older `v0.1.1-product` tag is not this hardening revision.
+Versioned GitHub releases identify publication and the exact source revision.
+The older `v0.1.1-product` tag is not the standalone hardening release.
 
-## 1.0.0-rc.1 — candidate preparation
+## 1.0.0 — 2026-09-29
 
-- Merge the standalone integration and protocol hardening work after successful
-  Linux/macOS/Windows and Rust 1.85 checks.
-- Add optional independent-host acceptance using pinned Hermes MCP transport
-  and the reference filesystem server; record actual allowed/denied file effects.
-- Define the intended v1 compatibility and upgrade contract and ordered roadmap.
-- Prepare native candidate archives, source identity, checksums and extraction
-  smoke tests for Linux x86_64, macOS arm64/x86_64 and Windows x86_64.
+- Promote the tested local Rust/HTTP/stdio MCP integration contract to v1.
+- Provide native Linux x86_64, Windows x86_64, macOS arm64 and macOS x86_64
+  archives with checksums, source identity, source clients and complete guides.
+- Verify actual file effects through independent Hermes MCP transport and the
+  reference filesystem server, plus backup/restore and original-state upgrade.
+- Keep systemd experimental and whole-agent Hermes integration outside the
+  supported routed-MCP claim. No crates.io/npm/pip publication is implied.
 
-This is a release candidate, not a stable 1.0 declaration. Native archive CI and
-the remaining release gates must pass before publication.
+Final source and artifact checks gate publication. Registry packages are not
+published by the binary release process.
 
-## Unreleased — standalone integration and hardening
+### Integration and hardening included in 1.0.0
 
 - Make Python/Node clients importable, add destination/policy/spend APIs and
   normalize transport/malformed/non-2xx admission responses to denial.
@@ -35,3 +35,10 @@ the remaining release gates must pass before publication.
 - Add standalone installation, quick start, integration, FAQ, troubleshooting,
   operations and contributor guides with explicit trust/acceptance boundaries.
 - Add multi-connection and protocol regressions and live Python/Node contracts.
+
+## Candidate preparation history
+
+The 1.0.0-rc.1 source was developed and tested before the stable cut: standalone
+integration, protocol hardening, compatibility policy, independent Hermes
+acceptance and native archives. A candidate source version is not itself a
+published prerelease; published versions are identified by GitHub releases.
