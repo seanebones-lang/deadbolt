@@ -114,7 +114,8 @@ The last command requires Python 3 and Node. On Windows use `python` and set
 `DEADBOLT_BIN` to `target/debug/deadbolt.exe`.
 
 macOS and Linux container validation is recorded in [the standalone review](docs/STANDALONE-REVIEW.md).
-Native Windows, systemd host installation, and remote CI remain acceptance gates.
+Remote Linux/macOS/Windows and Rust 1.85 CI passed on 2026-09-29. Native
+systemd installation and target-application acceptance remain open.
 These checks establish specific behavior, not universal integration or security
 certification. See [operations](docs/OPERATIONS.md) for deployment and recovery.
 

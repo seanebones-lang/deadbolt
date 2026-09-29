@@ -15,8 +15,8 @@ You do not need a model key, Harness, a cloud account, or a database server.
 Use your OS's supported Rust/compiler installation method. On macOS, Apple's
 Command Line Tools provide the native compiler; on Linux, install the C compiler
 and linker from your distribution; on Windows, use Rust's MSVC toolchain with
-Visual Studio C++ Build Tools and the Windows SDK. Native Windows validation is
-still a release gate; it must pass before claiming that platform is supported.
+Visual Studio C++ Build Tools and the Windows SDK. Native Windows builds and the TCP client contracts passed on GitHub
+Actions Windows Server 2025 on 2026-09-29; validate your target application too.
 
 Check the environment:
 

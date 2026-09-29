@@ -94,8 +94,13 @@ and an unrelated new run, using isolated state and that installed release binary
 
 ## Remaining gates and integration requirements
 
-Native Windows runtime, remote CI and systemd host installation remain acceptance
-gates. The service setup requires installing the binary at the unit's path,
+Remote CI run [36579880560](https://github.com/seanebones-lang/deadbolt/actions/runs/36579880560)
+passed for source commit `fecb6f7` after the initial account billing lock cleared.
+Linux and macOS passed the full checks; Windows Server 2025 passed 44 Rust tests,
+all three live Python/Node TCP client contracts, drill, example, formatting and
+Clippy. The Rust 1.85 job passed too. Unix socket tests are Unix-only.
+
+Systemd host installation and target-application acceptance remain open. The service setup requires installing the binary at the unit's path,
 creating its account, and configuring a nonempty token before startup. Real
 application acceptance still requires exercising every actual dispatch path,
 identity assignment and policy adapter on the selected target framework.

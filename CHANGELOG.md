@@ -16,7 +16,7 @@ remains 0.1.0; the older `v0.1.1-product` tag is not this hardening revision.
 - Bound sidecar workers and request lifetime, reject incomplete/ambiguous/oversized
   HTTP framing, and preserve existing files or live sockets at bind paths.
 - Make transports platform-conditional; non-Unix defaults require tokened loopback
-  TCP. Native Windows runtime remains an acceptance gate.
+  TCP. Native Windows build, drill and TCP client contracts passed in CI.
 - Add DEADBOLT_EVENTS, executable version output, persistent nonroot containers,
   dedicated systemd state, and multi-platform/MSRV CI checks.
 - Add standalone installation, quick start, integration, FAQ, troubleshooting,

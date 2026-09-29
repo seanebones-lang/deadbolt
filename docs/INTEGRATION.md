@@ -203,5 +203,5 @@ spend, operator kill, sidecar outage, and malformed/error responses.
 In your own dispatcher, check that kill, expiry, unavailable storage, missing
 sidecar, and denied policy prevent observable side effects. Check that killing
 one ID leaves unrelated IDs operational. macOS and Linux-container behavior is locally validated in
-[the standalone review](STANDALONE-REVIEW.md). Native Windows, remote CI and
-systemd host installation remain acceptance gates.
+[the standalone review](STANDALONE-REVIEW.md). Remote Linux/macOS/Windows and Rust 1.85 CI passed on 2026-09-29.
+Systemd host installation and actual application acceptance remain open.

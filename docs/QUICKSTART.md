@@ -73,8 +73,8 @@ client terminal, set the same `DEADBOLT_SOCK` and `DEADBOLT_TOKEN`; set matching
 `DEADBOLT_DB` and `DEADBOLT_EVENTS` in the server and operator terminals. Run
 `python examples/deadbolt_sample_agent.py --agent demo-run-001 --interval 1`,
 then `deadbolt kill --agent demo-run-001` from the operator terminal. The
-expected allow/deny sequence is the same. Native Windows remains unverified
-until the platform acceptance run completes.
+expected allow/deny sequence is the same. Windows builds and TCP client contracts passed on GitHub Actions Windows
+Server 2025 on 2026-09-29; validate your own application dispatch paths too.
 
 ## Put the check in your dispatcher
 
