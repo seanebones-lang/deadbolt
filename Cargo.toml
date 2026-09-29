@@ -23,3 +23,8 @@ tempfile = "3"
 [[bin]]
 name = "deadbolt"
 path = "src/main.rs"
+
+[[example]]
+name = "build_in"
+path = "examples/build_in.rs"
+
