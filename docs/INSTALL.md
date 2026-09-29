@@ -85,11 +85,12 @@ Windows defaults to `127.0.0.1:9782` and requires a nonempty token. TCP works on
 macOS/Linux as well. Configure the endpoint and token in both the server's and
 client's environment. Do not put a real token in source control.
 
-Unix shell:
+Unix shell (generate a fresh 256-bit token, then export it to the server):
 
 ```sh
 export DEADBOLT_SOCK=127.0.0.1:9782
-export DEADBOLT_TOKEN="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+DEADBOLT_TOKEN=$(python3 -c 'import secrets; print(secrets.token_hex(32))')
+export DEADBOLT_TOKEN
 deadbolt serve --bind "$DEADBOLT_SOCK"
 ```
 

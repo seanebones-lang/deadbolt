@@ -78,10 +78,12 @@ evidence write fails. Never cache an allow result for later execution.
 ## Bolt on: Python, Node, or any HTTP client
 
 Run `deadbolt serve` on macOS/Linux for a mode-0600 Unix socket. On Windows,
-use loopback TCP and `DEADBOLT_TOKEN`. TCP works on macOS/Linux too:
+use loopback TCP and `DEADBOLT_TOKEN`. TCP works on macOS/Linux too. Generate
+a fresh 256-bit token before exporting it to the server:
 
 ```sh
-export DEADBOLT_TOKEN="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+DEADBOLT_TOKEN=$(python3 -c 'import secrets; print(secrets.token_hex(32))')
+export DEADBOLT_TOKEN
 export DEADBOLT_SOCK=127.0.0.1:9782
 deadbolt serve --bind 127.0.0.1:9782
 ```
