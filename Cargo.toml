@@ -12,9 +12,13 @@ keywords = ["agents", "security", "containment"]
 categories = ["command-line-utilities"]
 include = [
     "src/**/*",
-    "examples/**/*",
+    "examples/*.rs",
+    "examples/*.py",
+    "examples/*.js",
     "docs/**/*",
-    "tests/**/*",
+    "tests/*.rs",
+    "tests/*.py",
+    "tests/*.txt",
     "README.md",
     "LICENSE",
     "NOTICE",
@@ -25,6 +29,7 @@ include = [
     "dist/deadbolt.service",
     "dist/docker-compose.yml",
     "dist/deadbolt.env.example",
+    "dist/package_release.py",
     "Cargo.toml",
     "Cargo.lock",
 ]
