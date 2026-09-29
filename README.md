@@ -1,5 +1,7 @@
 # Deadbolt
 
+[Project site](https://seanebones-lang.github.io/deadbolt/) · [Latest release](https://github.com/seanebones-lang/deadbolt/releases/latest) · [First evaluation](docs/FIRST-EVALUATION.md)
+
 <img width="360" alt="Deadbolt" src="https://github.com/user-attachments/assets/12175eb7-67b1-4758-92c9-e2562df80cb4" />
 
 [![CI](https://github.com/seanebones-lang/deadbolt/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/seanebones-lang/deadbolt/actions/workflows/ci.yml)
