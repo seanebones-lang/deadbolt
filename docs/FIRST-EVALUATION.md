@@ -11,7 +11,8 @@ evaluation script.
 
 ## Run
 
-Complete [installation](INSTALL.md), then from the repository root:
+Complete [installation](INSTALL.md), then from the extracted archive directory
+or repository root:
 
 ```sh
 python3 examples/evaluate.py --binary /absolute/path/to/deadbolt

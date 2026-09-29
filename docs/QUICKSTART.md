@@ -2,9 +2,10 @@
 
 This demonstration uses no model and performs no real shell tool action. It
 shows the admission boundary with the bundled Python sample. Complete
-[installation](INSTALL.md) first and run these commands from the checkout.
+[installation](INSTALL.md) first and run these commands from the extracted
+release archive or a source checkout.
 
-## 1. Check the embedded mode
+## 1. Check the embedded mode (source checkout only)
 
 ```sh
 cargo run --locked --example build_in
@@ -12,6 +13,8 @@ cargo run --locked --example build_in
 
 Expected output includes `allow` followed by `killed`. The example uses a
 temporary store and requires no server. This works wherever the Rust build does.
+If you installed a native archive without Rust, skip this step and continue
+with the sidecar demonstration.
 
 ## 2. Start a Unix sidecar (macOS/Linux)
 

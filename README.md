@@ -24,6 +24,13 @@ and verify its checksum using [the archive installation instructions](docs/RELEA
 Source installation is available below; the release page is the authority for
 published downloads and their exact source identity.
 
+For a first evaluation, download the v1.0.3 archive for your OS, verify and
+extract it, run `deadbolt drill`, then run the [Python-only first evaluation](docs/FIRST-EVALUATION.md)
+from the extracted directory. The native archive path needs Python 3.9+ for
+that evaluation, but no Rust toolchain, model account or API key. On macOS,
+v1.0.3 archives are Developer ID signed and Apple-notarized; read the release
+notes and your organization's download policy before running them.
+
 1. [Install](docs/INSTALL.md): prerequisites, macOS/Linux/Windows, verification.
 2. [Quick start](docs/QUICKSTART.md): allow a call, kill it, observe denial.
 3. [Integrate](docs/INTEGRATION.md): Rust, Python, Node, MCP, containers, services.
@@ -34,6 +41,8 @@ Evaluating for a team? Start with the [technical brief](docs/EVALUATOR.md),
 For a Python-only workflow with real file effects, use
 [first evaluation](docs/FIRST-EVALUATION.md). See the [adoption roadmap](docs/ROADMAP.md)
 for the next adoption milestones.
+
+To build from source instead:
 
 ```sh
 git clone --branch v1.0.3 --depth 1 https://github.com/seanebones-lang/deadbolt.git
