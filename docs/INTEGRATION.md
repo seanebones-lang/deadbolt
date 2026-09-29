@@ -1,74 +1,207 @@
-# Integration
+# Integrate Deadbolt in another project
 
-Inference may be probabilistic. Execution is admit or deny. Call admit before the tool body. A deny does not run the tool. Trust boundary: `docs/TRUST.md`.
+Deadbolt has no Harness, Witness, model-provider, or API-key dependency. It uses
+bundled SQLite and local files. Choose the integration that owns your executor's
+actual dispatch boundary. Calling `admit` alone does not intercept execution:
+your dispatcher must stop on every result other than `allow`.
 
-Build-in and `mcp-proxy` are enforced: the tool body cannot run without admit. Python and Node `admit` are cooperative. A caller that skips them is outside the trust boundary.
+## Install from source
 
-## Build-in
+Requires Rust 1.85 or newer and a C/C++ build toolchain for bundled SQLite.
+The package is named `n11-deadbolt`, the Rust library is `deadbolt`, and the
+executable is `deadbolt`. As checked on 2026-09-29, this package is not on
+crates.io. Use Git or a local checkout until a registry release is published.
 
-Link the crate. Package name is `n11-deadbolt`. The Rust crate name stays `deadbolt`. No socket. No model tool.
+```sh
+git clone https://github.com/seanebones-lang/deadbolt.git
+cd deadbolt
+cargo install --path . --locked --bin deadbolt
+deadbolt drill
+```
+
+Pin a reviewed commit when installing for production:
+
+```sh
+cargo install --git https://github.com/seanebones-lang/deadbolt.git --rev YOUR_REVIEWED_COMMIT --locked --bin deadbolt
+```
+
+## Build in: Rust executor
+
+In your project's `Cargo.toml`:
+
+```toml
+[dependencies]
+deadbolt = { package = "n11-deadbolt", git = "https://github.com/seanebones-lang/deadbolt.git", rev = "YOUR_REVIEWED_COMMIT" }
+```
+
+For an adjacent source checkout, replace `git` and `rev` with
+`path = "../deadbolt"`. No socket or service is needed.
 
 ```rust
-use deadbolt::{AdmitDecision, Deadbolt, DenyCode};
-fn main() {
-    let dir = std::env::temp_dir().join("deadbolt-demo");
-    std::fs::create_dir_all(&dir).unwrap();
-    let db = Deadbolt::open_at(&dir, true, 60);
-    db.ensure_agent("shop-bot").unwrap();
-    assert!(matches!(db.admit("shop-bot", "shell"), AdmitDecision::Allow));
-    db.kill("shop-bot").unwrap();
-    assert!(matches!(
-        db.admit("shop-bot", "shell"),
-        AdmitDecision::Deny { code: DenyCode::Killed }
-    ));
+use deadbolt::{AdmitDecision, Deadbolt};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let state = std::path::PathBuf::from("./agent-state/deadbolt");
+    let gate = Deadbolt::open_at(&state, true, 60);
+    gate.ensure_agent("my-executor-run-001")?;
+    match gate.admit("my-executor-run-001", "write_file") {
+        AdmitDecision::Allow => std::fs::write("output.txt", "allowed work")?,
+        AdmitDecision::Deny { code } => return Err(code.as_str().into()),
+    }
+    Ok(())
 }
 ```
 
-Runnable copy: `cargo run --example build_in`.
+Use an executor-assigned ID for each run. IDs and tool names are tokens of at
+most 128 bytes. Killed and expired IDs cannot be refreshed with `ensure`; start
+a new run with a new ID. `admit_dest(agent, tool, Some(host))` adds an explicit
+host for destination policy. `set_policy`, `spend_add`, and `register_child`
+are available on the library. Register children before starting them and check
+that registration returned `true`. Registration is idempotent for the same
+parent, preserves existing state, and rejects reparenting and self-parenting.
+Missing, killed, paused, or expired parents cannot create new live children.
+Children do not inherit tool, destination, or spend policies: configure each
+child before dispatch. Calling `admit` for a spawn is the executor's job.
 
-## Bolt-on
+For an operator CLI to control this store, use these same paths:
 
-One process serves the store. Every other process admits before it runs a tool.
-
-```bash
-deadbolt serve
-python examples/deadbolt_client.py ensure --agent shop-bot
-python examples/deadbolt_client.py admit --agent shop-bot --tool shell
+```sh
+export DEADBOLT_DB="$PWD/agent-state/deadbolt/deadbolt.db"
+export DEADBOLT_EVENTS="$PWD/agent-state/deadbolt/deadbolt-events.jsonl"
+deadbolt kill --agent my-executor-run-001
 ```
+
+The gate denies subsequent calls; it does not cancel a tool already running.
+A one-shot approval is consumed by admission, even if the subsequent tool or
+evidence write fails. Never cache an allow result for later execution.
+
+## Bolt on: Python, Node, or any HTTP client
+
+Run `deadbolt serve` on macOS/Linux for a mode-0600 Unix socket. On Windows,
+use loopback TCP and `DEADBOLT_TOKEN`. TCP works on macOS/Linux too:
+
+```sh
+export DEADBOLT_TOKEN="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+export DEADBOLT_SOCK=127.0.0.1:9782
+deadbolt serve --bind 127.0.0.1:9782
+```
+
+Keep that terminal running. Supply the same endpoint and token to your trusted
+executor. For PowerShell, use `$env:DEADBOLT_TOKEN` and `$env:DEADBOLT_SOCK`.
+Keep operator access and credentials away from the model-controlled process.
+
+Copy `examples/deadbolt_client.py` or `examples/deadbolt_client.js` into your
+project. These are source clients, not published pip/npm packages. Python uses
+only its standard library; Node uses built-in modules and CommonJS exports.
+Both expose ensure, admit (with optional destination), child registration,
+status, policy, and spend. In Node the registration function is `registerChild`.
 
 ```python
-from deadbolt_client import admit
-if admit(agent, "shell")["decision"] != "allow":
-    raise SystemExit("deadbolt deny")
-# then run the tool
+from deadbolt_client import ensure, admit
+
+agent = "my-executor-run-002"
+if ensure(agent).get("ok") is not True:
+    raise RuntimeError("deadbolt lease unavailable")
+
+def dispatch(tool_name, body, dest=None):
+    result = admit(agent, tool_name, dest)
+    if result.get("decision") != "allow":
+        raise RuntimeError(result.get("code", "store_unavailable"))
+    return body()
+
+dispatch("write_file", lambda: print("tool body runs here"))
 ```
 
-`DEADBOLT_SOCK` overrides `~/.deadbolt/deadbolt.sock`. A `host:port` or `http://127.0.0.1:port` value uses loopback HTTP. A Unix path still uses the socket. TCP serve requires `DEADBOLT_TOKEN`. On a Unix socket the token stays optional. If it is set, send `X-Deadbolt-Token`. Protocol: `docs/PROTOCOL.md`.
+```js
+const { ensure, admit } = require("./deadbolt_client.js");
 
-## Run as a service
-
-TCP requires `DEADBOLT_TOKEN`. Bind stays `127.0.0.1:9782`. `0.0.0.0` and `[::]` are refused. Unit: `dist/deadbolt.service`. Env file mode `0600`: `dist/deadbolt.env.example`. Compose publishes only `127.0.0.1:9782:9782`.
-
-```bash
-sudo install -d -m 0755 /etc/deadbolt
-sudo install -m 0600 dist/deadbolt.env.example /etc/deadbolt/deadbolt.env
-sudo install -m 0644 dist/deadbolt.service /etc/systemd/system/deadbolt.service
-sudo systemctl enable --now deadbolt
+async function run() {
+  const agent = "my-executor-run-003";
+  if ((await ensure(agent)).ok !== true) throw new Error("deadbolt lease unavailable");
+  async function dispatch(tool, body, dest) {
+    const result = await admit(agent, tool, dest);
+    if (result.decision !== "allow") throw new Error(result.code || "store_unavailable");
+    return body();
+  }
+  await dispatch("write_file", () => console.log("tool body runs here"));
+}
+run().catch(err => { console.error(err.message); process.exitCode = 1; });
 ```
 
-```bash
-cp dist/deadbolt.env.example dist/deadbolt.env && chmod 0600 dist/deadbolt.env
+Every language can implement [the HTTP protocol](PROTOCOL.md). Require a
+successful HTTP response, valid JSON, and explicit `decision: "allow"` before
+running a body. The source clients return deny on transport failures,
+unusable decision responses, and unsuccessful HTTP status codes. They remain
+cooperative: your executor must prevent any direct dispatch that skips them.
+
+## Bolt on: stdio MCP proxy
+
+```sh
+deadbolt mcp-proxy --agent my-mcp-run-001 -- python3 your_mcp_server.py
+```
+
+Use that command as the MCP server command in your host's configuration.
+It supports newline-delimited JSON-RPC 2.0 objects over stdio. Batches and
+invalid envelopes are rejected; forwarded messages are serialized from the
+same parsed value used for admission. It does not proxy remote
+HTTP/SSE MCP servers. `tools/call` is gated; other methods (including resource
+reads and initialization) are forwarded. Those methods and startup side effects
+are outside the tool gate. Only place servers you trust behind the proxy.
+
+The executor assigns the fixed agent ID; model arguments cannot change it.
+By default the proxy opens the local store. To use a running sidecar, add
+`--serve-sock 127.0.0.1:9782` and supply `DEADBOLT_TOKEN`.
+
+Destination discovery examines `url`, `uri`, `href`, `endpoint`, and `host`
+arguments. Spend discovery examines numeric `amount`, `usd`, and `cost`.
+These are conventions, not authoritative network or billing measurements.
+Configure policies for the server's actual tool names; explicitly classify
+irreversible tools. With a destination allow-list, only recognized network
+classes (`http`, `fetch`, `browser`, `web_search`) require a missing destination.
+Custom network tool names need an executor adapter with a known destination.
+See [trust boundaries](TRUST.md).
+
+## Linux service
+
+Install the binary at `/usr/local/bin/deadbolt`, create a dedicated `deadbolt`
+system account, then install `dist/deadbolt.service`. Set a nonempty token in
+`/etc/deadbolt/deadbolt.env` with permissions `0600` before starting the service.
+The unit uses `/var/lib/deadbolt` for both database and evidence. Operator CLI
+commands must use those same paths and account, for example:
+
+```sh
+sudo -u deadbolt env DEADBOLT_DB=/var/lib/deadbolt/deadbolt.db DEADBOLT_EVENTS=/var/lib/deadbolt/deadbolt-events.jsonl /usr/local/bin/deadbolt status
+```
+
+## Containers
+
+```sh
+cp dist/deadbolt.env.example dist/deadbolt.env
+chmod 0600 dist/deadbolt.env
 docker compose -f dist/docker-compose.yml up --build
 ```
 
-The unit runs `deadbolt serve --bind 127.0.0.1:9782`. Compose does not publish `0.0.0.0`. Incident steps for a 24-hour notice are in `docs/INCIDENT.md`. The operator sends the notice. Deadbolt does not.
+Compose uses a Unix socket and a persistent named volume. Attach a trusted
+executor container to `deadbolt-state`, run it as UID 10001, and set its
+`DEADBOLT_SOCK=/home/deadbolt/.deadbolt/deadbolt.sock`. If you set a token in
+the env file, provide the same token to the executor. Use
+`docker compose -f dist/docker-compose.yml exec deadbolt deadbolt status`
+for operator access. The socket and database are local to the container volume;
+Docker Desktop host apps should use a native sidecar instead.
 
-## MCP proxy
+No port is published. Binding `127.0.0.1` inside a container cannot service
+Docker's usual forwarded port. Public binds remain refused. Do not change that
+boundary to make container networking work.
 
-Not a model tool. The proxy speaks newline-delimited JSON-RPC on stdio and spawns the real MCP server. `initialize`, `tools/list`, resources, and `ping` are forwarded. `tools/call` is admitted first. A `url`, `uri`, `href`, `endpoint`, or `host` argument is parsed and passed as `dest`. If dest is present and not on `dest_allow`, the deny is `purpose_exceeded`. If `dest_allow` is set and no host parses, the deny is `purpose_exceeded` only for a network-class tool (`http`, `fetch`, `browser`, `web_search`). A local tool with no host is not denied for that reason. An irreversible tool is `needs_human`. `amount`, `usd`, or `cost`, when it parses as a number, is `spend_add` before admit. A deny is a JSON-RPC error whose message is the code token (`killed`, `paused`, `purpose_exceeded`, `lease_expired`, `store_unavailable`, `no_lease`, `spend_cap`, `needs_human`). The child is not invoked.
+## Verify your integration
 
-```bash
-deadbolt mcp-proxy --agent shop-bot -- npx whatever-mcp
-```
+Run `cargo test --locked`, `cargo run --example build_in`, and `deadbolt drill`.
+After building the binary, run `python3 tests/client_contract.py` (Python 3 and
+Node required). It exercises imported clients against real TCP serve, policy,
+spend, operator kill, sidecar outage, and malformed/error responses.
 
-In-process by default (`Deadbolt::open`). `--serve-sock PATH` admits over an already-running Unix socket or `127.0.0.1:PORT`. TCP still requires `DEADBOLT_TOKEN`. `0.0.0.0` is refused.
+In your own dispatcher, check that kill, expiry, unavailable storage, missing
+sidecar, and denied policy prevent observable side effects. Check that killing
+one ID leaves unrelated IDs operational. macOS and Linux-container behavior is locally validated in
+[the standalone review](STANDALONE-REVIEW.md). Remote Linux/macOS/Windows and Rust 1.85 CI passed on 2026-09-29.
+Systemd host installation and actual application acceptance remain open.

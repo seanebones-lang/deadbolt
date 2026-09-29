@@ -1,1 +1,6 @@
 /target
+
+dist/deadbolt.env
+__pycache__/
+
+.demo-state/

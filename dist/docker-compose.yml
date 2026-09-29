@@ -4,5 +4,11 @@ services:
       context: ..
       dockerfile: Dockerfile
     env_file: deadbolt.env
-    ports:
-      - "127.0.0.1:9782:9782"
+    volumes:
+      - deadbolt-state:/home/deadbolt/.deadbolt
+# Connect a trusted executor container to this same volume and use
+# DEADBOLT_SOCK=/home/deadbolt/.deadbolt/deadbolt.sock. It must run with the
+# same numeric UID as Deadbolt (10001) to access the mode-0600 socket.
+# No port publishing: loopback TCP inside a container is container-local.
+volumes:
+  deadbolt-state:

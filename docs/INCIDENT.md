@@ -16,17 +16,17 @@ The file also has `agent`, `children`, `first_seen`, and `policy`. Policy is the
 
 Prompts are not evidence. Tool arguments are not stored. A generated summary is not a row, and a `generated` class is refused on export. A sentence about what the agent meant is not in the file. If a lawyer needs prose, they write it from the JSON. Deadbolt does not.
 
-## 24-hour customer notice
+## Customer notice workflow
 
 The operator sends the notice. Deadbolt does not.
 
 1. `deadbolt incident --agent ID --out incident.json`
 2. Read `killed_at`. The stop is the caller that held `DEADBOLT_TOKEN`, or the in-process gate. The file does not name a person. Do not invent one.
 3. Attach `policy`. That is the blast radius that was set: tools, dest, spend cap, irreversible, and spend already recorded.
-4. Read `children`. Each child id is in the same blast radius. Notify for those ids from the same file. A child is not a separate product.
+4. Read `children` and each child's own policy and decisions. Children do not inherit policy automatically; lineage alone does not establish identical blast radius.
 5. Send the JSON. Do not replace it with a rewrite and call the rewrite the record.
 
-The window is 24 hours from `killed_at` when a customer was inside that blast radius.
+If your customer agreement or incident policy requires a 24-hour notice, use that requirement and its actual trigger. Deadbolt does not establish a legal reporting deadline or deliver a notice.
 
 ## Limit
 

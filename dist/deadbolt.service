@@ -4,8 +4,12 @@ After=network.target
 
 [Service]
 # Dedicated account. Do not run as root in production.
-# User=deadbolt
-# Group=deadbolt
+User=deadbolt
+Group=deadbolt
+StateDirectory=deadbolt
+StateDirectoryMode=0700
+Environment=DEADBOLT_DB=/var/lib/deadbolt/deadbolt.db
+Environment=DEADBOLT_EVENTS=/var/lib/deadbolt/deadbolt-events.jsonl
 ExecStart=/usr/local/bin/deadbolt serve --bind 127.0.0.1:9782
 EnvironmentFile=-/etc/deadbolt/deadbolt.env
 Restart=on-failure

@@ -13,6 +13,8 @@ content-type: application/json
 
 Request body is JSON. Response body is JSON. `Content-Type: application/json`. `Connection: close`.
 
+Send one request per connection with a valid `Content-Length` when there is a body. Chunked transfer, duplicate/invalid lengths, incomplete bodies and requests over 65,536 bytes are rejected by closing the connection. Complete requests have a five-second read deadline; writes have a five-second timeout. Each listener allows at most 64 active workers and closes excess connections. A close, timeout, malformed decision or non-2xx status must never grant admission. Token-valid parsed denials still use HTTP 200 and `decision: deny`.
+
 ## POST /admit
 
 ```json
@@ -73,7 +75,7 @@ Failure: `{"ok":false,"code":"<token>"}`.
 {"agents":[{"agent_id":"shop-bot","state":"active","parent_id":null,"expires_at":0,"clips":[],"swarm_task_id":null}]}
 ```
 
-`state` is `active`, `paused`, or `killed`.
+`state` is `active`, `paused`, or `killed`. Expiration is checked at admission; a stored active row may already have a past `expires_at`.
 
 ## Errors
 

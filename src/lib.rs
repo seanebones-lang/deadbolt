@@ -301,7 +301,6 @@ struct Lease {
 struct StoreInner {
     conn: Connection,
     events: std::fs::File,
-    seq: u64,
 }
 
 /// SQLite leases + append-only JSONL/SQLite evidence. Implements [`EvidenceSink`].
@@ -344,16 +343,18 @@ impl JsonlSqliteSink {
         )
         .map_err(|_| SinkError::Unavailable)?;
         migrate_leases(&conn)?;
-        let seq: u64 = conn
-            .query_row("SELECT COALESCE(MAX(seq), 0) FROM events", [], |r| r.get(0))
-            .map_err(|_| SinkError::Unavailable)?;
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS event_sequence (id INTEGER PRIMARY KEY CHECK(id=1), seq INTEGER NOT NULL);
+             INSERT INTO event_sequence (id, seq) SELECT 1, COALESCE(MAX(seq), 0) FROM events WHERE true
+             ON CONFLICT(id) DO UPDATE SET seq=MAX(event_sequence.seq, excluded.seq);"
+        ).map_err(|_| SinkError::Unavailable)?;
         let events = OpenOptions::new()
             .create(true)
             .append(true)
             .open(events_path)
             .map_err(|_| SinkError::Unavailable)?;
         Ok(Self {
-            inner: Mutex::new(StoreInner { conn, events, seq }),
+            inner: Mutex::new(StoreInner { conn, events }),
         })
     }
 
@@ -377,9 +378,12 @@ fn write_record(g: &mut StoreInner, record: &EvidenceRecord) -> Result<(), SinkE
         EpistemicClass::Inferred => "inferred",
         EpistemicClass::Generated => "generated",
     };
+    let tx =
+        rusqlite::Transaction::new_unchecked(&g.conn, rusqlite::TransactionBehavior::Immediate)
+            .map_err(|_| SinkError::Unavailable)?;
     let start = std::time::Instant::now();
     loop {
-        match g.conn.execute(
+        match tx.execute(
             "INSERT INTO events (seq, cid, payload_sha256, class, kind, payload, premises, ts)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![
@@ -400,14 +404,13 @@ fn write_record(g: &mut StoreInner, record: &EvidenceRecord) -> Result<(), SinkE
             Err(_) => return Err(SinkError::Unavailable),
         }
     }
-    let line = serde_json::to_string(record).map_err(|_| SinkError::Unavailable)?;
+    let mut line = serde_json::to_string(record).map_err(|_| SinkError::Unavailable)?;
+    line.push('\n');
     g.events
         .write_all(line.as_bytes())
         .map_err(|_| SinkError::Unavailable)?;
-    g.events
-        .write_all(b"\n")
-        .map_err(|_| SinkError::Unavailable)?;
     g.events.flush().map_err(|_| SinkError::Unavailable)?;
+    tx.commit().map_err(|_| SinkError::Unavailable)?;
     Ok(())
 }
 
@@ -542,9 +545,13 @@ impl Deadbolt {
 
     /// Issue a lease if this agent has none. Does not resurrect a killed lease.
     pub fn ensure_agent(&self, agent_id: &str) -> Result<(), DeadboltError> {
+        require_token(agent_id)?;
         let store = self.store()?;
         let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
-        if load_lease(&g.conn, agent_id)
+        let tx =
+            rusqlite::Transaction::new_unchecked(&g.conn, rusqlite::TransactionBehavior::Immediate)
+                .map_err(|_| DeadboltError::StoreUnavailable)?;
+        if load_lease(&tx, agent_id)
             .map_err(|_| DeadboltError::StoreUnavailable)?
             .is_some()
         {
@@ -552,7 +559,7 @@ impl Deadbolt {
         }
         let exp = now_secs().saturating_add(self.ttl as i64);
         save_lease(
-            &g.conn,
+            &tx,
             &Lease {
                 agent_id: agent_id.to_string(),
                 parent_id: None,
@@ -570,6 +577,7 @@ impl Deadbolt {
             },
         )
         .map_err(|_| DeadboltError::StoreUnavailable)?;
+        tx.commit().map_err(|_| DeadboltError::StoreUnavailable)?;
         drop(g);
         self.emit(
             EpistemicClass::Observed,
@@ -581,7 +589,8 @@ impl Deadbolt {
         .map_err(|_| DeadboltError::StoreUnavailable)
     }
 
-    /// Register `child` under `parent`. A killed or missing parent births a dead child.
+    /// Register `child` under `parent`. An inactive or missing parent births a dead child.
+    /// Repeated registration preserves state. Reparenting and self-parenting are refused.
     ///
     /// Returns `Ok(true)` when the child lease is live, `Ok(false)` when the child
     /// was recorded killed. `swarm_task_id` is cancelled when the parent is killed.
@@ -591,13 +600,28 @@ impl Deadbolt {
         child: &str,
         swarm_task_id: Option<&str>,
     ) -> Result<bool, DeadboltError> {
+        require_token(parent)?;
+        require_token(child)?;
+        if parent == child {
+            return Err(DeadboltError::BadRequest);
+        }
         let store = self.store()?;
-        let parent_lease = {
-            let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
-            load_lease(&g.conn, parent).map_err(|_| DeadboltError::StoreUnavailable)?
-        };
+        let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
+        let tx =
+            rusqlite::Transaction::new_unchecked(&g.conn, rusqlite::TransactionBehavior::Immediate)
+                .map_err(|_| DeadboltError::StoreUnavailable)?;
+        if let Some(existing) =
+            load_lease(&tx, child).map_err(|_| DeadboltError::StoreUnavailable)?
+        {
+            if existing.parent_id.as_deref() != Some(parent) {
+                return Err(DeadboltError::BadRequest);
+            }
+            return Ok(existing.state == "active" && now_secs() < existing.expires_at);
+        }
+        let parent_lease =
+            { load_lease(&tx, parent).map_err(|_| DeadboltError::StoreUnavailable)? };
         let parent_dead = match &parent_lease {
-            Some(p) => p.state == "killed",
+            Some(p) => p.state != "active" || now_secs() >= p.expires_at,
             None => true,
         };
         let state = if parent_dead { "killed" } else { "active" };
@@ -607,9 +631,8 @@ impl Deadbolt {
             now_secs().saturating_add(self.ttl as i64)
         };
         {
-            let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
             save_lease(
-                &g.conn,
+                &tx,
                 &Lease {
                     agent_id: child.to_string(),
                     parent_id: Some(parent.to_string()),
@@ -628,6 +651,8 @@ impl Deadbolt {
             )
             .map_err(|_| DeadboltError::StoreUnavailable)?;
         }
+        tx.commit().map_err(|_| DeadboltError::StoreUnavailable)?;
+        drop(g);
         self.emit(
             EpistemicClass::Observed,
             "lease",
@@ -700,82 +725,103 @@ impl Deadbolt {
     }
 
     fn evaluate(&self, agent_id: &str, tool: &str, dest: Option<&str>) -> AdmitDecision {
-        let Some(store) = &self.store else {
-            return AdmitDecision::Deny {
+        self.evaluate_atomic(agent_id, tool, dest)
+            .unwrap_or(AdmitDecision::Deny {
                 code: DenyCode::StoreUnavailable,
-            };
+            })
+    }
+
+    fn evaluate_atomic(
+        &self,
+        agent_id: &str,
+        tool: &str,
+        dest: Option<&str>,
+    ) -> Result<AdmitDecision, rusqlite::Error> {
+        let Some(store) = &self.store else {
+            return Ok(AdmitDecision::Deny {
+                code: DenyCode::StoreUnavailable,
+            });
         };
         let g = match store.lock() {
             Ok(g) => g,
             Err(_) => {
-                return AdmitDecision::Deny {
+                return Ok(AdmitDecision::Deny {
                     code: DenyCode::StoreUnavailable,
-                }
+                })
             }
         };
-        let lease = match load_lease(&g.conn, agent_id) {
+        let tx = rusqlite::Transaction::new_unchecked(
+            &g.conn,
+            rusqlite::TransactionBehavior::Immediate,
+        )?;
+        let lease = match load_lease(&tx, agent_id) {
             Ok(v) => v,
             Err(_) => {
-                return AdmitDecision::Deny {
+                return Ok(AdmitDecision::Deny {
                     code: DenyCode::StoreUnavailable,
-                }
+                })
             }
         };
         let Some(lease) = lease else {
-            return AdmitDecision::Deny {
+            return Ok(AdmitDecision::Deny {
                 code: DenyCode::NoLease,
-            };
+            });
         };
         if lease.state == "killed" {
-            return AdmitDecision::Deny {
+            return Ok(AdmitDecision::Deny {
                 code: DenyCode::Killed,
-            };
+            });
         }
         if now_secs() >= lease.expires_at {
-            return AdmitDecision::Deny {
+            return Ok(AdmitDecision::Deny {
                 code: DenyCode::LeaseExpired,
-            };
+            });
         }
         let exp = now_secs().saturating_add(self.ttl as i64);
-        let _ = g.conn.execute(
+        tx.execute(
             "UPDATE leases SET expires_at=?1, updated_at=?1 WHERE agent_id=?2 AND state!='killed'",
             params![exp, agent_id],
-        );
+        )?;
         if let Some(cap) = lease.spend_cap_usd {
             if lease.spend_usd >= cap {
-                let _ = g.conn.execute(
+                tx.execute(
                     "UPDATE leases SET state='paused', updated_at=?1 WHERE agent_id=?2 AND state!='killed'",
                     params![now_secs(), agent_id],
-                );
-                return AdmitDecision::Deny {
+                )?;
+                tx.commit()?;
+                return Ok(AdmitDecision::Deny {
                     code: DenyCode::SpendCap,
-                };
+                });
             }
         }
         if lease.state == "paused" {
-            return AdmitDecision::Deny {
+            tx.commit()?;
+            return Ok(AdmitDecision::Deny {
                 code: DenyCode::Paused,
-            };
+            });
         }
         if lease.clips.iter().any(|c| c == tool) {
-            return AdmitDecision::Deny {
+            tx.commit()?;
+            return Ok(AdmitDecision::Deny {
                 code: DenyCode::PurposeExceeded,
-            };
+            });
         }
         if let Some(allow) = &lease.tools_allow {
             if !allow.iter().any(|t| t == tool) {
-                return AdmitDecision::Deny {
+                tx.commit()?;
+                return Ok(AdmitDecision::Deny {
                     code: DenyCode::PurposeExceeded,
-                };
+                });
             }
         }
         if let Some(allow) = &lease.dest_allow {
             let foreign = dest.is_some_and(|d| !allow.iter().any(|h| h.eq_ignore_ascii_case(d)));
             let missing_network = dest.is_none() && network_class(tool);
             if foreign || missing_network {
-                return AdmitDecision::Deny {
+                tx.commit()?;
+                return Ok(AdmitDecision::Deny {
                     code: DenyCode::PurposeExceeded,
-                };
+                });
             }
         }
         let shot = lease
@@ -783,33 +829,26 @@ impl Deadbolt {
             .as_ref()
             .is_some_and(|list| list.iter().any(|t| t == tool));
         if shot && !lease.approvals.iter().any(|t| t == tool) {
-            return AdmitDecision::Deny {
+            tx.commit()?;
+            return Ok(AdmitDecision::Deny {
                 code: DenyCode::NeedsHuman,
-            };
-        }
-        drop(g);
-        if self.slide(agent_id).is_err() && self.fail_closed {
-            return AdmitDecision::Deny {
-                code: DenyCode::StoreUnavailable,
-            };
+            });
         }
         if shot {
-            let _ = self.consume_approval(agent_id, tool);
+            let approvals: Vec<_> = lease
+                .approvals
+                .iter()
+                .filter(|t| t.as_str() != tool)
+                .collect();
+            let raw =
+                serde_json::to_string(&approvals).map_err(|_| rusqlite::Error::InvalidQuery)?;
+            tx.execute(
+                "UPDATE leases SET approvals=?1 WHERE agent_id=?2",
+                params![raw, agent_id],
+            )?;
         }
-        AdmitDecision::Allow
-    }
-
-    fn slide(&self, agent_id: &str) -> Result<(), ()> {
-        let store = self.store.as_ref().ok_or(())?;
-        let g = store.lock().map_err(|_| ())?;
-        let exp = now_secs().saturating_add(self.ttl as i64);
-        g.conn
-            .execute(
-                "UPDATE leases SET expires_at=?1, updated_at=?1 WHERE agent_id=?2 AND state='active'",
-                params![exp, agent_id],
-            )
-            .map_err(|_| ())?;
-        Ok(())
+        tx.commit()?;
+        Ok(AdmitDecision::Allow)
     }
 
     fn record_decision(
@@ -899,33 +938,37 @@ impl Deadbolt {
         let store = self.store()?;
         let (revoked, swarm_task_ids) = {
             let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
-            if load_lease(&g.conn, agent_id)
+            let tx = rusqlite::Transaction::new_unchecked(
+                &g.conn,
+                rusqlite::TransactionBehavior::Immediate,
+            )
+            .map_err(|_| DeadboltError::StoreUnavailable)?;
+            if load_lease(&tx, agent_id)
                 .map_err(|_| DeadboltError::StoreUnavailable)?
                 .is_none()
             {
                 return Err(DeadboltError::NotFound);
             }
             let mut ids = vec![agent_id.to_string()];
-            ids.extend(
-                descendant_ids(&g.conn, agent_id).map_err(|_| DeadboltError::StoreUnavailable)?,
-            );
+            ids.extend(descendant_ids(&tx, agent_id).map_err(|_| DeadboltError::StoreUnavailable)?);
             let mut tasks = Vec::new();
             let ts = now_secs();
             for id in &ids {
                 if let Some(lease) =
-                    load_lease(&g.conn, id).map_err(|_| DeadboltError::StoreUnavailable)?
+                    load_lease(&tx, id).map_err(|_| DeadboltError::StoreUnavailable)?
                 {
                     if let Some(task) = lease.swarm_task_id {
                         tasks.push(task);
                     }
                 }
-                g.conn
+                tx
                     .execute(
                         "UPDATE leases SET state='killed', expires_at=0, updated_at=?1 WHERE agent_id=?2",
                         params![ts, id],
                     )
                     .map_err(|_| DeadboltError::StoreUnavailable)?;
             }
+            tx.commit().map_err(|_| DeadboltError::StoreUnavailable)?;
             (ids, tasks)
         };
         let mut payload = Map::new();
@@ -957,19 +1000,25 @@ impl Deadbolt {
         let store = self.store()?;
         {
             let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
-            let lease = load_lease(&g.conn, agent_id)
+            let tx = rusqlite::Transaction::new_unchecked(
+                &g.conn,
+                rusqlite::TransactionBehavior::Immediate,
+            )
+            .map_err(|_| DeadboltError::StoreUnavailable)?;
+            let lease = load_lease(&tx, agent_id)
                 .map_err(|_| DeadboltError::StoreUnavailable)?
                 .ok_or(DeadboltError::NotFound)?;
             if lease.state == "killed" {
                 return Err(DeadboltError::Killed);
             }
             let exp = now_secs().saturating_add(self.ttl as i64);
-            g.conn
+            tx
                 .execute(
                     "UPDATE leases SET state='active', expires_at=?1, clips='[]', clip_cids='{}', updated_at=?1 WHERE agent_id=?2",
                     params![exp, agent_id],
                 )
                 .map_err(|_| DeadboltError::StoreUnavailable)?;
+            tx.commit().map_err(|_| DeadboltError::StoreUnavailable)?;
         }
         self.emit(
             EpistemicClass::Observed,
@@ -995,7 +1044,10 @@ impl Deadbolt {
             )
             .map_err(|_| DeadboltError::StoreUnavailable)?;
         let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
-        let mut lease = load_lease(&g.conn, agent_id)
+        let tx =
+            rusqlite::Transaction::new_unchecked(&g.conn, rusqlite::TransactionBehavior::Immediate)
+                .map_err(|_| DeadboltError::StoreUnavailable)?;
+        let mut lease = load_lease(&tx, agent_id)
             .map_err(|_| DeadboltError::StoreUnavailable)?
             .ok_or(DeadboltError::NotFound)?;
         if lease.state == "killed" {
@@ -1005,7 +1057,8 @@ impl Deadbolt {
             lease.clips.push(tool.to_string());
         }
         lease.clip_cids.insert(tool.to_string(), cid);
-        save_lease(&g.conn, &lease).map_err(|_| DeadboltError::StoreUnavailable)?;
+        save_lease(&tx, &lease).map_err(|_| DeadboltError::StoreUnavailable)?;
+        tx.commit().map_err(|_| DeadboltError::StoreUnavailable)?;
         Ok(())
     }
 
@@ -1029,7 +1082,12 @@ impl Deadbolt {
         let store = self.store()?;
         {
             let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
-            let lease = load_lease(&g.conn, agent_id)
+            let tx = rusqlite::Transaction::new_unchecked(
+                &g.conn,
+                rusqlite::TransactionBehavior::Immediate,
+            )
+            .map_err(|_| DeadboltError::StoreUnavailable)?;
+            let lease = load_lease(&tx, agent_id)
                 .map_err(|_| DeadboltError::StoreUnavailable)?
                 .ok_or(DeadboltError::NotFound)?;
             if lease.state == "killed" {
@@ -1038,12 +1096,13 @@ impl Deadbolt {
             let tools = json_list(patch.tools_allow.as_deref());
             let dest = json_list(patch.dest_allow.as_deref());
             let irrev = json_list(patch.irreversible.as_deref());
-            g.conn
+            tx
                 .execute(
                     "UPDATE leases SET tools_allow=COALESCE(?1, tools_allow), dest_allow=COALESCE(?2, dest_allow), spend_cap_usd=COALESCE(?3, spend_cap_usd), irreversible=COALESCE(?4, irreversible), updated_at=?5 WHERE agent_id=?6",
                     params![tools, dest, patch.spend_cap_usd, irrev, now_secs(), agent_id],
                 )
                 .map_err(|_| DeadboltError::StoreUnavailable)?;
+            tx.commit().map_err(|_| DeadboltError::StoreUnavailable)?;
         }
         self.emit(
             EpistemicClass::Observed,
@@ -1062,7 +1121,12 @@ impl Deadbolt {
         let store = self.store()?;
         {
             let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
-            let mut lease = load_lease(&g.conn, agent_id)
+            let tx = rusqlite::Transaction::new_unchecked(
+                &g.conn,
+                rusqlite::TransactionBehavior::Immediate,
+            )
+            .map_err(|_| DeadboltError::StoreUnavailable)?;
+            let mut lease = load_lease(&tx, agent_id)
                 .map_err(|_| DeadboltError::StoreUnavailable)?
                 .ok_or(DeadboltError::NotFound)?;
             if lease.state == "killed" {
@@ -1072,12 +1136,12 @@ impl Deadbolt {
                 lease.approvals.push(tool.to_string());
             }
             let raw = serde_json::to_string(&lease.approvals).unwrap_or_else(|_| "[]".into());
-            g.conn
-                .execute(
-                    "UPDATE leases SET approvals=?1, updated_at=?2 WHERE agent_id=?3",
-                    params![raw, now_secs(), agent_id],
-                )
-                .map_err(|_| DeadboltError::StoreUnavailable)?;
+            tx.execute(
+                "UPDATE leases SET approvals=?1, updated_at=?2 WHERE agent_id=?3",
+                params![raw, now_secs(), agent_id],
+            )
+            .map_err(|_| DeadboltError::StoreUnavailable)?;
+            tx.commit().map_err(|_| DeadboltError::StoreUnavailable)?;
         }
         self.emit(
             EpistemicClass::Observed,
@@ -1098,7 +1162,12 @@ impl Deadbolt {
         let store = self.store()?;
         let (total, paused) = {
             let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
-            let lease = load_lease(&g.conn, agent_id)
+            let tx = rusqlite::Transaction::new_unchecked(
+                &g.conn,
+                rusqlite::TransactionBehavior::Immediate,
+            )
+            .map_err(|_| DeadboltError::StoreUnavailable)?;
+            let lease = load_lease(&tx, agent_id)
                 .map_err(|_| DeadboltError::StoreUnavailable)?
                 .ok_or(DeadboltError::NotFound)?;
             if lease.state == "killed" {
@@ -1111,12 +1180,12 @@ impl Deadbolt {
             } else {
                 lease.state.as_str()
             };
-            g.conn
-                .execute(
-                    "UPDATE leases SET spend_usd=?1, state=?2, updated_at=?3 WHERE agent_id=?4",
-                    params![total, state, now_secs(), agent_id],
-                )
-                .map_err(|_| DeadboltError::StoreUnavailable)?;
+            tx.execute(
+                "UPDATE leases SET spend_usd=?1, state=?2, updated_at=?3 WHERE agent_id=?4",
+                params![total, state, now_secs(), agent_id],
+            )
+            .map_err(|_| DeadboltError::StoreUnavailable)?;
+            tx.commit().map_err(|_| DeadboltError::StoreUnavailable)?;
             (total, paused)
         };
         let usd_tok = usd_token(usd);
@@ -1233,25 +1302,6 @@ impl Deadbolt {
             }
         });
         Ok(body.to_string())
-    }
-
-    fn consume_approval(&self, agent_id: &str, tool: &str) -> Result<(), ()> {
-        let store = self.store.as_ref().ok_or(())?;
-        let g = store.lock().map_err(|_| ())?;
-        let mut lease = load_lease(&g.conn, agent_id).map_err(|_| ())?.ok_or(())?;
-        let before = lease.approvals.len();
-        lease.approvals.retain(|t| t != tool);
-        if lease.approvals.len() == before {
-            return Ok(());
-        }
-        let raw = serde_json::to_string(&lease.approvals).unwrap_or_else(|_| "[]".into());
-        g.conn
-            .execute(
-                "UPDATE leases SET approvals=?1 WHERE agent_id=?2",
-                params![raw, agent_id],
-            )
-            .map_err(|_| ())?;
-        Ok(())
     }
 
     /// List one agent, or every lease when `agent_id` is `None`.
@@ -1504,18 +1554,23 @@ impl Deadbolt {
         let store = self.store()?;
         {
             let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
-            let lease = load_lease(&g.conn, agent_id)
+            let tx = rusqlite::Transaction::new_unchecked(
+                &g.conn,
+                rusqlite::TransactionBehavior::Immediate,
+            )
+            .map_err(|_| DeadboltError::StoreUnavailable)?;
+            let lease = load_lease(&tx, agent_id)
                 .map_err(|_| DeadboltError::StoreUnavailable)?
                 .ok_or(DeadboltError::NotFound)?;
             if lease.state == "killed" {
                 return Err(DeadboltError::Killed);
             }
-            g.conn
-                .execute(
-                    "UPDATE leases SET state=?1, updated_at=?2 WHERE agent_id=?3",
-                    params![state, now_secs(), agent_id],
-                )
-                .map_err(|_| DeadboltError::StoreUnavailable)?;
+            tx.execute(
+                "UPDATE leases SET state=?1, updated_at=?2 WHERE agent_id=?3",
+                params![state, now_secs(), agent_id],
+            )
+            .map_err(|_| DeadboltError::StoreUnavailable)?;
+            tx.commit().map_err(|_| DeadboltError::StoreUnavailable)?;
         }
         self.emit(
             EpistemicClass::Observed,
@@ -1537,9 +1592,14 @@ impl Deadbolt {
         let sink = self.sink.as_ref().ok_or(SinkError::Unavailable)?;
         let store = self.store.as_ref().ok_or(SinkError::Unavailable)?;
         let seq = {
-            let mut g = store.lock()?;
-            g.seq = g.seq.saturating_add(1);
-            g.seq
+            let g = store.lock()?;
+            g.conn
+                .query_row(
+                    "UPDATE event_sequence SET seq=seq+1 WHERE id=1 RETURNING seq",
+                    [],
+                    |row| row.get::<_, u64>(0),
+                )
+                .map_err(|_| SinkError::Unavailable)?
         };
         let record = EvidenceRecord::seal(class, kind, payload, premises, seq)?;
         sink.append(&record)?;

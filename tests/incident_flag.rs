@@ -8,6 +8,7 @@ fn incident_json_flag_without_value_exits_0() {
     let db_path = dir.path().join("deadbolt.db");
     let db = Deadbolt::open(&DeadboltConfig {
         db_path: Some(db_path.display().to_string()),
+        events_path: Some(dir.path().join("events.jsonl").display().to_string()),
         ..DeadboltConfig::default()
     });
     db.ensure_agent("A").unwrap();
@@ -15,6 +16,7 @@ fn incident_json_flag_without_value_exits_0() {
     let bare = Command::new(bin)
         .args(["incident", "--agent", "A", "--json", "--children"])
         .env("DEADBOLT_DB", &db_path)
+        .env("DEADBOLT_EVENTS", dir.path().join("events.jsonl"))
         .output()
         .unwrap();
     assert_eq!(
@@ -37,6 +39,7 @@ fn incident_json_flag_without_value_exits_0() {
             "true",
         ])
         .env("DEADBOLT_DB", &db_path)
+        .env("DEADBOLT_EVENTS", dir.path().join("events.jsonl"))
         .output()
         .unwrap();
     assert_eq!(valued.status.code(), Some(0));

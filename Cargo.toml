@@ -1,6 +1,6 @@
 [package]
 name = "n11-deadbolt"
-description = "Out-of-band lease gate. Cuts tool, MCP, and spawn. Does not shut down frontier models."
+description = "Local execution gate for software agents: leases, policy, operator revocation, and structured evidence."
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
@@ -14,10 +14,17 @@ include = [
     "src/**/*",
     "examples/**/*",
     "docs/**/*",
+    "tests/**/*",
     "README.md",
     "LICENSE",
     "NOTICE",
     "SECURITY.md",
+    "CONTRIBUTING.md",
+    "CHANGELOG.md",
+    "Dockerfile",
+    "dist/deadbolt.service",
+    "dist/docker-compose.yml",
+    "dist/deadbolt.env.example",
     "Cargo.toml",
     "Cargo.lock",
 ]
@@ -47,4 +54,3 @@ path = "src/lib.rs"
 [[example]]
 name = "build_in"
 path = "examples/build_in.rs"
-

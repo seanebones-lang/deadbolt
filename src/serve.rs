@@ -4,21 +4,99 @@
 //! and only when a token is configured. `kill`, `pause`, `clip`, and `resume`
 //! stay on the CLI.
 
+#[cfg(unix)]
 use std::fs;
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener};
-use std::os::unix::fs::PermissionsExt;
+#[cfg(unix)]
+use std::os::unix::fs::{FileTypeExt, PermissionsExt};
+#[cfg(unix)]
 use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
 use crate::{AdmitDecision, Deadbolt, DeadboltConfig, DeadboltError};
 
-/// Default bind. Local socket, not a TCP address.
+const MAX_WORKERS: usize = 64;
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
+const MAX_REQUEST_BYTES: usize = 65_536;
+
+struct WorkerPermit(Arc<AtomicUsize>);
+
+impl WorkerPermit {
+    fn acquire(active: &Arc<AtomicUsize>, limit: usize) -> Option<Self> {
+        active
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+                (n < limit).then_some(n + 1)
+            })
+            .ok()
+            .map(|_| Self(Arc::clone(active)))
+    }
+}
+
+impl Drop for WorkerPermit {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::AcqRel);
+    }
+}
+
+trait Connection: Read + Write + Send + 'static {
+    fn read_timeout(&self, timeout: Duration) -> std::io::Result<()>;
+    fn write_timeout(&self, timeout: Duration) -> std::io::Result<()>;
+}
+
+impl Connection for std::net::TcpStream {
+    fn read_timeout(&self, t: Duration) -> std::io::Result<()> {
+        self.set_read_timeout(Some(t))
+    }
+    fn write_timeout(&self, t: Duration) -> std::io::Result<()> {
+        self.set_write_timeout(Some(t))
+    }
+}
+
+#[cfg(unix)]
+impl Connection for std::os::unix::net::UnixStream {
+    fn read_timeout(&self, t: Duration) -> std::io::Result<()> {
+        self.set_read_timeout(Some(t))
+    }
+    fn write_timeout(&self, t: Duration) -> std::io::Result<()> {
+        self.set_write_timeout(Some(t))
+    }
+}
+
+fn spawn_worker(
+    gate: &Deadbolt,
+    stream: impl Connection,
+    token: &Option<String>,
+    active: &Arc<AtomicUsize>,
+) {
+    let Some(permit) = WorkerPermit::acquire(active, MAX_WORKERS) else {
+        return;
+    };
+    let gate = gate.clone();
+    let token = token.clone();
+    // A failed spawn drops the captured permit and connection, without panicking
+    // the listener. Saturated listeners close excess sockets immediately.
+    let _ = thread::Builder::new()
+        .name("deadbolt-http".into())
+        .spawn(move || {
+            let _permit = permit;
+            let _ = handle_io(&gate, stream, token.as_deref(), REQUEST_TIMEOUT);
+        });
+}
+
+/// Default bind: Unix socket on Unix, loopback TCP on other platforms.
 pub fn default_bind_path() -> PathBuf {
+    if cfg!(not(unix)) {
+        return PathBuf::from("127.0.0.1:9782");
+    }
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join(".deadbolt")
@@ -128,42 +206,64 @@ fn resolve_token(cfg: &DeadboltConfig) -> Result<Option<String>, DeadboltError> 
     if !path.exists() {
         return Ok(None);
     }
-    let mode = fs::metadata(path)
-        .map_err(|_| DeadboltError::BindRefused)?
-        .permissions()
-        .mode()
-        & 0o777;
-    if mode != 0o600 {
-        return Err(DeadboltError::BindRefused);
-    }
-    let raw = fs::read_to_string(path).map_err(|_| DeadboltError::BindRefused)?;
-    let value = raw.trim();
-    if value.is_empty() {
-        Ok(None)
-    } else {
-        Ok(Some(value.to_string()))
+    #[cfg(not(unix))]
+    return Err(DeadboltError::BindRefused);
+    #[cfg(unix)]
+    {
+        let mode = fs::metadata(path)
+            .map_err(|_| DeadboltError::BindRefused)?
+            .permissions()
+            .mode()
+            & 0o777;
+        if mode != 0o600 {
+            return Err(DeadboltError::BindRefused);
+        }
+        let raw = fs::read_to_string(path).map_err(|_| DeadboltError::BindRefused)?;
+        let value = raw.trim();
+        if value.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(value.to_string()))
+        }
     }
 }
 
+#[cfg(not(unix))]
+fn listen(_gate: Deadbolt, _bind: &Path, _token: Option<String>) -> Result<(), DeadboltError> {
+    Err(DeadboltError::BindRefused)
+}
+
+#[cfg(unix)]
 fn listen(gate: Deadbolt, bind: &Path, token: Option<String>) -> Result<(), DeadboltError> {
     if let Some(parent) = bind.parent() {
         if !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent).map_err(|_| DeadboltError::BindRefused)?;
         }
     }
-    let _ = fs::remove_file(bind);
+    match fs::symlink_metadata(bind) {
+        Ok(meta) => {
+            if !meta.file_type().is_socket() {
+                return Err(DeadboltError::BindRefused);
+            }
+            match std::os::unix::net::UnixStream::connect(bind) {
+                Err(e) if e.kind() == std::io::ErrorKind::ConnectionRefused => {
+                    fs::remove_file(bind).map_err(|_| DeadboltError::BindRefused)?;
+                }
+                _ => return Err(DeadboltError::BindRefused),
+            }
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(_) => return Err(DeadboltError::BindRefused),
+    }
     let listener = UnixListener::bind(bind).map_err(|_| DeadboltError::BindRefused)?;
-    let _ = fs::set_permissions(bind, fs::Permissions::from_mode(0o600));
+    fs::set_permissions(bind, fs::Permissions::from_mode(0o600))
+        .map_err(|_| DeadboltError::BindRefused)?;
+    let active = Arc::new(AtomicUsize::new(0));
     for conn in listener.incoming() {
         let Ok(stream) = conn else {
             continue;
         };
-        let gate = gate.clone();
-        let token = token.clone();
-        let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
-        thread::spawn(move || {
-            let _ = handle_io(&gate, stream, token.as_deref());
-        });
+        spawn_worker(&gate, stream, &token, &active);
     }
     Ok(())
 }
@@ -174,43 +274,62 @@ fn listen_tcp(
     token: Option<String>,
 ) -> Result<(), DeadboltError> {
     let listener = TcpListener::bind(addr).map_err(|_| DeadboltError::BindRefused)?;
+    let active = Arc::new(AtomicUsize::new(0));
     for conn in listener.incoming() {
         let Ok(stream) = conn else {
             continue;
         };
-        let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
-        let gate = gate.clone();
-        let token = token.clone();
-        thread::spawn(move || {
-            let _ = handle_io(&gate, stream, token.as_deref());
-        });
+        spawn_worker(&gate, stream, &token, &active);
     }
     Ok(())
 }
 
 fn handle_io(
     gate: &Deadbolt,
-    mut stream: impl Read + Write,
+    mut stream: impl Connection,
     token: Option<&str>,
+    timeout: Duration,
 ) -> std::io::Result<()> {
+    let deadline = Instant::now() + timeout;
+    stream.write_timeout(timeout)?;
     let mut buf = Vec::new();
     let mut tmp = [0u8; 2048];
     loop {
+        let remaining = deadline
+            .checked_duration_since(Instant::now())
+            .filter(|t| !t.is_zero())
+            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::TimedOut, "request deadline"))?;
+        stream.read_timeout(remaining)?;
         let n = stream.read(&mut tmp)?;
         if n == 0 {
-            break;
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::UnexpectedEof,
+                "incomplete request",
+            ));
         }
         buf.extend_from_slice(&tmp[..n]);
+        if buf.len() > MAX_REQUEST_BYTES {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "request too large",
+            ));
+        }
         if let Some(header_end) = find_header_end(&buf) {
-            let header = String::from_utf8_lossy(&buf[..header_end]).to_string();
-            let need = content_length(&header);
+            let header = std::str::from_utf8(&buf[..header_end]).map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid header")
+            })?;
+            let need = content_length(header)?;
+            if need > MAX_REQUEST_BYTES.saturating_sub(header_end + 4) {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "request too large",
+                ));
+            }
             let have = buf.len().saturating_sub(header_end + 4);
             if have >= need {
+                buf.truncate(header_end + 4 + need);
                 break;
             }
-        }
-        if buf.len() > 65_536 {
-            break;
         }
     }
     let raw = String::from_utf8_lossy(&buf).to_string();
@@ -251,18 +370,25 @@ fn find_header_end(buf: &[u8]) -> Option<usize> {
     buf.windows(4).position(|w| w == b"\r\n\r\n")
 }
 
-fn content_length(header: &str) -> usize {
-    header
-        .lines()
-        .find_map(|line| {
-            let (k, v) = line.split_once(':')?;
-            if k.eq_ignore_ascii_case("content-length") {
-                v.trim().parse().ok()
-            } else {
-                None
+fn content_length(header: &str) -> std::io::Result<usize> {
+    let invalid = || std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid HTTP framing");
+    let mut length = None;
+    for line in header.lines().skip(1) {
+        let (key, value) = line.split_once(':').ok_or_else(invalid)?;
+        if key.eq_ignore_ascii_case("transfer-encoding") {
+            return Err(invalid());
+        }
+        if key.eq_ignore_ascii_case("content-length") {
+            if length.is_some()
+                || value.trim().is_empty()
+                || !value.trim().bytes().all(|b| b.is_ascii_digit())
+            {
+                return Err(invalid());
             }
-        })
-        .unwrap_or(0)
+            length = Some(value.trim().parse::<usize>().map_err(|_| invalid())?);
+        }
+    }
+    Ok(length.unwrap_or(0))
 }
 
 fn dispatch_http(gate: &Deadbolt, raw: &str, token: Option<&str>) -> (u16, String) {
@@ -434,7 +560,7 @@ fn err_token(err: &DeadboltError) -> &'static str {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
     use crate::DeadboltConfig;
@@ -495,6 +621,115 @@ mod tests {
         }
         let json = last.split_once("\r\n\r\n").map(|(_, b)| b).unwrap_or("");
         serde_json::from_str(json).unwrap_or_else(|_| json!({"raw": last}))
+    }
+
+    #[test]
+    fn listener_preserves_files_and_live_sockets() {
+        let dir = sock_dir();
+        let gate = Deadbolt::open(&cfg_at(&dir));
+        let path = dir.join("existing");
+        fs::write(&path, "keep").unwrap();
+        assert!(listen(gate.clone(), &path, None).is_err());
+        assert_eq!(fs::read_to_string(&path).unwrap(), "keep");
+        let socket = dir.join("live.sock");
+        let listener = UnixListener::bind(&socket).unwrap();
+        assert!(listen(gate, &socket, None).is_err());
+        assert!(std::os::unix::net::UnixStream::connect(&socket).is_ok());
+        drop(listener);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn saturated_worker_closes_connection_and_recovers() {
+        let dir = sock_dir();
+        let gate = Deadbolt::open(&cfg_at(&dir));
+        let active = Arc::new(AtomicUsize::new(MAX_WORKERS));
+        let (mut client, server) = UnixStream::pair().unwrap();
+        client
+            .set_read_timeout(Some(Duration::from_secs(1)))
+            .unwrap();
+        spawn_worker(&gate, server, &None, &active);
+        assert_eq!(client.read(&mut [0u8; 1]).unwrap(), 0);
+        assert_eq!(active.load(Ordering::Acquire), MAX_WORKERS);
+        active.store(0, Ordering::Release);
+        let (mut client, server) = UnixStream::pair().unwrap();
+        client
+            .set_read_timeout(Some(Duration::from_secs(1)))
+            .unwrap();
+        spawn_worker(&gate, server, &Some("test-token".into()), &active);
+        client.write_all(b"POST /ensure HTTP/1.1\r\nx-deadbolt-token: test-token\r\ncontent-length: 16\r\n\r\n{\"agent_id\":\"A\"}").unwrap();
+        let mut response = String::new();
+        client.read_to_string(&mut response).unwrap();
+        assert!(response.contains("\"ok\":true"), "{response}");
+        for _ in 0..20 {
+            if active.load(Ordering::Acquire) == 0 {
+                break;
+            }
+            thread::sleep(Duration::from_millis(5));
+        }
+        assert_eq!(active.load(Ordering::Acquire), 0);
+        assert_eq!(gate.status(Some("A")).unwrap().len(), 1);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn worker_capacity_releases_on_completion_and_rejects_excess() {
+        let active = Arc::new(AtomicUsize::new(0));
+        let first = WorkerPermit::acquire(&active, 2).unwrap();
+        let second = WorkerPermit::acquire(&active, 2).unwrap();
+        assert!(WorkerPermit::acquire(&active, 2).is_none());
+        assert_eq!(active.load(Ordering::Acquire), 2);
+        drop(first);
+        let third = WorkerPermit::acquire(&active, 2).unwrap();
+        drop(second);
+        drop(third);
+        assert_eq!(active.load(Ordering::Acquire), 0);
+    }
+
+    #[test]
+    fn partial_bytes_do_not_renew_total_request_deadline() {
+        let dir = sock_dir();
+        let gate = Deadbolt::open(&cfg_at(&dir));
+        let (mut client, server) = UnixStream::pair().unwrap();
+        let started = Instant::now();
+        let worker =
+            thread::spawn(move || handle_io(&gate, server, None, Duration::from_millis(150)));
+        // Each byte arrives before the old per-read timeout, but the complete
+        // request never arrives. The total deadline must still terminate it.
+        for _ in 0..6 {
+            if client.write_all(b"G").is_err() {
+                break;
+            }
+            thread::sleep(Duration::from_millis(40));
+        }
+        let err = worker.join().unwrap().unwrap_err();
+        assert!(matches!(
+            err.kind(),
+            std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+        ));
+        assert!(started.elapsed() < Duration::from_secs(1));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn malformed_or_truncated_http_cannot_mutate_store() {
+        let dir = sock_dir();
+        let gate = Deadbolt::open(&cfg_at(&dir));
+        for framing in [
+            "content-length: 99",
+            "content-length: nope",
+            "content-length: 16\r\ncontent-length: 16",
+            "transfer-encoding: chunked",
+        ] {
+            let (mut client, server) = UnixStream::pair().unwrap();
+            let request =
+                format!("POST /ensure HTTP/1.1\r\n{framing}\r\n\r\n{{\"agent_id\":\"A\"}}");
+            client.write_all(request.as_bytes()).unwrap();
+            client.shutdown(std::net::Shutdown::Write).unwrap();
+            assert!(handle_io(&gate, server, None, Duration::from_secs(1)).is_err());
+            assert!(gate.status(Some("A")).unwrap().is_empty());
+        }
+        let _ = fs::remove_dir_all(dir);
     }
 
     #[test]

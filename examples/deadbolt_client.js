@@ -8,6 +8,7 @@ const path = require("path");
 
 function sockPath() {
   if (process.env.DEADBOLT_SOCK) return process.env.DEADBOLT_SOCK;
+  if (process.platform === "win32") return "127.0.0.1:9782";
   return path.join(os.homedir(), ".deadbolt", "deadbolt.sock");
 }
 
@@ -46,7 +47,7 @@ function call(method, urlPath, body) {
   try {
     target = tcpTarget(sockPath());
   } catch (err) {
-    return Promise.reject(err);
+    return Promise.resolve(down(urlPath));
   }
   const options = target
     ? { host: target.host, port: target.port, method, path: urlPath, headers, timeout: 5000 }
@@ -70,10 +71,12 @@ function call(method, urlPath, body) {
     };
     const req = http.request(options, (res) => {
       const chunks = [];
+      res.on("error", () => finish(down(urlPath)));
+      res.on("aborted", () => finish(down(urlPath)));
       res.on("data", (c) => chunks.push(c));
       res.on("end", () => {
         const raw = Buffer.concat(chunks).toString("utf8");
-        if (res.statusCode >= 500 || !raw) {
+        if (res.statusCode < 200 || res.statusCode >= 300 || !raw) {
           finish(down(urlPath));
           return;
         }
@@ -98,8 +101,21 @@ function ensure(agentId) {
   return call("POST", "/ensure", { agent_id: agentId });
 }
 
-function admit(agentId, tool) {
-  return call("POST", "/admit", { agent_id: agentId, tool });
+function admit(agentId, tool, dest) {
+  const body = { agent_id: agentId, tool };
+  if (dest != null) body.dest = dest;
+  return call("POST", "/admit", body).then((result) => {
+    if (!result || (result.decision !== "allow" && result.decision !== "deny")) return down("/admit");
+    return result;
+  });
+}
+
+function policy(agentId, fields) {
+  return call("POST", "/policy", { ...fields, agent_id: agentId });
+}
+
+function spend(agentId, usd) {
+  return call("POST", "/spend", { agent_id: agentId, usd });
 }
 
 function registerChild(parent, child, swarmTaskId) {
@@ -122,7 +138,7 @@ async function main() {
   const cmd = process.argv[2];
   let out;
   if (cmd === "ensure") out = await ensure(arg("--agent"));
-  else if (cmd === "admit") out = await admit(arg("--agent"), arg("--tool"));
+  else if (cmd === "admit") out = await admit(arg("--agent"), arg("--tool"), arg("--dest"));
   else if (cmd === "register-child") {
     out = await registerChild(arg("--parent"), arg("--child"), arg("--swarm-task"));
   } else if (cmd === "status") out = await status(arg("--agent"));
@@ -133,7 +149,9 @@ async function main() {
   process.stdout.write(JSON.stringify(out) + "\n");
 }
 
-main().catch((err) => {
+module.exports = { ensure, admit, registerChild, status, policy, spend };
+
+if (require.main === module) main().catch((err) => {
   console.error(String(err && err.message ? err.message : err));
   process.exit(1);
 });

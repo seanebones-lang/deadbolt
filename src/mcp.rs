@@ -6,6 +6,7 @@
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr, TcpStream};
+#[cfg(unix)]
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -152,6 +153,28 @@ fn dispatch(
     let Ok(msg) = serde_json::from_str::<Value>(trimmed) else {
         return Ok(());
     };
+    // MCP stdio carries individual JSON-RPC objects, not batches. Validate the
+    // shape before routing and serialize the same parsed value we admit, so a
+    // downstream parser cannot interpret duplicate keys differently.
+    let valid_id = |id: &Value| id.is_string() || id.is_number();
+    let valid_request = msg.get("method").is_some_and(Value::is_string)
+        && msg.get("id").is_none_or(valid_id)
+        && msg
+            .get("params")
+            .is_none_or(|p| p.is_object() || p.is_array())
+        && msg.get("result").is_none()
+        && msg.get("error").is_none();
+    let valid_response = msg.get("method").is_none()
+        && msg.get("params").is_none()
+        && msg.get("id").is_some_and(valid_id)
+        && (msg.get("result").is_some() != msg.get("error").is_some());
+    if !msg.is_object()
+        || msg.get("jsonrpc").and_then(Value::as_str) != Some("2.0")
+        || !(valid_request || valid_response)
+    {
+        write_client(client, &error_line(&Value::Null, -32600, "bad_request"))?;
+        return Ok(());
+    }
     if msg.get("method").and_then(|m| m.as_str()) == Some("tools/call") {
         let Some(name) = msg
             .get("params")
@@ -173,7 +196,7 @@ fn dispatch(
             return Ok(());
         }
     }
-    child.write_all(forward_line(line).as_bytes())?;
+    child.write_all(forward_line(&msg.to_string()).as_bytes())?;
     child.flush()
 }
 
@@ -333,7 +356,7 @@ fn sock_decision(sock: &Path, agent: &str, tool: &str, dest: Option<&str>) -> Op
     };
     match http_json(sock, "POST", "/admit", Some(&body)) {
         Ok((401, _)) => Some("unauthorized".to_string()),
-        Ok((_, v)) if v.get("decision").and_then(|d| d.as_str()) == Some("allow") => None,
+        Ok((200..=299, v)) if v.get("decision").and_then(|d| d.as_str()) == Some("allow") => None,
         Ok((_, v)) => Some(
             v.get("code")
                 .and_then(|c| c.as_str())
@@ -390,6 +413,7 @@ fn http_json(
 }
 
 enum Dial {
+    #[cfg(unix)]
     Unix(UnixStream),
     Tcp(TcpStream),
 }
@@ -397,6 +421,7 @@ enum Dial {
 impl Dial {
     fn write_all(&mut self, bytes: &[u8]) -> std::io::Result<()> {
         match self {
+            #[cfg(unix)]
             Self::Unix(s) => s.write_all(bytes),
             Self::Tcp(s) => s.write_all(bytes),
         }
@@ -404,6 +429,7 @@ impl Dial {
 
     fn shutdown_write(&mut self) -> std::io::Result<()> {
         match self {
+            #[cfg(unix)]
             Self::Unix(s) => s.shutdown(Shutdown::Write),
             Self::Tcp(s) => s.shutdown(Shutdown::Write),
         }
@@ -411,6 +437,7 @@ impl Dial {
 
     fn read_to_string(&mut self, out: &mut String) -> std::io::Result<usize> {
         match self {
+            #[cfg(unix)]
             Self::Unix(s) => s.read_to_string(out),
             Self::Tcp(s) => s.read_to_string(out),
         }
@@ -429,10 +456,15 @@ fn dial(path: &Path) -> Result<Dial, DeadboltError> {
         let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
         return Ok(Dial::Tcp(stream));
     }
-    let stream = UnixStream::connect(path).map_err(|_| DeadboltError::StoreUnavailable)?;
-    let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
-    let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
-    Ok(Dial::Unix(stream))
+    #[cfg(not(unix))]
+    return Err(DeadboltError::BindRefused);
+    #[cfg(unix)]
+    {
+        let stream = UnixStream::connect(path).map_err(|_| DeadboltError::StoreUnavailable)?;
+        let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
+        let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
+        Ok(Dial::Unix(stream))
+    }
 }
 
 fn tcp_loopback(raw: &str) -> Option<SocketAddr> {
@@ -594,6 +626,71 @@ mod tests {
             out.push(line);
         }
         (seen, out)
+    }
+
+    #[test]
+    fn mcp_sidecar_error_status_cannot_allow_tool() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(1)))
+                .unwrap();
+            let mut buf = [0u8; 2048];
+            let _ = stream.read(&mut buf).unwrap();
+            let body = r#"{"decision":"allow"}"#;
+            write!(stream, "HTTP/1.1 503 Service Unavailable\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}", body.len()).unwrap();
+        });
+        assert_eq!(
+            sock_decision(Path::new(&addr.to_string()), "A", "shell", None),
+            Some("store_unavailable".into())
+        );
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn mcp_rejects_batches_and_invalid_envelopes_before_child() {
+        let (dir, gate) = temp_gate();
+        gate.ensure_agent("shop-bot").unwrap();
+        gate.kill("shop-bot").unwrap();
+        let (seen, out) = drive(
+            &gate,
+            &[
+                r#"[{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"shell"}}]"#,
+                r#"null"#,
+                r#"{"jsonrpc":"2.0","id":7,"method":null}"#,
+                r#"{"jsonrpc":"1.0","id":7,"method":"tools/call","params":{"name":"shell"}}"#,
+            ],
+        );
+        assert!(seen.is_empty(), "invalid envelopes reached child: {seen:?}");
+        assert_eq!(out.len(), 4);
+        for line in out {
+            let value: Value = serde_json::from_str(&line).unwrap();
+            assert_eq!(value["error"]["code"], -32600);
+        }
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn mcp_duplicate_keys_forward_only_the_admitted_interpretation() {
+        let (dir, gate) = temp_gate();
+        gate.ensure_agent("shop-bot").unwrap();
+        gate.kill("shop-bot").unwrap();
+        let (seen, out) = drive(
+            &gate,
+            &[
+                r#"{"jsonrpc":"2.0","id":8,"method":"tools/call","method":"ping","params":{"name":"shell"}}"#,
+                r#"{"jsonrpc":"2.0","id":9,"method":"ping","method":"tools/call","params":{"name":"shell"}}"#,
+                r#"{"jsonrpc":"2.0","id":10,"result":{"ok":true}}"#,
+            ],
+        );
+        assert_eq!(seen.len(), 2);
+        assert!(!seen[0].contains("tools/call"));
+        assert_eq!(seen[0].matches("\"method\"").count(), 1);
+        assert!(seen[1].contains("\"result\""));
+        assert!(out.iter().any(|line| line.contains("killed")));
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
