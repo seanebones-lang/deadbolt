@@ -1,19 +1,24 @@
 # Deadbolt v1 readiness
 
-Working assessment: 2026-09-29. This is a release plan, not a released-version
-claim. The implementation reviewed here is the standalone integration branch;
-the candidate Cargo version is 1.0.0-rc.1. PR #1 was merged at
-`84b8c135b44e32e17ac54d8bde37f984a8c9e490` after passing source CI; the merge
-commit's source CI passed too. Candidate preparation follows on `codex/v1-readiness`.
+Updated: 2026-09-29. Version 1.0.0 is published at source
+`61861c05cadf65022723776de869eabc71475de6` after PRs #1–#3 were merged.
+The exact merged source passed [source CI](https://github.com/seanebones-lang/deadbolt/actions/runs/36587225122)
+and [native packaging, Hermes acceptance and upgrade](https://github.com/seanebones-lang/deadbolt/actions/runs/36587225214).
+All four published archives were downloaded again and matched the verified
+artifacts byte for byte. The [release](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.0)
+is the authority for released downloads; later source changes are separate.
 
-## Stable release cut
+## Next milestones
 
-After all candidate source/platform checks passed, PR #2 was merged at
-`620b026d815c189826ca5e8c5754b8ffbd0d708a`. The stable cut prepares version 1.0.0
-on `codex/v1-release`; it requires its own final source and native archive checks.
-The candidate's independent-host, backup/restore, upgrade and dependency evidence
-remains recorded below. Final publication is still a gate, not an accomplished
-claim. No new runtime policy feature is added in the version promotion.
+1. An unfamiliar developer independently reproduces installation and the Hermes
+   acceptance. Record confusing steps and any failure before adding features.
+2. A bounded external application pilot inventories and protects one real dispatcher;
+   see [the evaluator brief](EVALUATOR.md) and [pilot checklist](PILOT.md).
+3. A second application exercises HTTP or Rust integration on its actual deployment.
+4. Validate systemd on a disposable Linux host before promoting the template from
+   experimental; extend OS/architecture coverage only with fresh acceptance.
+5. Prioritize signing, notarization and registry distribution when evaluation
+   identifies them as installation barriers.
 
 ## The v1 promise
 
@@ -33,7 +38,7 @@ measurement, per-agent authorization from the shared sidecar token, or
 tamper-proof evidence. Keep these limits prominent in installation and adoption
 material, not only in security documentation.
 
-## Today's order of work
+## Completed v1 work sequence
 
 | Order | Work | Completion evidence |
 | --- | --- | --- |
@@ -60,17 +65,17 @@ first release's enforcement or installation contract.
 - Protocol and concurrency regressions cover previously identified failures.
   This evidence does not establish security certification or every integration.
 
-## Open release gates
+## Release and adoption gates
 
 | Gate | Current status | Required decision or work |
 | --- | --- | --- |
 | Independent-host MCP acceptance | Passed for the selected route | Hermes' real MCP transport and reference filesystem server passed 13 checks; see [showcase](HERMES-SHOWCASE.md). Whole-agent Hermes coverage is not claimed |
-| Stable API and compatibility policy | Defined for candidate review | See [compatibility](COMPATIBILITY.md); stable 1.0 starts only with final publication |
-| Release packaging | Four native targets passed at initial candidate | [Candidate run](https://github.com/seanebones-lang/deadbolt/actions/runs/36583922121) passed Linux x86_64, Windows x86_64, Mac arm64/x86_64 archive extraction and drills. Repeat for the final release source identity |
-| Version/changelog | Stable cut prepared | 1.0.0 requires its own final checks and publication; 1.0.0-rc.1 was the tested candidate |
+| Stable API and compatibility policy | Published v1 contract | See [compatibility](COMPATIBILITY.md) and versioned release notes |
+| Release packaging | Four native targets published | Final exact-source packaging and checksum/content verification passed for Linux x86_64, Windows x86_64 and Mac arm64/x86_64 |
+| Version/changelog | 1.0.0 published | The final tag is immutable; later changes need a separate release |
 | Native systemd deployment | Unvalidated | Validate on a disposable systemd host, or clearly keep this deployment template experimental for v1 |
 | Registry distribution | Unpublished | Source/binary distribution can support v1; publish crates.io only if selected and prepared. Python/Node remain source clients unless separately packaged |
-| Final source review and publication | Open | Review the candidate and its evidence before merge/tag/release |
+| Final source review and publication | Completed | PR #3 merged after candidate checks; exact-main checks passed before v1.0.0 publication |
 | Dependency advisories | Passed on 2026-09-29 | cargo-audit 0.22.2 found no matching vulnerabilities or warnings in 84 locked dependencies against RustSec database commit f23b768236fe2880e4cfa167da662cad8ca79240 |
 
 The first application's acceptance is a claim about that application. It does

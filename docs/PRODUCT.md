@@ -1,68 +1,45 @@
 # Deadbolt
 
-Capability is compounding. Containment is lagging.
+Deadbolt is a local admission gate for software agents. A trusted executor checks
+before each protected action and executes only on explicit allow. Operators can
+apply policy, require one-shot approval and revoke an identity and its registered
+descendants without asking the model to cooperate.
 
-Deadbolt is a local execution gate: leased tool access, explicit policy, operator stop and structured incident evidence.
+## Install and integrate
 
-It does not shut down GPT. Sidecar down = deny. A bolt-on client is cooperative. `mcp-proxy` gates routed tool calls; build-in requires a dispatcher that stops on deny.
+[Deadbolt v1.0.0](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.0)
+is available as source and native archives for Linux x86_64, Windows x86_64,
+and Apple Silicon/Intel Macs. Verify the download and run the drill using
+[installation](INSTALL.md) and [quick start](QUICKSTART.md).
 
-This is your agent. It is not a lab research swarm on the public internet.
+Embed the Rust library, use the local HTTP sidecar from Python/Node or another
+language, or route a trusted stdio MCP server through the proxy. The Cargo package
+is `n11-deadbolt`; the library and executable are `deadbolt`. Registry packages
+are not published. Native binaries are unsigned and Mac binaries are unnotarized.
 
-## Install
+## Reproduce the evidence
 
-```bash
-cargo install --git https://github.com/seanebones-lang/deadbolt.git --locked --bin deadbolt
-```
+The selected Hermes MCP route and reference filesystem server passed 13 checks:
+four permitted writes had the expected contents and nine denied attempts had no
+file effect. The checks cover policy, approval, parent/child revocation, outage,
+restart and wrong token. Our team ran the tests against third-party software;
+this is not independent human validation or Hermes endorsement.
 
-The binary name stays `deadbolt`. The crate name is `n11-deadbolt`.
+Start with [the evaluator brief](EVALUATOR.md), [demo](DEMO.md), and
+[application pilot](PILOT.md). The [Hermes guide](HERMES-SHOWCASE.md) gives the
+pinned reproduction steps. Release notes link final source, packaging and upgrade CI.
 
-## Two modes
+## Operating boundary
 
-Build-in. Depend on crate `n11-deadbolt` and call the gate in process:
+Kill prevents subsequent admissions. It does not terminate an agent process or
+cancel a running body. The executor must own identity assignment and require
+admission on every protected route. Unset policy lists are open; children need
+explicit policy. Spend and destination context are caller-supplied.
 
-```rust
-use deadbolt::Deadbolt;
-```
+The MCP server is trusted. Other action routes and server startup are outside
+that selected tool-call gate. Operator credentials and state must remain outside
+model-controlled access. See [trust](TRUST.md), [operations](OPERATIONS.md) and
+[compatibility](COMPATIBILITY.md).
 
-The tool body does not run unless `admit` allows it.
-
-Bolt-on. `deadbolt serve` on a Unix socket, or loopback TCP with `DEADBOLT_TOKEN`. `deadbolt mcp-proxy` admits `tools/call` before the child runs it. A client that skips admit is outside the trust boundary. If the sidecar is down, the answer is deny.
-
-## Blast radius
-
-Operator commands. Not model tools.
-
-```bash
-deadbolt policy --agent ID --tools shell,read_file,write_file --dest github.com --irreversible shell --spend-cap 5
-deadbolt approve --agent ID --tool shell
-deadbolt kill --agent ID
-deadbolt incident --agent ID --json --children
-```
-
-`policy` updates an existing lease's policy. An off-list tool is deny `purpose_exceeded`. A present foreign host is deny `purpose_exceeded`. A missing host is deny `purpose_exceeded` only for a network-class tool (`http`, `fetch`, `browser`, `web_search`). A local `write_file` or `shell` with no host is not denied for the dest list alone.
-
-`approve` is one shot for one irreversible tool. The next call of that tool is allow. The one after that is deny `needs_human`.
-
-`kill` revokes that agent and its children. The next tool is deny `killed`.
-
-`incident` writes a token file: decisions, policy snapshot, children. No generated prose.
-
-## Measured live fire
-
-2026-09-28. Harness `5f87be3`. One route that emitted tools. Ids as recorded. Not a benchmark.
-
-Agent `h-59378-18d9acf67c5ecdf8`:
-
-- `write_file` → `ok`
-- `shell` → `needs_human` (body did not run)
-- `approve` then `shell` → `ok`, body `LIVE-POLICY-SHELL`
-- second `shell` → `needs_human`
-- `kill` then `read_file` → `killed`
-
-Agent `h-60207-18d9ad7dce9803c8` wrote `LIVE-POLICY-B2`. That write was allow. Killing the first agent did not block it.
-
-## Trust boundary
-
-Clients are cooperative. `mcp-proxy` gates routed tool calls; build-in requires a dispatcher that stops on deny. Sidecar down = deny.
-
-Deadbolt does not shut down a vendor model. It does not contain another lab's agents on the public internet.
+Deadbolt's own code is Apache-2.0. Bundled components retain their licenses;
+see [third-party distribution](../THIRD-PARTY.md).
