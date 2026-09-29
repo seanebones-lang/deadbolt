@@ -17,6 +17,8 @@ use serde_json::{json, Value};
 
 use crate::{bind_refused, AdmitDecision, Deadbolt, DeadboltError};
 
+type AdmitFn = dyn Fn(&str, Option<&str>, Option<f64>) -> Option<String>;
+
 /// Run an MCP server as a child. Admit `tools/call` in-process, or over
 /// `serve_sock` when set. Does not bind `0.0.0.0`.
 pub fn mcp_proxy(
@@ -38,7 +40,12 @@ pub fn mcp_proxy(
         }
         let sock = sock.clone();
         let agent = agent.to_string();
-        return spawn_proxy(argv, move |tool, dest| {
+        return spawn_proxy(argv, move |tool, dest, usd| {
+            if let Some(usd) = usd {
+                if sock_spend(&sock, &agent, usd).is_err() {
+                    return Some("store_unavailable".into());
+                }
+            }
             sock_decision(&sock, &agent, tool, dest)
         });
     }
@@ -47,7 +54,12 @@ pub fn mcp_proxy(
     }
     let gate = gate.clone();
     let agent = agent.to_string();
-    spawn_proxy(argv, move |tool, dest| {
+    spawn_proxy(argv, move |tool, dest, usd| {
+        if let Some(usd) = usd {
+            if gate.spend_add(&agent, usd).is_err() {
+                return Some("store_unavailable".into());
+            }
+        }
         match gate.admit_dest(&agent, tool, dest) {
             AdmitDecision::Allow => None,
             AdmitDecision::Deny { code } => Some(code.as_str().to_string()),
@@ -57,7 +69,7 @@ pub fn mcp_proxy(
 
 fn spawn_proxy(
     argv: &[String],
-    admit: impl Fn(&str, Option<&str>) -> Option<String>,
+    admit: impl Fn(&str, Option<&str>, Option<f64>) -> Option<String> + 'static,
 ) -> Result<(), DeadboltError> {
     let mut cmd = Command::new(&argv[0]);
     cmd.args(&argv[1..])
@@ -86,7 +98,7 @@ fn proxy_loop<R, W, CW, CR>(
     client_out: W,
     mut child_in: CW,
     mut child_out: CR,
-    admit: &dyn Fn(&str, Option<&str>) -> Option<String>,
+    admit: &AdmitFn,
 ) -> std::io::Result<()>
 where
     R: BufRead,
@@ -129,7 +141,7 @@ where
 
 fn dispatch(
     line: &str,
-    admit: &dyn Fn(&str, Option<&str>) -> Option<String>,
+    admit: &AdmitFn,
     child: &mut impl Write,
     client: &Mutex<impl Write>,
 ) -> std::io::Result<()> {
@@ -152,8 +164,9 @@ fn dispatch(
             }
             return Ok(());
         };
-        let dest = dest_of(name, &msg);
-        if let Some(code) = admit(name, dest.as_deref()) {
+        let dest = dest_of(&msg);
+        let usd = spend_of(&msg);
+        if let Some(code) = admit(name, dest.as_deref(), usd) {
             if let Some(id) = request_id(&msg) {
                 write_client(client, &error_line(id, -32000, &code))?;
             }
@@ -164,21 +177,81 @@ fn dispatch(
     child.flush()
 }
 
-fn dest_of(name: &str, msg: &Value) -> Option<String> {
-    host_in(name).or_else(|| {
-        msg.get("params")
-            .and_then(|p| p.get("arguments"))
-            .and_then(find_host)
-    })
+fn dest_of(msg: &Value) -> Option<String> {
+    msg.get("params")
+        .and_then(|p| p.get("arguments"))
+        .and_then(find_dest)
 }
 
-fn find_host(value: &Value) -> Option<String> {
+fn find_dest(value: &Value) -> Option<String> {
     match value {
-        Value::String(s) => host_in(s),
-        Value::Array(items) => items.iter().find_map(find_host),
-        Value::Object(map) => map.values().find_map(find_host),
+        Value::Object(map) => {
+            for key in ["url", "uri", "href", "endpoint", "host"] {
+                if let Some(raw) = map.get(key).and_then(|v| v.as_str()) {
+                    if let Some(host) = host_from_field(key, raw) {
+                        return Some(host);
+                    }
+                }
+            }
+            map.values().find_map(find_dest)
+        }
+        Value::Array(items) => items.iter().find_map(find_dest),
         _ => None,
     }
+}
+
+fn host_from_field(key: &str, raw: &str) -> Option<String> {
+    if let Some(host) = host_in(raw) {
+        return Some(host);
+    }
+    if key == "host" {
+        bare_host(raw)
+    } else {
+        None
+    }
+}
+
+fn bare_host(raw: &str) -> Option<String> {
+    let raw = raw.trim();
+    if raw.is_empty() || raw.contains('/') || raw.contains(' ') || raw.contains('@') {
+        return None;
+    }
+    let host = raw.split(':').next()?;
+    if host.is_empty() {
+        None
+    } else {
+        Some(host.to_string())
+    }
+}
+
+fn spend_of(msg: &Value) -> Option<f64> {
+    msg.get("params")
+        .and_then(|p| p.get("arguments"))
+        .and_then(find_spend)
+}
+
+fn find_spend(value: &Value) -> Option<f64> {
+    match value {
+        Value::Object(map) => {
+            for key in ["amount", "usd", "cost"] {
+                if let Some(n) = map.get(key).and_then(as_usd) {
+                    return Some(n);
+                }
+            }
+            map.values().find_map(find_spend)
+        }
+        Value::Array(items) => items.iter().find_map(find_spend),
+        _ => None,
+    }
+}
+
+fn as_usd(value: &Value) -> Option<f64> {
+    if let Some(n) = value.as_f64() {
+        return n.is_finite().then_some(n);
+    }
+    let raw = value.as_str()?.trim();
+    let n = raw.parse::<f64>().ok()?;
+    n.is_finite().then_some(n)
 }
 
 fn host_in(raw: &str) -> Option<String> {
@@ -268,6 +341,14 @@ fn sock_decision(sock: &Path, agent: &str, tool: &str, dest: Option<&str>) -> Op
                 .to_string(),
         ),
         Err(_) => Some("store_unavailable".to_string()),
+    }
+}
+
+fn sock_spend(sock: &Path, agent: &str, usd: f64) -> Result<(), ()> {
+    let body = json!({"agent_id": agent, "usd": usd}).to_string();
+    match http_json(sock, "POST", "/spend", Some(&body)) {
+        Ok((200, v)) if v.get("ok").and_then(|x| x.as_bool()) == Some(true) => Ok(()),
+        _ => Err(()),
     }
 }
 
@@ -494,9 +575,16 @@ mod tests {
                 pending: Vec::new(),
                 pos: 0,
             }),
-            &move |tool, _dest| match gate.admit("shop-bot", tool) {
-                AdmitDecision::Allow => None,
-                AdmitDecision::Deny { code } => Some(code.as_str().to_string()),
+            &move |tool, dest, usd| {
+                if let Some(usd) = usd {
+                    if gate.spend_add("shop-bot", usd).is_err() {
+                        return Some("store_unavailable".into());
+                    }
+                }
+                match gate.admit_dest("shop-bot", tool, dest) {
+                    AdmitDecision::Allow => None,
+                    AdmitDecision::Deny { code } => Some(code.as_str().to_string()),
+                }
             },
         )
         .unwrap();
@@ -570,6 +658,92 @@ mod tests {
         );
         assert!(out.iter().any(|l| l.contains("\"shell\"")));
         assert!(out.iter().any(|l| l.contains("\"killed\"")));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn mcp_proxy_dest_policy_denies_foreign_host() {
+        let (dir, gate) = temp_gate();
+        gate.ensure_agent("shop-bot").unwrap();
+        gate.set_policy(
+            "shop-bot",
+            crate::PolicyPatch {
+                dest_allow: Some(vec!["api.stripe.com".into()]),
+                ..crate::PolicyPatch::default()
+            },
+        )
+        .unwrap();
+        let (seen, out) = drive(
+            &gate,
+            &[
+                r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"fetch","arguments":{"url":"https://github.com/acme"}}}"#,
+                r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"fetch","arguments":{"note":"no host"}}}"#,
+            ],
+        );
+        assert!(
+            seen.is_empty(),
+            "deny path must not touch the child: {seen:?}"
+        );
+        assert_eq!(out.len(), 2);
+        for line in &out {
+            let v: Value = serde_json::from_str(line.trim()).unwrap();
+            assert_eq!(v["error"]["message"], "purpose_exceeded");
+            assert_eq!(v["error"]["data"]["code"], "purpose_exceeded");
+        }
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn mcp_proxy_irreversible_does_not_call_child() {
+        let (dir, gate) = temp_gate();
+        gate.ensure_agent("shop-bot").unwrap();
+        gate.set_policy(
+            "shop-bot",
+            crate::PolicyPatch {
+                irreversible: Some(vec!["shell".into()]),
+                ..crate::PolicyPatch::default()
+            },
+        )
+        .unwrap();
+        let (seen, out) = drive(
+            &gate,
+            &[
+                r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"shell","arguments":{}}}"#,
+            ],
+        );
+        assert!(
+            seen.is_empty(),
+            "needs_human must not touch the child: {seen:?}"
+        );
+        let v: Value = serde_json::from_str(out[0].trim()).unwrap();
+        assert_eq!(v["error"]["message"], "needs_human");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn mcp_proxy_off_list_tool_does_not_call_child() {
+        let (dir, gate) = temp_gate();
+        gate.ensure_agent("shop-bot").unwrap();
+        gate.set_policy(
+            "shop-bot",
+            crate::PolicyPatch {
+                tools_allow: Some(vec!["read_file".into()]),
+                ..crate::PolicyPatch::default()
+            },
+        )
+        .unwrap();
+        let (seen, out) = drive(
+            &gate,
+            &[
+                r#"{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"shell","arguments":{}}}"#,
+            ],
+        );
+        assert!(
+            seen.is_empty(),
+            "off-list tool must not touch the child: {seen:?}"
+        );
+        let v: Value = serde_json::from_str(out[0].trim()).unwrap();
+        assert_eq!(v["error"]["message"], "purpose_exceeded");
         let _ = std::fs::remove_dir_all(dir);
     }
 }

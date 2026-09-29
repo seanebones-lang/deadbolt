@@ -2,7 +2,13 @@
 
 # Deadbolt
 
-Out-of-band lease gate. Apache-2.0. Not a model tool.
+Capability is compounding. Containment is lagging.
+
+Deadbolt is fail-closed execution: leased tools, blast radius, human stop, evidence for a lawyer.
+
+It does not shut down GPT. Sidecar down = deny. Bolt-on client is cooperative; mcp-proxy and build-in are enforced.
+
+Apache-2.0. Not a model tool.
 
 Default fail-closed. Sidecar down or timeout = deny `store_unavailable`. Clients default deny. A gate with `fail_closed=true` does the same.
 
@@ -51,6 +57,8 @@ deadbolt approve --agent ID --tool TOOL
 deadbolt incident --agent ID [--out PATH]
 deadbolt mcp-proxy --agent ID [--serve-sock PATH] -- COMMAND...
 ```
+
+The incident file is tokens. Taxonomy: `docs/INCIDENT.md`.
 
 Default socket is `~/.deadbolt/deadbolt.sock` (mode `0600`; token optional). TCP is loopback only: `deadbolt serve --bind 127.0.0.1:PORT`. `0.0.0.0`, `[::]`, and any other host are refused. TCP requires `DEADBOLT_TOKEN` at start. A missing or wrong `X-Deadbolt-Token` is HTTP 401 and does not admit. Set `DEADBOLT_SOCK=127.0.0.1:PORT` or `http://127.0.0.1:PORT` for the clients.
 
