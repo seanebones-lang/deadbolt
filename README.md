@@ -1,3 +1,5 @@
+<img width="2400" height="1254" alt="B - Power Mark (light)@2x" src="https://github.com/user-attachments/assets/12175eb7-67b1-4758-92c9-e2562df80cb4" />
+
 # Deadbolt
 
 Fail-closed execution gate for software agents.
