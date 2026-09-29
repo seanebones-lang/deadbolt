@@ -35,9 +35,10 @@ Follow [checksum verification and archive installation](RELEASING.md#install-an-
 then run the drill. This path does not require Rust or a C compiler. Python and
 Node are needed only for their source clients and demonstrations.
 
-Linux and Windows release binaries are unsigned. The v1.0.2 macOS downloads are
-also unnotarized; consult the selected release's signing and notarization notes
-before relying on newer macOS archives. Source builds remain an alternative. A ZIP
+Linux and Windows release binaries are unsigned. The v1.0.3 macOS archives are
+Developer ID signed and Apple-notarized; their release notes record the exact
+checksums and notarization evidence. The older v1.0.2 Mac archives are
+unnotarized. Source builds remain an alternative. A ZIP
 download is available only for a published release; the release page identifies
 the exact source revision.
 
