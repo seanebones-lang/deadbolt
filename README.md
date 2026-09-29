@@ -2,6 +2,8 @@
 
 # Deadbolt
 
+Public page copy for nexteleven.dev/deadbolt lives in [docs/PRODUCT.md](docs/PRODUCT.md). This file is the crate. That file is the page.
+
 Capability is compounding. Containment is lagging.
 
 Deadbolt is fail-closed execution: leased tools, blast radius, human stop, evidence for a lawyer.
