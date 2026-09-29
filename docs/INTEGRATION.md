@@ -41,4 +41,4 @@ if admit(agent, "shell")["decision"] != "allow":
 # then run the tool
 ```
 
-`DEADBOLT_SOCK` overrides `~/.deadbolt/deadbolt.sock`. If `DEADBOLT_TOKEN` is set, send `X-Deadbolt-Token`. Protocol: `docs/PROTOCOL.md`.
+`DEADBOLT_SOCK` overrides `~/.deadbolt/deadbolt.sock`. A `host:port` or `http://127.0.0.1:port` value uses loopback HTTP. A Unix path still uses the socket. TCP serve requires `DEADBOLT_TOKEN`. On a Unix socket the token stays optional. If it is set, send `X-Deadbolt-Token`. Protocol: `docs/PROTOCOL.md`.

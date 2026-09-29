@@ -153,9 +153,12 @@ pub enum DeadboltError {
     /// Drill scenario failed. The string is a code token, not prose.
     #[error("deadbolt:drill_failed:{0}")]
     DrillFailed(&'static str),
-    /// Bind was not a local socket. `0.0.0.0` is refused.
+    /// Bind was not loopback. `0.0.0.0` is refused.
     #[error("deadbolt:bind_refused")]
     BindRefused,
+    /// TCP serve started without a token.
+    #[error("deadbolt:token_required")]
+    TokenRequired,
     /// Export refused. The string is a code token, not prose.
     #[error("deadbolt:export_refused:{0}")]
     ExportRefused(&'static str),

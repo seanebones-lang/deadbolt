@@ -1,12 +1,14 @@
-//! Local Unix sidecar. Not a model tool. Does not change admit semantics.
+//! Local sidecar. Not a model tool. Does not change admit semantics.
 //!
-//! `kill`, `pause`, `clip`, and `resume` stay on the CLI. This process only
-//! forwards admit, ensure, register_child, and status to the same store.
+//! Unix sockets stay mode `0600`. TCP accepts only `127.0.0.1` and `::1`,
+//! and only when a token is configured. `kill`, `pause`, `clip`, and `resume`
+//! stay on the CLI.
 
 use std::fs;
 use std::io::{Read, Write};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener};
 use std::os::unix::fs::PermissionsExt;
-use std::os::unix::net::{UnixListener, UnixStream};
+use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::Duration;
@@ -25,32 +27,71 @@ pub fn default_bind_path() -> PathBuf {
 
 /// True when the bind must be refused.
 ///
-/// Unix paths are allowed. `0.0.0.0`, `[::]`, and any TCP `host:port`
-/// (including non-loopback) are not.
+/// Unix paths are allowed. TCP is allowed only for `127.0.0.1` and `::1`.
+/// `0.0.0.0`, `[::]`, and any other host are refused.
 pub fn bind_refused(path: &Path) -> bool {
-    let raw = path.to_string_lossy();
-    if raw.contains("0.0.0.0") || raw.contains("[::]") {
-        return true;
-    }
-    tcp_bind(&raw)
+    matches!(classify_bind(path), BindKind::Refused)
 }
 
-fn tcp_bind(raw: &str) -> bool {
+enum BindKind {
+    Unix,
+    Loopback(SocketAddr),
+    Refused,
+}
+
+fn classify_bind(path: &Path) -> BindKind {
+    let raw = path.to_string_lossy();
     if raw.contains('/') || raw.contains('\\') {
-        return false;
+        return BindKind::Unix;
     }
+    if raw.contains("0.0.0.0") || raw.contains("[::]") || raw == "::" {
+        return BindKind::Refused;
+    }
+    if let Some(addr) = loopback_addr(&raw) {
+        return BindKind::Loopback(addr);
+    }
+    if looks_like_host_port(&raw) {
+        return BindKind::Refused;
+    }
+    BindKind::Unix
+}
+
+fn looks_like_host_port(raw: &str) -> bool {
     if let Some(rest) = raw.strip_prefix('[') {
-        if let Some((_, port)) = rest.split_once("]:") {
-            return !port.is_empty() && port.chars().all(|c| c.is_ascii_digit());
-        }
-        return false;
+        return rest.split_once("]:").is_some_and(|(_, port)| port_ok(port));
     }
-    if let Some((_, port)) = raw.rsplit_once(':') {
-        if !port.is_empty() && port.chars().all(|c| c.is_ascii_digit()) {
-            return true;
+    raw.rsplit_once(':').is_some_and(|(_, port)| port_ok(port))
+}
+
+fn port_ok(port: &str) -> bool {
+    !port.is_empty() && port.chars().all(|c| c.is_ascii_digit())
+}
+
+fn loopback_addr(raw: &str) -> Option<SocketAddr> {
+    if let Some(rest) = raw.strip_prefix('[') {
+        let (host, port) = rest.split_once("]:")?;
+        if host == "::1" && port_ok(port) {
+            return Some(SocketAddr::new(
+                IpAddr::V6(Ipv6Addr::LOCALHOST),
+                port.parse().ok()?,
+            ));
         }
+        return None;
     }
-    false
+    let (host, port) = raw.rsplit_once(':')?;
+    if host == "127.0.0.1" && port_ok(port) {
+        return Some(SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::LOCALHOST),
+            port.parse().ok()?,
+        ));
+    }
+    if host == "::1" && port_ok(port) {
+        return Some(SocketAddr::new(
+            IpAddr::V6(Ipv6Addr::LOCALHOST),
+            port.parse().ok()?,
+        ));
+    }
+    None
 }
 
 /// Block on `bind`, serving the store from `cfg`. Same db and JSONL as the CLI.
@@ -58,7 +99,17 @@ pub fn serve(cfg: &DeadboltConfig, bind: &Path) -> Result<(), DeadboltError> {
     if bind_refused(bind) {
         return Err(DeadboltError::BindRefused);
     }
-    listen(Deadbolt::open(cfg), bind, resolve_token(cfg)?)
+    let token = resolve_token(cfg)?;
+    match classify_bind(bind) {
+        BindKind::Loopback(addr) => {
+            if token.is_none() {
+                return Err(DeadboltError::TokenRequired);
+            }
+            listen_tcp(Deadbolt::open(cfg), addr, token)
+        }
+        BindKind::Unix => listen(Deadbolt::open(cfg), bind, token),
+        BindKind::Refused => Err(DeadboltError::BindRefused),
+    }
 }
 
 fn resolve_token(cfg: &DeadboltConfig) -> Result<Option<String>, DeadboltError> {
@@ -109,19 +160,39 @@ fn listen(gate: Deadbolt, bind: &Path, token: Option<String>) -> Result<(), Dead
         };
         let gate = gate.clone();
         let token = token.clone();
+        let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
         thread::spawn(move || {
-            let _ = handle_stream(&gate, stream, token.as_deref());
+            let _ = handle_io(&gate, stream, token.as_deref());
         });
     }
     Ok(())
 }
 
-fn handle_stream(
+fn listen_tcp(
+    gate: Deadbolt,
+    addr: SocketAddr,
+    token: Option<String>,
+) -> Result<(), DeadboltError> {
+    let listener = TcpListener::bind(addr).map_err(|_| DeadboltError::BindRefused)?;
+    for conn in listener.incoming() {
+        let Ok(stream) = conn else {
+            continue;
+        };
+        let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
+        let gate = gate.clone();
+        let token = token.clone();
+        thread::spawn(move || {
+            let _ = handle_io(&gate, stream, token.as_deref());
+        });
+    }
+    Ok(())
+}
+
+fn handle_io(
     gate: &Deadbolt,
-    mut stream: UnixStream,
+    mut stream: impl Read + Write,
     token: Option<&str>,
 ) -> std::io::Result<()> {
-    let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
     let mut buf = Vec::new();
     let mut tmp = [0u8; 2048];
     loop {
@@ -306,6 +377,7 @@ fn err_token(err: &DeadboltError) -> &'static str {
         DeadboltError::Killed => "killed",
         DeadboltError::DrillFailed(_) => "drill_failed",
         DeadboltError::BindRefused => "bind_refused",
+        DeadboltError::TokenRequired => "token_required",
         DeadboltError::ExportRefused(_) => "export_refused",
     }
 }
@@ -314,6 +386,8 @@ fn err_token(err: &DeadboltError) -> &'static str {
 mod tests {
     use super::*;
     use crate::DeadboltConfig;
+    use std::net::TcpStream;
+    use std::os::unix::net::UnixStream;
     use std::sync::atomic::{AtomicU64, Ordering};
 
     fn sock_dir() -> PathBuf {
@@ -378,9 +452,127 @@ mod tests {
         assert!(bind_refused(Path::new("192.168.1.10:9")));
         assert!(bind_refused(Path::new("10.0.0.1:8080")));
         assert!(bind_refused(Path::new("[::]:9")));
-        assert!(bind_refused(Path::new("127.0.0.1:9")));
+        assert!(bind_refused(Path::new("::")));
+        assert!(!bind_refused(Path::new("127.0.0.1:9")));
+        assert!(!bind_refused(Path::new("[::1]:9")));
         assert!(!bind_refused(Path::new("/tmp/deadbolt.sock")));
         assert!(serve(&DeadboltConfig::default(), Path::new("192.168.1.10:9")).is_err());
+    }
+
+    fn free_loopback() -> SocketAddr {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        drop(listener);
+        addr
+    }
+
+    fn start_tcp(gate: Deadbolt, addr: SocketAddr, token: &str) {
+        let token = Some(token.to_string());
+        thread::spawn(move || {
+            let _ = listen_tcp(gate, addr, token);
+        });
+        for _ in 0..50 {
+            if TcpStream::connect_timeout(&addr, Duration::from_millis(50)).is_ok() {
+                return;
+            }
+            thread::sleep(Duration::from_millis(20));
+        }
+        panic!("tcp did not listen");
+    }
+
+    fn tcp_status(
+        addr: SocketAddr,
+        method: &str,
+        path: &str,
+        body: Option<&str>,
+        token: Option<&str>,
+    ) -> (u16, Value) {
+        let body = body.unwrap_or("");
+        let token_line = token
+            .map(|t| format!("x-deadbolt-token: {t}\r\n"))
+            .unwrap_or_default();
+        let req = format!(
+            "{method} {path} HTTP/1.1\r\nhost: 127.0.0.1\r\n{token_line}content-length: {}\r\nconnection: close\r\n\r\n{body}",
+            body.len()
+        );
+        let mut stream = TcpStream::connect(addr).unwrap();
+        stream.write_all(req.as_bytes()).unwrap();
+        let _ = stream.shutdown(std::net::Shutdown::Write);
+        let mut last = String::new();
+        stream.read_to_string(&mut last).unwrap();
+        let status = last
+            .split_whitespace()
+            .nth(1)
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0);
+        let json = last.split_once("\r\n\r\n").map(|(_, b)| b).unwrap_or("");
+        let value = serde_json::from_str(json).unwrap_or_else(|_| json!({"raw": last}));
+        (status, value)
+    }
+
+    #[test]
+    fn tcp_serve_refuses_start_without_token() {
+        let err = serve(&DeadboltConfig::default(), Path::new("127.0.0.1:9")).unwrap_err();
+        assert!(matches!(err, DeadboltError::TokenRequired));
+    }
+
+    #[test]
+    fn tcp_loopback_admit_allow_then_killed() {
+        let dir = sock_dir();
+        let gate = Deadbolt::open(&cfg_at(&dir));
+        let addr = free_loopback();
+        start_tcp(gate.clone(), addr, "s3cret");
+        let (status, _) = tcp_status(
+            addr,
+            "POST",
+            "/ensure",
+            Some(r#"{"agent_id":"A"}"#),
+            Some("s3cret"),
+        );
+        assert_eq!(status, 200);
+        let (status, allowed) = tcp_status(
+            addr,
+            "POST",
+            "/admit",
+            Some(r#"{"agent_id":"A","tool":"shell"}"#),
+            Some("s3cret"),
+        );
+        assert_eq!(status, 200);
+        assert_eq!(allowed["decision"], "allow");
+        gate.kill("A").unwrap();
+        let (status, denied) = tcp_status(
+            addr,
+            "POST",
+            "/admit",
+            Some(r#"{"agent_id":"A","tool":"shell"}"#),
+            Some("s3cret"),
+        );
+        assert_eq!(status, 200);
+        assert_eq!(denied["decision"], "deny");
+        assert_eq!(denied["code"], "killed");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn tcp_wrong_token_401() {
+        let dir = sock_dir();
+        let gate = Deadbolt::open(&cfg_at(&dir));
+        let addr = free_loopback();
+        start_tcp(gate.clone(), addr, "s3cret");
+        let (missing, body) =
+            tcp_status(addr, "POST", "/ensure", Some(r#"{"agent_id":"A"}"#), None);
+        assert_eq!(missing, 401);
+        assert_eq!(body["code"], "unauthorized");
+        let (wrong, _) = tcp_status(
+            addr,
+            "POST",
+            "/admit",
+            Some(r#"{"agent_id":"A","tool":"shell"}"#),
+            Some("nope"),
+        );
+        assert_eq!(wrong, 401);
+        assert!(gate.status(Some("A")).unwrap().is_empty());
+        let _ = fs::remove_dir_all(&dir);
     }
 
     fn http_status(

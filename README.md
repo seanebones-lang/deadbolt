@@ -36,9 +36,7 @@ deadbolt serve [--bind PATH]
 deadbolt export --agent ID [--out PATH] [--json] [--children]
 ```
 
-Default socket is `~/.deadbolt/deadbolt.sock`. Store files live under `~/.deadbolt/`. Harness keeps `~/.harness/deadbolt.sock` and `~/.harness/deadbolt.db` as its consumer paths. To attach this binary to a Harness store, pass `--bind ~/.harness/deadbolt.sock` and construct `DeadboltConfig` with the Harness db paths. The `deadbolt` binary itself defaults to `~/.deadbolt`.
-
-`0.0.0.0` and non-loopback TCP binds are refused. The socket is mode `0600`. If `DEADBOLT_TOKEN` is set, every sidecar request must send `X-Deadbolt-Token`. A missing or wrong token is HTTP 401 and does not admit.
+Default socket is `~/.deadbolt/deadbolt.sock` (mode `0600`; token optional). TCP is loopback only: `deadbolt serve --bind 127.0.0.1:PORT`. `0.0.0.0`, `[::]`, and any other host are refused. TCP requires `DEADBOLT_TOKEN` at start. A missing or wrong `X-Deadbolt-Token` is HTTP 401 and does not admit. Set `DEADBOLT_SOCK=127.0.0.1:PORT` or `http://127.0.0.1:PORT` for the clients.
 
 `kill` requires `--agent`. It revokes that agent and its children. It does not halt a fleet and it does not shut down a model vendor.
 

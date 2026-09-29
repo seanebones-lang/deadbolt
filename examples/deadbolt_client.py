@@ -16,6 +16,28 @@ def sock_path():
     return os.path.join(os.path.expanduser("~"), ".deadbolt", "deadbolt.sock")
 
 
+def _tcp_target(raw):
+    text = raw
+    if text.startswith("http://"):
+        text = text[len("http://") :]
+    elif text.startswith("https://"):
+        raise SystemExit("deadbolt:bind_refused")
+    if text.startswith("/") or text.startswith(".") or "/" in text:
+        return None
+    host = None
+    port = None
+    if text.startswith("[") and "]:" in text:
+        host, _, rest = text[1:].partition("]")
+        port = rest[1:]
+    elif ":" in text:
+        host, port = text.rsplit(":", 1)
+    if not host or not port or not port.isdigit():
+        return None
+    if host not in ("127.0.0.1", "::1"):
+        raise SystemExit("deadbolt:bind_refused")
+    return host, int(port)
+
+
 class _UnixHTTPConnection(http.client.HTTPConnection):
     def __init__(self, path):
         super().__init__("localhost")
@@ -27,14 +49,23 @@ class _UnixHTTPConnection(http.client.HTTPConnection):
         self.sock = sock
 
 
-def _call(method, path, body=None):
-    conn = _UnixHTTPConnection(sock_path())
-    payload = None if body is None else json.dumps(body).encode("utf-8")
+def _headers():
     headers = {"Content-Type": "application/json", "Connection": "close"}
     token = os.environ.get("DEADBOLT_TOKEN")
     if token:
         headers["X-Deadbolt-Token"] = token
-    conn.request(method, path, body=payload, headers=headers)
+    return headers
+
+
+def _call(method, path, body=None):
+    payload = None if body is None else json.dumps(body).encode("utf-8")
+    target = _tcp_target(sock_path())
+    if target:
+        host, port = target
+        conn = http.client.HTTPConnection(host, port, timeout=5)
+    else:
+        conn = _UnixHTTPConnection(sock_path())
+    conn.request(method, path, body=payload, headers=_headers())
     resp = conn.getresponse()
     raw = resp.read()
     conn.close()
@@ -69,7 +100,7 @@ def _print(obj):
 
 
 def main(argv):
-    parser = argparse.ArgumentParser(description="Deadbolt Unix-socket client")
+    parser = argparse.ArgumentParser(description="Deadbolt client")
     sub = parser.add_subparsers(dest="cmd", required=True)
     p_ensure = sub.add_parser("ensure")
     p_ensure.add_argument("--agent", required=True)

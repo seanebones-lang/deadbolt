@@ -51,7 +51,7 @@ enum Command {
     Drill,
     /// Local Unix sidecar. Refuses `0.0.0.0`.
     Serve {
-        /// Socket path. Default `~/.deadbolt/deadbolt.sock`.
+        /// Socket path or `127.0.0.1:PORT`. TCP requires `DEADBOLT_TOKEN`.
         #[arg(long)]
         bind: Option<PathBuf>,
     },

@@ -11,20 +11,43 @@ function sockPath() {
   return path.join(os.homedir(), ".deadbolt", "deadbolt.sock");
 }
 
+function tcpTarget(raw) {
+  let text = raw;
+  if (text.startsWith("http://")) text = text.slice("http://".length);
+  else if (text.startsWith("https://")) throw new Error("deadbolt:bind_refused");
+  if (text.startsWith("/") || text.startsWith(".") || text.includes("/")) return null;
+  let host = null;
+  let port = null;
+  if (text.startsWith("[") && text.includes("]:")) {
+    const end = text.indexOf("]");
+    host = text.slice(1, end);
+    port = text.slice(end + 2);
+  } else if (text.includes(":")) {
+    const cut = text.lastIndexOf(":");
+    host = text.slice(0, cut);
+    port = text.slice(cut + 1);
+  }
+  if (!host || !port || !/^\d+$/.test(port)) return null;
+  if (host !== "127.0.0.1" && host !== "::1") throw new Error("deadbolt:bind_refused");
+  return { host, port: Number(port) };
+}
+
 function call(method, urlPath, body) {
   const payload = body == null ? null : JSON.stringify(body);
   const headers = { "Content-Type": "application/json", Connection: "close" };
   if (process.env.DEADBOLT_TOKEN) headers["X-Deadbolt-Token"] = process.env.DEADBOLT_TOKEN;
   if (payload) headers["Content-Length"] = Buffer.byteLength(payload);
-  return new Promise((resolve, reject) => {
-    const req = http.request(
-      {
+  const target = tcpTarget(sockPath());
+  const options = target
+    ? { host: target.host, port: target.port, method, path: urlPath, headers }
+    : {
         createConnection: () => net.connect(sockPath()),
         method,
         path: urlPath,
         headers,
-      },
-      (res) => {
+      };
+  return new Promise((resolve, reject) => {
+    const req = http.request(options, (res) => {
         const chunks = [];
         res.on("data", (c) => chunks.push(c));
         res.on("end", () => {

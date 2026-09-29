@@ -1,8 +1,8 @@
 # Sidecar protocol
 
-HTTP/1.1 over a Unix domain socket. No TCP. `0.0.0.0` is refused. Default socket: `~/.deadbolt/deadbolt.sock`. Override with `DEADBOLT_SOCK` in clients. The socket is mode `0600`.
+HTTP/1.1 over a Unix socket or loopback TCP. `0.0.0.0`, `[::]`, and any non-loopback host are refused. Default socket: `~/.deadbolt/deadbolt.sock` (mode `0600`). TCP bind: `deadbolt serve --bind 127.0.0.1:PORT` or `[::1]:PORT`. `DEADBOLT_TOKEN` is required to start TCP. On a Unix socket the token stays optional. Clients treat `DEADBOLT_SOCK` as loopback HTTP when it is `127.0.0.1:PORT`, `[::1]:PORT`, or `http://127.0.0.1:PORT`. A Unix path still uses the socket.
 
-If `DEADBOLT_TOKEN` is set when `deadbolt serve` starts, every request must send header `X-Deadbolt-Token: <value>`. Missing or wrong token is HTTP 401 and does not admit, ensure, register, or status.
+If the server was started with a token, every request must send header `X-Deadbolt-Token: <value>`. TCP serve refuses to start when that token is missing. A missing or wrong header is HTTP 401 and does not admit, ensure, register, or status.
 
 ```http
 HTTP/1.1 401
