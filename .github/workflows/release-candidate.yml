@@ -1,0 +1,89 @@
+name: release candidate
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/release-candidate.yml'
+      - 'dist/package_release.py'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'src/**'
+      - 'tests/hermes_mcp_acceptance.py'
+      - 'tests/hermes-acceptance-requirements.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-candidate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            binary: target/release/deadbolt
+          - os: macos-15
+            target: aarch64-apple-darwin
+            binary: target/release/deadbolt
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            binary: target/release/deadbolt
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary: target/release/deadbolt.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.85.0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: cargo build --locked --release --bin deadbolt
+      - run: python dist/package_release.py --binary ${{ matrix.binary }} --target ${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deadbolt-${{ matrix.target }}
+          path: release-artifacts/*
+          retention-days: 7
+          if-no-files-found: error
+  hermes-mcp:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.85.0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: cargo build --release --locked --bin deadbolt
+      - name: Prepare independent host and reference server
+        shell: bash
+        run: |
+          git clone --filter=blob:none --no-checkout https://github.com/NousResearch/hermes-agent.git "$RUNNER_TEMP/hermes"
+          git -C "$RUNNER_TEMP/hermes" checkout 5eb1381f3965fd96454d1c32f6bbefcd99cda347
+          python -m pip install -r tests/hermes-acceptance-requirements.txt
+          npm install --prefix "$RUNNER_TEMP/mcp-reference" --ignore-scripts --no-audit --no-fund @modelcontextprotocol/server-filesystem@2026.8.31
+      - name: Verify actual tool effects through Hermes MCP
+        shell: bash
+        run: |
+          python tests/hermes_mcp_acceptance.py \
+            --hermes "$RUNNER_TEMP/hermes" \
+            --binary target/release/deadbolt \
+            --filesystem-server "$RUNNER_TEMP/mcp-reference/node_modules/@modelcontextprotocol/server-filesystem/dist/index.js" \
+            > hermes-acceptance.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hermes-mcp-acceptance
+          path: hermes-acceptance.json
+          retention-days: 7
+          if-no-files-found: error
