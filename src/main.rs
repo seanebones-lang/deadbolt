@@ -5,7 +5,8 @@ use std::process::ExitCode;
 
 use clap::{ArgAction, Parser, Subcommand};
 use deadbolt::{
-    bind_refused, default_bind_path, format_export, serve, Deadbolt, DeadboltConfig, DeadboltError,
+    bind_refused, default_bind_path, format_export, mcp_proxy, serve, Deadbolt, DeadboltConfig,
+    DeadboltError,
 };
 
 #[derive(Parser)]
@@ -67,6 +68,17 @@ enum Command {
         /// Include child leases.
         #[arg(long, default_value_t = false)]
         children: bool,
+    },
+    /// Stdio MCP proxy. Admits `tools/call` before the child runs it.
+    McpProxy {
+        #[arg(long)]
+        agent: String,
+        /// Bolt-on admit. Unix socket or `127.0.0.1:PORT`. Default is in-process.
+        #[arg(long)]
+        serve_sock: Option<PathBuf>,
+        /// Child command. Everything after `--`.
+        #[arg(last = true, required = true, allow_hyphen_values = true)]
+        command: Vec<String>,
     },
 }
 
@@ -149,6 +161,13 @@ fn run() -> Result<(), DeadboltError> {
             } else {
                 print!("{text}");
             }
+        }
+        Command::McpProxy {
+            agent,
+            serve_sock,
+            command,
+        } => {
+            mcp_proxy(&agent, &db, serve_sock.as_deref(), &command)?;
         }
         Command::Drill => unreachable!("drill handled above"),
     }

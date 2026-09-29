@@ -46,3 +46,13 @@ if admit(agent, "shell")["decision"] != "allow":
 ## Run as a service
 
 TCP requires `DEADBOLT_TOKEN`. Bind stays `127.0.0.1:9782`. Unit: `dist/deadbolt.service`. Env file mode `0600`: `dist/deadbolt.env.example`. Compose publishes only `127.0.0.1:9782:9782`.
+
+## MCP proxy
+
+Not a model tool. The proxy speaks newline-delimited JSON-RPC on stdio and spawns the real MCP server. `initialize`, `tools/list`, resources, and `ping` are forwarded. `tools/call` is admitted first. A deny is a JSON-RPC error whose message is the code token (`killed`, `paused`, `purpose_exceeded`, `lease_expired`, `store_unavailable`, `no_lease`). The child is not invoked.
+
+```bash
+deadbolt mcp-proxy --agent shop-bot -- npx whatever-mcp
+```
+
+In-process by default (`Deadbolt::open`). `--serve-sock PATH` admits over an already-running Unix socket or `127.0.0.1:PORT`. TCP still requires `DEADBOLT_TOKEN`. `0.0.0.0` is refused.

@@ -20,8 +20,10 @@ use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
+mod mcp;
 mod serve;
 mod witness;
+pub use mcp::mcp_proxy;
 pub use serve::{bind_refused, default_bind_path, serve};
 pub use witness::WitnessSink;
 
@@ -162,6 +164,9 @@ pub enum DeadboltError {
     /// Export refused. The string is a code token, not prose.
     #[error("deadbolt:export_refused:{0}")]
     ExportRefused(&'static str),
+    /// Child MCP server did not start.
+    #[error("deadbolt:mcp_spawn")]
+    McpSpawn,
 }
 
 /// Why admit refused the action.

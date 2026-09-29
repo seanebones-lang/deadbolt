@@ -379,6 +379,7 @@ fn err_token(err: &DeadboltError) -> &'static str {
         DeadboltError::BindRefused => "bind_refused",
         DeadboltError::TokenRequired => "token_required",
         DeadboltError::ExportRefused(_) => "export_refused",
+        DeadboltError::McpSpawn => "mcp_spawn",
     }
 }
 

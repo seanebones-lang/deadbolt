@@ -36,6 +36,7 @@ deadbolt kill --agent ID
 deadbolt drill
 deadbolt serve [--bind PATH]
 deadbolt export --agent ID [--out PATH] [--json] [--children]
+deadbolt mcp-proxy --agent ID [--serve-sock PATH] -- COMMAND...
 ```
 
 Default socket is `~/.deadbolt/deadbolt.sock` (mode `0600`; token optional). TCP is loopback only: `deadbolt serve --bind 127.0.0.1:PORT`. `0.0.0.0`, `[::]`, and any other host are refused. TCP requires `DEADBOLT_TOKEN` at start. A missing or wrong `X-Deadbolt-Token` is HTTP 401 and does not admit. Set `DEADBOLT_SOCK=127.0.0.1:PORT` or `http://127.0.0.1:PORT` for the clients.
