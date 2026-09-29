@@ -1,0 +1,24 @@
+name: Integration or feature request
+description: Describe a concrete use case and the behavior needed.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What action or operating requirement needs control? Keep customer details private.
+    validations:
+      required: true
+  - type: textarea
+    id: integration
+    attributes:
+      label: Application and integration boundary
+      description: Describe the dispatcher, transport, platform and what the trusted executor can control.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Observable acceptance criteria
+      description: What would run or be prevented if this worked? Include alternatives already considered.
+    validations:
+      required: true

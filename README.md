@@ -1,9 +1,14 @@
-<img width="2400" height="1254" alt="B - Power Mark (light)@2x" src="https://github.com/user-attachments/assets/12175eb7-67b1-4758-92c9-e2562df80cb4" />
-
 # Deadbolt
 
+<img width="360" alt="Deadbolt" src="https://github.com/user-attachments/assets/12175eb7-67b1-4758-92c9-e2562df80cb4" />
+
+[![CI](https://github.com/seanebones-lang/deadbolt/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/seanebones-lang/deadbolt/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/seanebones-lang/deadbolt)](https://github.com/seanebones-lang/deadbolt/releases/latest)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+
 A local execution gate for software agents: check before each tool call, enforce
-policy, and let an operator stop an agent and its registered descendants.
+policy, and let an operator revoke subsequent protected actions by an identity
+and its registered descendants.
 
 Deadbolt runs without a model provider, API key, Harness, or separate database
 server. Embed the Rust library in your dispatcher, use the local HTTP sidecar
@@ -14,7 +19,7 @@ refuse execution unless the decision is explicitly `allow`.
 
 V1 native binaries target Linux x86_64, Windows x86_64, Apple Silicon and Intel
 Macs. Use the
-[v1.0.0 release](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.0)
+[v1.0.1 release](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.1)
 and verify its checksum using [the archive installation instructions](docs/RELEASING.md#install-an-archive).
 Source installation is available below; the release page is the authority for
 published downloads and their exact source identity.
@@ -28,7 +33,7 @@ Evaluating for a team? Start with the [technical brief](docs/EVALUATOR.md),
 [observable demonstration](docs/DEMO.md) and [application pilot](docs/PILOT.md).
 
 ```sh
-git clone https://github.com/seanebones-lang/deadbolt.git
+git clone --branch v1.0.1 --depth 1 https://github.com/seanebones-lang/deadbolt.git
 cd deadbolt
 cargo install --path . --locked --bin deadbolt
 deadbolt --version
@@ -149,9 +154,13 @@ certification. See [operations](docs/OPERATIONS.md) for deployment and recovery.
 | [Contributing](CONTRIBUTING.md) | Development checks and reporting |
 | [Changelog](CHANGELOG.md) | Versioned changes and candidate history |
 | [Hermes showcase](docs/HERMES-SHOWCASE.md) | Independent MCP host and real filesystem execution acceptance |
-| [Compatibility](docs/COMPATIBILITY.md) | Intended v1 API, lifecycle and upgrade contract |
-| [V1 roadmap](docs/V1-READINESS.md) | Verified milestones and remaining release gates |
+| [Compatibility](docs/COMPATIBILITY.md) | V1 API, lifecycle and upgrade contract |
+| [V1 roadmap](docs/V1-READINESS.md) | Completed release and next adoption milestones |
 | [Third-party components](THIRD-PARTY.md) | Dependency notices and included MPL source distribution |
 
 Apache-2.0. Copyright NextEleven LLC 2026. [License](LICENSE) and [notice](NOTICE).
 Harness is one consumer; this repository does not include or relicense it.
+
+For integration evaluation, see the [pilot checklist](docs/PILOT.md). Report
+ordinary bugs through [GitHub issues](https://github.com/seanebones-lang/deadbolt/issues/new/choose)
+and suspected vulnerabilities through [private security reporting](SECURITY.md).

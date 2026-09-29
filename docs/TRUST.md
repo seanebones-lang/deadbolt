@@ -14,6 +14,11 @@ Cooperative: `examples/deadbolt_client.py` and `examples/deadbolt_client.js`. Th
 
 Default `fail_closed=true`. A missing store, a down sidecar, a timeout, an empty body, or HTTP 5xx is deny `store_unavailable`. The clients return that object. They do not raise into a caller that might catch the error and run the tool.
 
+Keep Rust configuration `enabled=true` and `fail_closed=true` for enforcement.
+`enabled=false` deliberately returns allow without opening storage;
+`fail_closed=false` deliberately permits admission when storage is unavailable.
+These operator settings weaken the gate and must remain outside model-controlled access.
+
 ## Lease
 
 `ensure` issues the lease. Default TTL is 60 seconds. Every admit rechecks it. Expiry is deny `lease_expired`.

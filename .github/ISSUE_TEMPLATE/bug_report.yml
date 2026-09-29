@@ -1,0 +1,36 @@
+name: Bug report
+description: Report unexpected behavior with a redacted reproduction.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For suspected vulnerabilities, use private security reporting instead.
+        Do not include credentials, private state, customer data or tool arguments containing sensitive material.
+  - type: input
+    id: version
+    attributes:
+      label: Version and source revision
+      description: Include deadbolt --version, the release tag or Git SHA, and installation method.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment and integration
+      description: OS, architecture, Rust or client runtime if relevant, and Rust/HTTP/MCP route.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Give exact redacted commands or a harmless body using disposable state.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Expected and actual behavior
+      description: Include decision codes, body effects and redacted errors. Distinguish what ran from what the response said.
+    validations:
+      required: true

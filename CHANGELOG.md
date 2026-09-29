@@ -3,6 +3,18 @@
 Versioned GitHub releases identify publication and the exact source revision.
 The older `v0.1.1-product` tag is not the standalone hardening release.
 
+## 1.0.1 — 2026-09-29
+
+- Include the evaluator brief, observable demo runbook and scoped pilot worksheet
+  in native/source distribution, alongside the updated product and press material.
+- Replace the legacy Harness-specific overview and correct API comments about
+  task cancellation, token requirements and explicitly disabled enforcement.
+- Pin default installation to this maintenance release and document the current
+  standalone boundaries. Add structured issue forms and private reporting links.
+- Check Rust API documentation with warnings denied on the minimum Rust version.
+- Preserve the 1.0.0 admission, state, protocol and public API behavior. No runtime
+  policy changes or dependency updates are included.
+
 ## 1.0.0 — 2026-09-29
 
 - Promote the tested local Rust/HTTP/stdio MCP integration contract to v1.

@@ -13,11 +13,16 @@ cargo run --locked --bin deadbolt -- drill
 cargo run --locked --example build_in
 python3 tests/client_contract.py
 cargo +1.85.0 check --all-targets --locked
+RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps
 ```
 
 On Windows use `python` and set `DEADBOLT_BIN=target/debug/deadbolt.exe` in your
 shell's environment. Integration tests must use temporary stores and dummy tool
 bodies. Never run resource-exhaustion experiments on a shared service.
+
+The documentation command above uses Unix environment syntax. On PowerShell,
+set `$env:RUSTDOCFLAGS = "-D warnings"`, then run
+`cargo doc --locked --no-deps`. CI checks API documentation on Rust 1.85.
 
 A pull request should explain the observable problem, resulting behavior,
 validation and any platform or integration gates still open. Keep documentation

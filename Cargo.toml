@@ -1,7 +1,7 @@
 [package]
 name = "n11-deadbolt"
 description = "Local execution gate for software agents: leases, policy, operator revocation, and structured evidence."
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/seanebones-lang/deadbolt"

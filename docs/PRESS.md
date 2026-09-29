@@ -1,8 +1,9 @@
-# Deadbolt v1.0.0
+# Deadbolt v1.0.1
 
 29 September 2026
 
-NextEleven has released Deadbolt v1.0.0, a local admission gate for software
+NextEleven has released Deadbolt v1.0.1, a documentation and distribution
+maintenance release of its local admission gate for software
 agents. A trusted executor checks permission before starting each protected
 action and executes only on explicit allow. Operators can apply policy, require
 one-shot approval and revoke an identity and its registered descendants.
@@ -28,7 +29,7 @@ all protected routes. This release does not claim whole-agent containment or
 security certification. Native binaries are unsigned and Mac binaries are
 unnotarized. Systemd remains an experimental template.
 
-- [Release and downloads](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.0)
+- [Release and downloads](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.1)
 - [Repository](https://github.com/seanebones-lang/deadbolt)
 - [Evaluator brief](EVALUATOR.md)
 - [Reproducible demonstration](DEMO.md)

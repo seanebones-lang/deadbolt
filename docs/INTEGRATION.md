@@ -13,7 +13,7 @@ executable is `deadbolt`. As checked on 2026-09-29, this package is not on
 crates.io. Use Git or a local checkout until a registry release is published.
 
 ```sh
-git clone https://github.com/seanebones-lang/deadbolt.git
+git clone --branch v1.0.1 --depth 1 https://github.com/seanebones-lang/deadbolt.git
 cd deadbolt
 cargo install --path . --locked --bin deadbolt
 deadbolt drill
@@ -31,10 +31,10 @@ In your project's `Cargo.toml`:
 
 ```toml
 [dependencies]
-deadbolt = { package = "n11-deadbolt", git = "https://github.com/seanebones-lang/deadbolt.git", rev = "YOUR_REVIEWED_COMMIT" }
+deadbolt = { package = "n11-deadbolt", git = "https://github.com/seanebones-lang/deadbolt.git", tag = "v1.0.1" }
 ```
 
-For an adjacent source checkout, replace `git` and `rev` with
+For an adjacent source checkout, replace `git` and `tag` with
 `path = "../deadbolt"`. No socket or service is needed.
 
 ```rust

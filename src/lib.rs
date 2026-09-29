@@ -1,9 +1,12 @@
-//! Deadbolt v0 — out-of-band lease gate.
+//! Deadbolt — a local admission gate for software agents.
 //!
-//! Harness calls [`Deadbolt`]. Deadbolt writes evidence through a thin
+//! Trusted executors call [`Deadbolt`] before protected dispatch and execute
+//! only on explicit allow. Deadbolt writes evidence through a thin
 //! Witness-shaped [`EvidenceSink`] (Observed / Inferred / Generated, premises
 //! on inferences, sha256 content id). This crate does not depend on Witness,
-//! EvidenceLens, the TUI, or provider types, and it exposes no model tool.
+//! EvidenceLens, Harness, a TUI, or provider types. Operator controls belong
+//! outside model-controlled access. Revocation blocks subsequent admissions;
+//! cancellation of running bodies belongs to the executor.
 
 #![deny(missing_docs)]
 
@@ -32,7 +35,7 @@ const TOKEN_MAX: usize = 128;
 /// Operator configuration (`[deadbolt]`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeadboltConfig {
-    /// When false, Harness does not attach the gate.
+    /// Enable admission enforcement. When false, admission returns allow without storage.
     #[serde(default = "default_true")]
     pub enabled: bool,
     /// Deny tool actions when the store cannot be opened or written.
@@ -48,7 +51,7 @@ pub struct DeadboltConfig {
     /// Append-only JSONL path. Default `~/.deadbolt/deadbolt-events.jsonl`.
     #[serde(default)]
     pub events_path: Option<String>,
-    /// Env var that holds the sidecar token. Unset means no HTTP token.
+    /// Env var that holds the sidecar token. TCP requires a nonempty resolved token.
     #[serde(default)]
     pub token_env: Option<String>,
     /// Token file. Used only when mode is `0600` and `token_env` is empty.
@@ -94,7 +97,7 @@ pub enum EpistemicClass {
     Observed,
     /// Judgment that cites premise content ids.
     Inferred,
-    /// Model or operator text. Deadbolt v0 does not write this class.
+    /// Model or operator text. Deadbolt does not write this class.
     Generated,
 }
 
@@ -221,7 +224,7 @@ pub enum AdmitDecision {
     },
 }
 
-/// Agents whose leases were revoked, plus swarm task ids to cancel.
+/// Agents whose leases were revoked, plus task ids the executor may cancel.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KillReport {
     /// Agent the operator named.
@@ -593,7 +596,8 @@ impl Deadbolt {
     /// Repeated registration preserves state. Reparenting and self-parenting are refused.
     ///
     /// Returns `Ok(true)` when the child lease is live, `Ok(false)` when the child
-    /// was recorded killed. `swarm_task_id` is cancelled when the parent is killed.
+    /// was recorded killed. Parent kill includes `swarm_task_id` in its report;
+    /// the executor is responsible for canceling any associated running task.
     pub fn register_child(
         &self,
         parent: &str,

@@ -1,6 +1,11 @@
 # Security
 
-Report a vulnerability through GitHub Security Advisories on `seanebones-lang/deadbolt`. Do not open a public issue for an unfixed socket-auth or store bug.
+Report a suspected vulnerability through
+[GitHub's private vulnerability reporting](https://github.com/seanebones-lang/deadbolt/security/advisories/new).
+Private reporting is enabled for this repository. Include the source revision,
+affected integration, expected security property and a minimal redacted
+reproduction. Keep credentials, customer data and unfixed vulnerability details
+out of public issues. For ordinary bugs, use [the issue forms](https://github.com/seanebones-lang/deadbolt/issues/new/choose).
 
 Deadbolt denies later admissions for an agent and its registered descendants after kill. The trusted executor must check admission before every tool or spawn dispatch. Already-running work, direct dispatch outside the executor, and arbitrary untrusted code are outside this boundary.
 
