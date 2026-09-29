@@ -1,4 +1,4 @@
-<img width="1642" height="848" alt="deadbolt" src="https://github.com/user-attachments/assets/4b0ddbbd-bbf4-400a-894d-984d9a353673" />
+<img width="2400" height="1254" alt="B - Power Mark (light)@2x" src="https://github.com/user-attachments/assets/d0acc9ce-de49-4384-99f5-0dfe46b272a6" />
 
 # Deadbolt
 
