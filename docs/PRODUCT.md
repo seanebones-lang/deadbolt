@@ -7,7 +7,7 @@ descendants without asking the model to cooperate.
 
 ## Install and integrate
 
-[Deadbolt v1.0.2](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.2)
+[The latest published Deadbolt release](https://github.com/seanebones-lang/deadbolt/releases/latest)
 is available as source and native archives for Linux x86_64, Windows x86_64,
 and Apple Silicon/Intel Macs. Verify the download and run the drill using
 [installation](INSTALL.md) and [quick start](QUICKSTART.md).
@@ -15,7 +15,9 @@ and Apple Silicon/Intel Macs. Verify the download and run the drill using
 Embed the Rust library, use the local HTTP sidecar from Python/Node or another
 language, or route a trusted stdio MCP server through the proxy. The Cargo package
 is `n11-deadbolt`; the library and executable are `deadbolt`. Registry packages
-are not published. Native binaries are unsigned and Mac binaries are unnotarized.
+are not published. Linux and Windows binaries are unsigned. The v1.0.2 Mac
+archives are unnotarized; check the chosen release's notes for its exact macOS
+signing and notarization status.
 
 ## Reproduce the evidence
 

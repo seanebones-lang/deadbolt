@@ -19,7 +19,7 @@ refuse execution unless the decision is explicitly `allow`.
 
 V1 native binaries target Linux x86_64, Windows x86_64, Apple Silicon and Intel
 Macs. Use the
-[v1.0.2 release](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.2)
+[latest release](https://github.com/seanebones-lang/deadbolt/releases/latest)
 and verify its checksum using [the archive installation instructions](docs/RELEASING.md#install-an-archive).
 Source installation is available below; the release page is the authority for
 published downloads and their exact source identity.
@@ -33,10 +33,10 @@ Evaluating for a team? Start with the [technical brief](docs/EVALUATOR.md),
 [observable demonstration](docs/DEMO.md) and [application pilot](docs/PILOT.md).
 For a Python-only workflow with real file effects, use
 [first evaluation](docs/FIRST-EVALUATION.md). See the [adoption roadmap](docs/ROADMAP.md)
-for the next milestones after v1.0.2.
+for the next adoption milestones.
 
 ```sh
-git clone --branch v1.0.2 --depth 1 https://github.com/seanebones-lang/deadbolt.git
+git clone --branch v1.0.3 --depth 1 https://github.com/seanebones-lang/deadbolt.git
 cd deadbolt
 cargo install --path . --locked --bin deadbolt
 deadbolt --version

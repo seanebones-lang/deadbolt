@@ -1,4 +1,4 @@
-# Evaluate Deadbolt v1.0.2
+# Evaluate Deadbolt
 
 Deadbolt gives an operator a local admission gate in front of protected agent
 actions. A trusted executor checks permission before starting each body and runs
@@ -22,10 +22,12 @@ access and make admission mandatory on every route it intends to protect.
 - Stdio MCP proxy for individual routed `tools/call` messages.
 - Native executables for Linux x86_64, Windows x86_64, and Apple Silicon/Intel Macs.
 
-The [v1.0.2 release](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.2)
+The [latest release](https://github.com/seanebones-lang/deadbolt/releases/latest)
 contains checksums, source identity, source code, examples, documentation and
 third-party notices. Deadbolt's own code is Apache-2.0; bundled dependencies retain
-their licenses. Native binaries are unsigned and Mac binaries are unnotarized.
+their licenses. Linux and Windows binaries are unsigned. The v1.0.2 Mac
+archives are unnotarized; check the chosen release's notes for its exact macOS
+signing and notarization status.
 Python/Node clients are included source files; registry packages are not published.
 
 ## Evidence an evaluator can reproduce

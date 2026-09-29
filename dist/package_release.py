@@ -61,7 +61,7 @@ def main():
                         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
         (staging / "dist").mkdir()
         for file in ("deadbolt.service", "docker-compose.yml", "deadbolt.env.example",
-                     "package_release.py", "collect_licenses.py"):
+                     "package_release.py", "sign_macos_archive.py", "collect_licenses.py"):
             shutil.copy2(ROOT / "dist" / file, staging / "dist" / file)
         metadata = {"version": version, "source_revision": revision,
                     "target": args.target, "builder_platform": platform.platform(),
