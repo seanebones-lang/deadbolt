@@ -6,7 +6,7 @@ use std::process::ExitCode;
 use clap::{ArgAction, Parser, Subcommand};
 use deadbolt::{
     bind_refused, default_bind_path, format_export, mcp_proxy, serve, Deadbolt, DeadboltConfig,
-    DeadboltError,
+    DeadboltError, PolicyPatch,
 };
 
 #[derive(Parser)]
@@ -42,6 +42,9 @@ enum Command {
     Resume {
         #[arg(long)]
         agent: String,
+        /// One-shot approve after resume. Does not clear policy.
+        #[arg(long)]
+        approve: Option<String>,
     },
     /// Revoke one agent and its children. No `--all`.
     Kill {
@@ -68,6 +71,37 @@ enum Command {
         /// Include child leases.
         #[arg(long, default_value_t = false)]
         children: bool,
+    },
+    /// Set lease blast radius. Omitted fields stay open.
+    Policy {
+        #[arg(long)]
+        agent: String,
+        /// Comma-separated tool allow-list.
+        #[arg(long)]
+        tools: Option<String>,
+        /// Comma-separated host allow-list.
+        #[arg(long)]
+        dest: Option<String>,
+        /// USD cap. Crossing it pauses the lease.
+        #[arg(long)]
+        spend_cap: Option<f64>,
+        /// Comma-separated tools that need one approve.
+        #[arg(long)]
+        irreversible: Option<String>,
+    },
+    /// One shot for an irreversible tool. Not a model tool.
+    Approve {
+        #[arg(long)]
+        agent: String,
+        #[arg(long)]
+        tool: String,
+    },
+    /// JSON incident. Tokens only.
+    Incident {
+        #[arg(long)]
+        agent: String,
+        #[arg(long)]
+        out: Option<PathBuf>,
     },
     /// Stdio MCP proxy. Admits `tools/call` before the child runs it.
     McpProxy {
@@ -128,9 +162,14 @@ fn run() -> Result<(), DeadboltError> {
             db.clip(&agent, &tool)?;
             println!("deadbolt clipped {agent} {tool}");
         }
-        Command::Resume { agent } => {
+        Command::Resume { agent, approve } => {
             db.resume(&agent)?;
-            println!("deadbolt resumed {agent}");
+            if let Some(tool) = approve {
+                db.approve(&agent, &tool)?;
+                println!("deadbolt resumed {agent} approve {tool}");
+            } else {
+                println!("deadbolt resumed {agent}");
+            }
         }
         Command::Kill { agent } => {
             let report = db.kill(&agent)?;
@@ -162,6 +201,36 @@ fn run() -> Result<(), DeadboltError> {
                 print!("{text}");
             }
         }
+        Command::Policy {
+            agent,
+            tools,
+            dest,
+            spend_cap,
+            irreversible,
+        } => {
+            db.set_policy(
+                &agent,
+                PolicyPatch {
+                    tools_allow: split_list(tools),
+                    dest_allow: split_list(dest),
+                    spend_cap_usd: spend_cap,
+                    irreversible: split_list(irreversible),
+                },
+            )?;
+            println!("deadbolt policy {agent}");
+        }
+        Command::Approve { agent, tool } => {
+            db.approve(&agent, &tool)?;
+            println!("deadbolt approve {agent} {tool}");
+        }
+        Command::Incident { agent, out } => {
+            let text = db.incident(&agent)?;
+            if let Some(path) = out {
+                std::fs::write(path, text).map_err(|_| DeadboltError::StoreUnavailable)?;
+            } else {
+                println!("{text}");
+            }
+        }
         Command::McpProxy {
             agent,
             serve_sock,
@@ -172,6 +241,16 @@ fn run() -> Result<(), DeadboltError> {
         Command::Drill => unreachable!("drill handled above"),
     }
     Ok(())
+}
+
+fn split_list(raw: Option<String>) -> Option<Vec<String>> {
+    raw.map(|s| {
+        s.split(',')
+            .map(str::trim)
+            .filter(|t| !t.is_empty())
+            .map(str::to_string)
+            .collect()
+    })
 }
 
 fn main() -> ExitCode {

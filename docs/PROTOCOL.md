@@ -27,7 +27,23 @@ Request body is JSON. Response body is JSON. `Content-Type: application/json`. `
 {"decision":"deny","code":"killed"}
 ```
 
-`decision` is `allow` or `deny`. `code` is present only on deny. Tokens: `killed`, `paused`, `purpose_exceeded`, `lease_expired`, `store_unavailable`, `no_lease`. HTTP status on a parsed admit is 200. The deny is in `decision`, not the status line.
+`decision` is `allow` or `deny`. `code` is present only on deny. Tokens: `killed`, `paused`, `purpose_exceeded`, `lease_expired`, `store_unavailable`, `no_lease`, `spend_cap`, `needs_human`. Optional `dest` is a host token. If `dest_allow` is unset, `dest` is ignored. HTTP status on a parsed admit is 200. The deny is in `decision`, not the status line.
+
+## POST /policy
+
+Token-gated like the rest. Omitted fields stay as stored. Unset lists stay open.
+
+```json
+{"agent_id":"shop-bot","tools":["shell","read_file"],"dest":["api.stripe.com"],"spend_cap":5,"irreversible":["shell"]}
+```
+
+## POST /spend
+
+```json
+{"agent_id":"shop-bot","usd":1.5}
+```
+
+Crossing the cap pauses the lease. The body `code` is `spend_cap` or `ok`.
 
 ## POST /ensure
 

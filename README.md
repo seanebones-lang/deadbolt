@@ -14,6 +14,8 @@ The agent id is a claim. `DEADBOLT_TOKEN` authenticates the caller to serve, not
 
 Admit-then-tool is a race. Admit immediately before the body. Do not admit once per session.
 
+Blast radius is the lease. `tools_allow`, `dest_allow`, `spend_cap_usd`, and `irreversible` are unset by default, so an old lease stays open. An off-list tool or dest is deny `purpose_exceeded`. Crossing the spend cap pauses the agent and the next admit is deny `spend_cap`. An irreversible tool is deny `needs_human` until `deadbolt approve --agent ID --tool TOOL`, one shot. Deadbolt does not contain another lab's agents on the public internet.
+
 Detail: `docs/TRUST.md`.
 
 ## Two modes
@@ -44,6 +46,9 @@ deadbolt kill --agent ID
 deadbolt drill
 deadbolt serve [--bind PATH]
 deadbolt export --agent ID [--out PATH] [--json] [--children]
+deadbolt policy --agent ID [--tools a,b] [--dest host,host] [--spend-cap N] [--irreversible a,b]
+deadbolt approve --agent ID --tool TOOL
+deadbolt incident --agent ID [--out PATH]
 deadbolt mcp-proxy --agent ID [--serve-sock PATH] -- COMMAND...
 ```
 

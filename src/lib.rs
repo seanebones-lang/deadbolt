@@ -16,7 +16,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
@@ -167,6 +167,9 @@ pub enum DeadboltError {
     /// Child MCP server did not start.
     #[error("deadbolt:mcp_spawn")]
     McpSpawn,
+    /// Operator input was not a token.
+    #[error("deadbolt:bad_request")]
+    BadRequest,
 }
 
 /// Why admit refused the action.
@@ -184,6 +187,10 @@ pub enum DenyCode {
     StoreUnavailable,
     /// No lease row. Fail closed.
     NoLease,
+    /// Spend crossed `spend_cap_usd`. The lease is paused.
+    SpendCap,
+    /// Irreversible tool. One operator approve has not been granted.
+    NeedsHuman,
 }
 
 impl DenyCode {
@@ -196,6 +203,8 @@ impl DenyCode {
             Self::LeaseExpired => "lease_expired",
             Self::StoreUnavailable => "store_unavailable",
             Self::NoLease => "no_lease",
+            Self::SpendCap => "spend_cap",
+            Self::NeedsHuman => "needs_human",
         }
     }
 }
@@ -248,6 +257,28 @@ pub trait ToolAdmit: Send + Sync {
     fn probe_tool(&self, agent_id: &str, tool: &str) -> AdmitDecision;
 }
 
+/// Operator policy fields. `None` leaves the stored value. Unset lists stay open.
+#[derive(Debug, Clone, Default)]
+pub struct PolicyPatch {
+    /// If set, a tool not on the list is `purpose_exceeded`.
+    pub tools_allow: Option<Vec<String>>,
+    /// If set, a missing or foreign dest is `purpose_exceeded`.
+    pub dest_allow: Option<Vec<String>>,
+    /// Crossing this pauses the lease. Admit then returns `spend_cap`.
+    pub spend_cap_usd: Option<f64>,
+    /// Tools that deny `needs_human` until one `approve`.
+    pub irreversible: Option<Vec<String>>,
+}
+
+/// Result of [`Deadbolt::spend_add`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SpendAdded {
+    /// Total USD after the add.
+    pub spend_usd: f64,
+    /// True when the cap was crossed and the lease is paused.
+    pub paused: bool,
+}
+
 struct Lease {
     agent_id: String,
     parent_id: Option<String>,
@@ -256,6 +287,12 @@ struct Lease {
     clips: Vec<String>,
     clip_cids: BTreeMap<String, String>,
     swarm_task_id: Option<String>,
+    tools_allow: Option<Vec<String>>,
+    dest_allow: Option<Vec<String>>,
+    spend_cap_usd: Option<f64>,
+    spend_usd: f64,
+    irreversible: Option<Vec<String>>,
+    approvals: Vec<String>,
 }
 
 struct StoreInner {
@@ -303,6 +340,7 @@ impl JsonlSqliteSink {
              );",
         )
         .map_err(|_| SinkError::Unavailable)?;
+        migrate_leases(&conn)?;
         let seq: u64 = conn
             .query_row("SELECT COALESCE(MAX(seq), 0) FROM events", [], |r| r.get(0))
             .map_err(|_| SinkError::Unavailable)?;
@@ -393,6 +431,8 @@ fn keeps_deny_code(decision: AdmitDecision) -> bool {
                 | DenyCode::PurposeExceeded
                 | DenyCode::LeaseExpired
                 | DenyCode::NoLease
+                | DenyCode::SpendCap
+                | DenyCode::NeedsHuman
         }
     )
 }
@@ -514,6 +554,12 @@ impl Deadbolt {
                 clips: Vec::new(),
                 clip_cids: BTreeMap::new(),
                 swarm_task_id: None,
+                tools_allow: None,
+                dest_allow: None,
+                spend_cap_usd: None,
+                spend_usd: 0.0,
+                irreversible: None,
+                approvals: Vec::new(),
             },
         )
         .map_err(|_| DeadboltError::StoreUnavailable)?;
@@ -565,6 +611,12 @@ impl Deadbolt {
                     clips: Vec::new(),
                     clip_cids: BTreeMap::new(),
                     swarm_task_id: swarm_task_id.map(str::to_string),
+                    tools_allow: None,
+                    dest_allow: None,
+                    spend_cap_usd: None,
+                    spend_usd: 0.0,
+                    irreversible: None,
+                    approvals: Vec::new(),
                 },
             )
             .map_err(|_| DeadboltError::StoreUnavailable)?;
@@ -586,15 +638,26 @@ impl Deadbolt {
 
     /// Recheck the lease and record the attempt plus the decision.
     pub fn admit(&self, agent_id: &str, tool: &str) -> AdmitDecision {
-        self.decide(agent_id, tool, true)
+        self.admit_dest(agent_id, tool, None)
+    }
+
+    /// Same as [`Self::admit`]. `dest` is a host token. Unset `dest_allow` ignores it.
+    pub fn admit_dest(&self, agent_id: &str, tool: &str, dest: Option<&str>) -> AdmitDecision {
+        self.decide(agent_id, tool, dest, true)
     }
 
     /// Recheck before the tool body. Records only a new denial.
     pub fn probe(&self, agent_id: &str, tool: &str) -> AdmitDecision {
-        self.decide(agent_id, tool, false)
+        self.decide(agent_id, tool, None, false)
     }
 
-    fn decide(&self, agent_id: &str, tool: &str, record_allow: bool) -> AdmitDecision {
+    fn decide(
+        &self,
+        agent_id: &str,
+        tool: &str,
+        dest: Option<&str>,
+        record_allow: bool,
+    ) -> AdmitDecision {
         if !self.enabled {
             return AdmitDecision::Allow;
         }
@@ -612,7 +675,7 @@ impl Deadbolt {
                 code: DenyCode::NoLease,
             };
         }
-        let decision = self.evaluate(agent_id, tool);
+        let decision = self.evaluate(agent_id, tool, dest);
         let deny = matches!(decision, AdmitDecision::Deny { .. });
         if (record_allow || deny) && self.record_decision(agent_id, tool, &decision).is_err() {
             if keeps_deny_code(decision) {
@@ -627,7 +690,7 @@ impl Deadbolt {
         decision
     }
 
-    fn evaluate(&self, agent_id: &str, tool: &str) -> AdmitDecision {
+    fn evaluate(&self, agent_id: &str, tool: &str, dest: Option<&str>) -> AdmitDecision {
         let Some(store) = &self.store else {
             return AdmitDecision::Deny {
                 code: DenyCode::StoreUnavailable,
@@ -664,6 +727,17 @@ impl Deadbolt {
                 code: DenyCode::LeaseExpired,
             };
         }
+        if let Some(cap) = lease.spend_cap_usd {
+            if lease.spend_usd >= cap {
+                let _ = g.conn.execute(
+                    "UPDATE leases SET state='paused', updated_at=?1 WHERE agent_id=?2 AND state!='killed'",
+                    params![now_secs(), agent_id],
+                );
+                return AdmitDecision::Deny {
+                    code: DenyCode::SpendCap,
+                };
+            }
+        }
         if lease.state == "paused" {
             return AdmitDecision::Deny {
                 code: DenyCode::Paused,
@@ -674,11 +748,38 @@ impl Deadbolt {
                 code: DenyCode::PurposeExceeded,
             };
         }
+        if let Some(allow) = &lease.tools_allow {
+            if !allow.iter().any(|t| t == tool) {
+                return AdmitDecision::Deny {
+                    code: DenyCode::PurposeExceeded,
+                };
+            }
+        }
+        if let Some(allow) = &lease.dest_allow {
+            let ok = dest.is_some_and(|d| allow.iter().any(|h| h.eq_ignore_ascii_case(d)));
+            if !ok {
+                return AdmitDecision::Deny {
+                    code: DenyCode::PurposeExceeded,
+                };
+            }
+        }
+        let shot = lease
+            .irreversible
+            .as_ref()
+            .is_some_and(|list| list.iter().any(|t| t == tool));
+        if shot && !lease.approvals.iter().any(|t| t == tool) {
+            return AdmitDecision::Deny {
+                code: DenyCode::NeedsHuman,
+            };
+        }
         drop(g);
         if self.slide(agent_id).is_err() && self.fail_closed {
             return AdmitDecision::Deny {
                 code: DenyCode::StoreUnavailable,
             };
+        }
+        if shot {
+            let _ = self.consume_approval(agent_id, tool);
         }
         AdmitDecision::Allow
     }
@@ -890,6 +991,251 @@ impl Deadbolt {
         }
         lease.clip_cids.insert(tool.to_string(), cid);
         save_lease(&g.conn, &lease).map_err(|_| DeadboltError::StoreUnavailable)?;
+        Ok(())
+    }
+
+    /// Set blast-radius fields. Omitted fields stay as stored. Unset lists stay open.
+    pub fn set_policy(&self, agent_id: &str, patch: PolicyPatch) -> Result<(), DeadboltError> {
+        require_token(agent_id)?;
+        for list in [&patch.tools_allow, &patch.dest_allow, &patch.irreversible]
+            .into_iter()
+            .flatten()
+        {
+            for item in list {
+                require_token(item)?;
+            }
+        }
+        if patch
+            .spend_cap_usd
+            .is_some_and(|cap| !cap.is_finite() || cap < 0.0)
+        {
+            return Err(DeadboltError::BadRequest);
+        }
+        let store = self.store()?;
+        {
+            let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
+            let lease = load_lease(&g.conn, agent_id)
+                .map_err(|_| DeadboltError::StoreUnavailable)?
+                .ok_or(DeadboltError::NotFound)?;
+            if lease.state == "killed" {
+                return Err(DeadboltError::Killed);
+            }
+            let tools = json_list(patch.tools_allow.as_deref());
+            let dest = json_list(patch.dest_allow.as_deref());
+            let irrev = json_list(patch.irreversible.as_deref());
+            g.conn
+                .execute(
+                    "UPDATE leases SET tools_allow=COALESCE(?1, tools_allow), dest_allow=COALESCE(?2, dest_allow), spend_cap_usd=COALESCE(?3, spend_cap_usd), irreversible=COALESCE(?4, irreversible), updated_at=?5 WHERE agent_id=?6",
+                    params![tools, dest, patch.spend_cap_usd, irrev, now_secs(), agent_id],
+                )
+                .map_err(|_| DeadboltError::StoreUnavailable)?;
+        }
+        self.emit(
+            EpistemicClass::Observed,
+            "policy",
+            json_tokens(&[("agent_id", agent_id), ("state", "set")]),
+            &[],
+        )
+        .map(|_| ())
+        .map_err(|_| DeadboltError::StoreUnavailable)
+    }
+
+    /// One shot for an irreversible tool. Not a model tool.
+    pub fn approve(&self, agent_id: &str, tool: &str) -> Result<(), DeadboltError> {
+        require_token(agent_id)?;
+        require_token(tool)?;
+        let store = self.store()?;
+        {
+            let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
+            let mut lease = load_lease(&g.conn, agent_id)
+                .map_err(|_| DeadboltError::StoreUnavailable)?
+                .ok_or(DeadboltError::NotFound)?;
+            if lease.state == "killed" {
+                return Err(DeadboltError::Killed);
+            }
+            if !lease.approvals.iter().any(|t| t == tool) {
+                lease.approvals.push(tool.to_string());
+            }
+            let raw = serde_json::to_string(&lease.approvals).unwrap_or_else(|_| "[]".into());
+            g.conn
+                .execute(
+                    "UPDATE leases SET approvals=?1, updated_at=?2 WHERE agent_id=?3",
+                    params![raw, now_secs(), agent_id],
+                )
+                .map_err(|_| DeadboltError::StoreUnavailable)?;
+        }
+        self.emit(
+            EpistemicClass::Observed,
+            "approve",
+            json_tokens(&[("agent_id", agent_id), ("tool", tool)]),
+            &[],
+        )
+        .map(|_| ())
+        .map_err(|_| DeadboltError::StoreUnavailable)
+    }
+
+    /// Add USD to the lease. Crossing `spend_cap_usd` pauses it.
+    pub fn spend_add(&self, agent_id: &str, usd: f64) -> Result<SpendAdded, DeadboltError> {
+        require_token(agent_id)?;
+        if !usd.is_finite() || usd < 0.0 {
+            return Err(DeadboltError::BadRequest);
+        }
+        let store = self.store()?;
+        let (total, paused) = {
+            let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
+            let lease = load_lease(&g.conn, agent_id)
+                .map_err(|_| DeadboltError::StoreUnavailable)?
+                .ok_or(DeadboltError::NotFound)?;
+            if lease.state == "killed" {
+                return Err(DeadboltError::Killed);
+            }
+            let total = lease.spend_usd + usd;
+            let paused = lease.spend_cap_usd.is_some_and(|cap| total >= cap);
+            let state = if paused {
+                "paused"
+            } else {
+                lease.state.as_str()
+            };
+            g.conn
+                .execute(
+                    "UPDATE leases SET spend_usd=?1, state=?2, updated_at=?3 WHERE agent_id=?4",
+                    params![total, state, now_secs(), agent_id],
+                )
+                .map_err(|_| DeadboltError::StoreUnavailable)?;
+            (total, paused)
+        };
+        let usd_tok = usd_token(usd);
+        self.emit(
+            EpistemicClass::Observed,
+            "spend",
+            json_tokens(&[("agent_id", agent_id), ("usd", &usd_tok)]),
+            &[],
+        )
+        .map_err(|_| DeadboltError::StoreUnavailable)?;
+        Ok(SpendAdded {
+            spend_usd: total,
+            paused,
+        })
+    }
+
+    /// One JSON document. Tokens only. No generated prose.
+    pub fn incident(&self, agent_id: &str) -> Result<String, DeadboltError> {
+        require_token(agent_id)?;
+        let store = self.store()?;
+        let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
+        let lease = load_lease(&g.conn, agent_id)
+            .map_err(|_| DeadboltError::StoreUnavailable)?
+            .ok_or(DeadboltError::NotFound)?;
+        let updated_at: i64 = g
+            .conn
+            .query_row(
+                "SELECT updated_at FROM leases WHERE agent_id=?1",
+                params![agent_id],
+                |r| r.get(0),
+            )
+            .map_err(|_| DeadboltError::StoreUnavailable)?;
+        let children =
+            descendant_ids(&g.conn, agent_id).map_err(|_| DeadboltError::StoreUnavailable)?;
+        let mut ids = BTreeSet::from([agent_id.to_string()]);
+        for id in &children {
+            ids.insert(id.clone());
+        }
+        let mut stmt = g
+            .conn
+            .prepare("SELECT cid, class, kind, payload, premises, ts FROM events ORDER BY seq")
+            .map_err(|_| DeadboltError::StoreUnavailable)?;
+        let scanned = stmt
+            .query_map([], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, String>(3)?,
+                    r.get::<_, String>(4)?,
+                    r.get::<_, i64>(5)?,
+                ))
+            })
+            .map_err(|_| DeadboltError::StoreUnavailable)?;
+        let mut first_seen: Option<i64> = None;
+        let mut decisions = Vec::new();
+        let mut inferred = Vec::new();
+        for row in scanned {
+            let (cid, class, kind, payload, premises, ts) =
+                row.map_err(|_| DeadboltError::StoreUnavailable)?;
+            let payload: Value = serde_json::from_str(&payload).unwrap_or(Value::Null);
+            let Some(row_agent) = payload.get("agent_id").and_then(|v| v.as_str()) else {
+                continue;
+            };
+            if !ids.contains(row_agent) {
+                continue;
+            }
+            if class == "generated" {
+                return Err(DeadboltError::ExportRefused("generated"));
+            }
+            first_seen = Some(first_seen.map_or(ts, |n| n.min(ts)));
+            let premises: Vec<String> = serde_json::from_str(&premises).unwrap_or_default();
+            if class == "inferred" {
+                if premises.is_empty() {
+                    return Err(DeadboltError::ExportRefused("premises"));
+                }
+                inferred.push(json!({
+                    "class": "inferred",
+                    "kind": kind,
+                    "cid": cid,
+                    "tool": payload.get("tool").and_then(|v| v.as_str()).unwrap_or("-"),
+                    "premises": premises,
+                    "ts": ts,
+                }));
+            } else if kind == "decision" {
+                decisions.push(json!({
+                    "class": "observed",
+                    "kind": "decision",
+                    "cid": cid,
+                    "tool": payload.get("tool").and_then(|v| v.as_str()).unwrap_or("-"),
+                    "code": payload.get("code").and_then(|v| v.as_str()).unwrap_or("-"),
+                    "ts": ts,
+                }));
+            }
+        }
+        let killed_at = if lease.state == "killed" {
+            Value::from(updated_at)
+        } else {
+            Value::Null
+        };
+        let body = json!({
+            "agent": agent_id,
+            "children": children,
+            "first_seen": first_seen,
+            "killed_at": killed_at,
+            "decisions": decisions,
+            "inferred": inferred,
+            "policy": {
+                "tools_allow": lease.tools_allow,
+                "dest_allow": lease.dest_allow,
+                "spend_cap_usd": lease.spend_cap_usd,
+                "spend_usd": lease.spend_usd,
+                "irreversible": lease.irreversible,
+            }
+        });
+        Ok(body.to_string())
+    }
+
+    fn consume_approval(&self, agent_id: &str, tool: &str) -> Result<(), ()> {
+        let store = self.store.as_ref().ok_or(())?;
+        let g = store.lock().map_err(|_| ())?;
+        let mut lease = load_lease(&g.conn, agent_id).map_err(|_| ())?.ok_or(())?;
+        let before = lease.approvals.len();
+        lease.approvals.retain(|t| t != tool);
+        if lease.approvals.len() == before {
+            return Ok(());
+        }
+        let raw = serde_json::to_string(&lease.approvals).unwrap_or_else(|_| "[]".into());
+        g.conn
+            .execute(
+                "UPDATE leases SET approvals=?1 WHERE agent_id=?2",
+                params![raw, agent_id],
+            )
+            .map_err(|_| ())?;
         Ok(())
     }
 
@@ -1435,6 +1781,37 @@ fn hex_encode(bytes: &[u8]) -> String {
     out
 }
 
+fn json_list(list: Option<&[String]>) -> Option<String> {
+    list.map(|items| serde_json::to_string(items).unwrap_or_else(|_| "[]".into()))
+}
+
+fn usd_token(usd: f64) -> String {
+    let raw = format!("{usd}");
+    if is_token(&raw) {
+        raw
+    } else {
+        "0".into()
+    }
+}
+
+fn opt_list(raw: Option<String>) -> Option<Vec<String>> {
+    raw.and_then(|s| serde_json::from_str(&s).ok())
+}
+
+fn migrate_leases(conn: &Connection) -> Result<(), SinkError> {
+    for sql in [
+        "ALTER TABLE leases ADD COLUMN tools_allow TEXT",
+        "ALTER TABLE leases ADD COLUMN dest_allow TEXT",
+        "ALTER TABLE leases ADD COLUMN spend_cap_usd REAL",
+        "ALTER TABLE leases ADD COLUMN spend_usd REAL NOT NULL DEFAULT 0",
+        "ALTER TABLE leases ADD COLUMN irreversible TEXT",
+        "ALTER TABLE leases ADD COLUMN approvals TEXT NOT NULL DEFAULT '[]'",
+    ] {
+        let _ = conn.execute(sql, []);
+    }
+    Ok(())
+}
+
 fn json_tokens(pairs: &[(&str, &str)]) -> Value {
     let mut map = Map::new();
     for (k, v) in pairs {
@@ -1473,7 +1850,7 @@ fn save_lease(conn: &Connection, lease: &Lease) -> Result<(), rusqlite::Error> {
 
 fn load_lease(conn: &Connection, agent_id: &str) -> Result<Option<Lease>, rusqlite::Error> {
     let mut stmt = conn.prepare(
-        "SELECT agent_id, parent_id, state, expires_at, clips, clip_cids, swarm_task_id FROM leases WHERE agent_id=?1",
+        "SELECT agent_id, parent_id, state, expires_at, clips, clip_cids, swarm_task_id, tools_allow, dest_allow, spend_cap_usd, spend_usd, irreversible, approvals FROM leases WHERE agent_id=?1",
     )?;
     let mut rows = stmt.query(params![agent_id])?;
     let Some(r) = rows.next()? else {
@@ -1484,7 +1861,7 @@ fn load_lease(conn: &Connection, agent_id: &str) -> Result<Option<Lease>, rusqli
 
 fn load_all(conn: &Connection) -> Result<Vec<Lease>, rusqlite::Error> {
     let mut stmt = conn.prepare(
-        "SELECT agent_id, parent_id, state, expires_at, clips, clip_cids, swarm_task_id FROM leases ORDER BY agent_id",
+        "SELECT agent_id, parent_id, state, expires_at, clips, clip_cids, swarm_task_id, tools_allow, dest_allow, spend_cap_usd, spend_usd, irreversible, approvals FROM leases ORDER BY agent_id",
     )?;
     let rows = stmt.query_map([], lease_from_row)?;
     rows.collect()
@@ -1502,6 +1879,13 @@ fn lease_from_row(r: &rusqlite::Row<'_>) -> Result<Lease, rusqlite::Error> {
         clips,
         clip_cids,
         swarm_task_id: r.get(6)?,
+        tools_allow: opt_list(r.get(7)?),
+        dest_allow: opt_list(r.get(8)?),
+        spend_cap_usd: r.get(9)?,
+        spend_usd: r.get(10)?,
+        irreversible: opt_list(r.get(11)?),
+        approvals: serde_json::from_str(&r.get::<_, String>(12).unwrap_or_else(|_| "[]".into()))
+            .unwrap_or_default(),
     })
 }
 
@@ -1940,5 +2324,140 @@ mod tests {
         });
         assert!(!db.should_attach());
         assert!(matches!(db.admit("A", "shell"), AdmitDecision::Allow));
+    }
+
+    #[test]
+    fn policy_deny_off_list_tool() {
+        let (_dir, db) = gate();
+        db.ensure_agent("A").unwrap();
+        db.set_policy(
+            "A",
+            PolicyPatch {
+                tools_allow: Some(vec!["read_file".into()]),
+                ..PolicyPatch::default()
+            },
+        )
+        .unwrap();
+        assert!(matches!(
+            db.admit("A", "shell"),
+            AdmitDecision::Deny {
+                code: DenyCode::PurposeExceeded
+            }
+        ));
+        assert!(matches!(db.admit("A", "read_file"), AdmitDecision::Allow));
+        let rows = db.export("A", false).unwrap();
+        let inferred: Vec<_> = rows
+            .iter()
+            .filter(|r| r.kind == "purpose_exceeded")
+            .collect();
+        assert!(!inferred.is_empty());
+        assert!(inferred
+            .iter()
+            .all(|r| r.premises.iter().any(|p| p.starts_with("sha256:"))));
+    }
+
+    #[test]
+    fn dest_deny() {
+        let (_dir, db) = gate();
+        db.ensure_agent("A").unwrap();
+        db.set_policy(
+            "A",
+            PolicyPatch {
+                dest_allow: Some(vec!["api.stripe.com".into()]),
+                ..PolicyPatch::default()
+            },
+        )
+        .unwrap();
+        assert!(matches!(
+            db.admit("A", "shell"),
+            AdmitDecision::Deny {
+                code: DenyCode::PurposeExceeded
+            }
+        ));
+        assert!(matches!(
+            db.admit_dest("A", "shell", Some("github.com")),
+            AdmitDecision::Deny {
+                code: DenyCode::PurposeExceeded
+            }
+        ));
+        assert!(matches!(
+            db.admit_dest("A", "shell", Some("api.stripe.com")),
+            AdmitDecision::Allow
+        ));
+    }
+
+    #[test]
+    fn spend_cap_pause() {
+        let (_dir, db) = gate();
+        db.ensure_agent("A").unwrap();
+        db.set_policy(
+            "A",
+            PolicyPatch {
+                spend_cap_usd: Some(5.0),
+                ..PolicyPatch::default()
+            },
+        )
+        .unwrap();
+        let under = db.spend_add("A", 1.0).unwrap();
+        assert!(!under.paused);
+        assert!(matches!(db.admit("A", "shell"), AdmitDecision::Allow));
+        let over = db.spend_add("A", 5.0).unwrap();
+        assert!(over.paused);
+        assert_eq!(db.status(Some("A")).unwrap()[0].state, "paused");
+        assert!(matches!(
+            db.admit("A", "shell"),
+            AdmitDecision::Deny {
+                code: DenyCode::SpendCap
+            }
+        ));
+    }
+
+    #[test]
+    fn irreversible_needs_human_then_approve_allows_once() {
+        let (_dir, db) = gate();
+        db.ensure_agent("A").unwrap();
+        db.set_policy(
+            "A",
+            PolicyPatch {
+                irreversible: Some(vec!["shell".into()]),
+                ..PolicyPatch::default()
+            },
+        )
+        .unwrap();
+        assert!(matches!(
+            db.admit("A", "shell"),
+            AdmitDecision::Deny {
+                code: DenyCode::NeedsHuman
+            }
+        ));
+        db.approve("A", "shell").unwrap();
+        assert!(matches!(db.admit("A", "shell"), AdmitDecision::Allow));
+        assert!(matches!(
+            db.admit("A", "shell"),
+            AdmitDecision::Deny {
+                code: DenyCode::NeedsHuman
+            }
+        ));
+    }
+
+    #[test]
+    fn incident_json_has_killed_decision() {
+        let (_dir, db) = gate();
+        db.ensure_agent("A").unwrap();
+        db.register_child("A", "C", None).unwrap();
+        db.admit("A", "shell");
+        db.kill("A").unwrap();
+        db.admit("A", "shell");
+        let raw = db.incident("A").unwrap();
+        let v: Value = serde_json::from_str(&raw).unwrap();
+        assert_eq!(v["agent"], "A");
+        assert!(v["children"].as_array().unwrap().iter().any(|c| c == "C"));
+        assert!(v["decisions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|d| d["code"] == "killed"));
+        assert!(v["killed_at"].is_number());
+        assert!(v.get("summary").is_none());
     }
 }

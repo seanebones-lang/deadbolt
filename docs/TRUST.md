@@ -30,4 +30,10 @@ Admit, then the tool, is a race. Admit immediately before the body. Do not admit
 
 ## Not claimed
 
-No frontier shutdown. No shadow-agent discovery. No fleet halt. No proof that a cooperative caller obeyed. Unix socket mode `0600`, or loopback TCP with a required token. `0.0.0.0` is refused.
+No frontier shutdown. No shadow-agent discovery. No fleet halt. No proof that a cooperative caller obeyed. Unix socket mode `0600`, or loopback TCP with a required token. `0.0.0.0` is refused. Deadbolt does not contain another lab's agents on the public internet.
+
+## Blast radius
+
+Unset policy is open. A set `tools_allow` or `dest_allow` denies `purpose_exceeded` and records it as inferred, with the attempt cid in premises. Crossing `spend_cap_usd` pauses the lease. The next admit is `spend_cap`, not a generic pause. An irreversible tool is `needs_human` until `deadbolt approve --agent ID --tool TOOL` grants one shot. `deadbolt resume --agent ID --approve TOOL` is the same shot after a pause. There is no model-facing approve tool.
+
+Harness is one consumer of this crate. This repository does not include it.

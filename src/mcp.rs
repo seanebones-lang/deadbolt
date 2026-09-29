@@ -38,22 +38,26 @@ pub fn mcp_proxy(
         }
         let sock = sock.clone();
         let agent = agent.to_string();
-        return spawn_proxy(argv, move |tool| sock_decision(&sock, &agent, tool));
+        return spawn_proxy(argv, move |tool, dest| {
+            sock_decision(&sock, &agent, tool, dest)
+        });
     }
     if let Err(err) = gate.ensure_agent(agent) {
         eprintln!("{err}");
     }
     let gate = gate.clone();
     let agent = agent.to_string();
-    spawn_proxy(argv, move |tool| match gate.admit(&agent, tool) {
-        AdmitDecision::Allow => None,
-        AdmitDecision::Deny { code } => Some(code.as_str().to_string()),
+    spawn_proxy(argv, move |tool, dest| {
+        match gate.admit_dest(&agent, tool, dest) {
+            AdmitDecision::Allow => None,
+            AdmitDecision::Deny { code } => Some(code.as_str().to_string()),
+        }
     })
 }
 
 fn spawn_proxy(
     argv: &[String],
-    admit: impl Fn(&str) -> Option<String>,
+    admit: impl Fn(&str, Option<&str>) -> Option<String>,
 ) -> Result<(), DeadboltError> {
     let mut cmd = Command::new(&argv[0]);
     cmd.args(&argv[1..])
@@ -82,7 +86,7 @@ fn proxy_loop<R, W, CW, CR>(
     client_out: W,
     mut child_in: CW,
     mut child_out: CR,
-    admit: &dyn Fn(&str) -> Option<String>,
+    admit: &dyn Fn(&str, Option<&str>) -> Option<String>,
 ) -> std::io::Result<()>
 where
     R: BufRead,
@@ -125,7 +129,7 @@ where
 
 fn dispatch(
     line: &str,
-    admit: &dyn Fn(&str) -> Option<String>,
+    admit: &dyn Fn(&str, Option<&str>) -> Option<String>,
     child: &mut impl Write,
     client: &Mutex<impl Write>,
 ) -> std::io::Result<()> {
@@ -148,7 +152,8 @@ fn dispatch(
             }
             return Ok(());
         };
-        if let Some(code) = admit(name) {
+        let dest = dest_of(name, &msg);
+        if let Some(code) = admit(name, dest.as_deref()) {
             if let Some(id) = request_id(&msg) {
                 write_client(client, &error_line(id, -32000, &code))?;
             }
@@ -157,6 +162,44 @@ fn dispatch(
     }
     child.write_all(forward_line(line).as_bytes())?;
     child.flush()
+}
+
+fn dest_of(name: &str, msg: &Value) -> Option<String> {
+    host_in(name).or_else(|| {
+        msg.get("params")
+            .and_then(|p| p.get("arguments"))
+            .and_then(find_host)
+    })
+}
+
+fn find_host(value: &Value) -> Option<String> {
+    match value {
+        Value::String(s) => host_in(s),
+        Value::Array(items) => items.iter().find_map(find_host),
+        Value::Object(map) => map.values().find_map(find_host),
+        _ => None,
+    }
+}
+
+fn host_in(raw: &str) -> Option<String> {
+    let rest = raw
+        .strip_prefix("https://")
+        .or_else(|| raw.strip_prefix("http://"))?;
+    let authority = rest.split(['/', '?', '#']).next()?;
+    let host = authority
+        .rsplit_once('@')
+        .map(|(_, host)| host)
+        .unwrap_or(authority);
+    let host = if let Some(rest) = host.strip_prefix('[') {
+        rest.split(']').next()?
+    } else {
+        host.split(':').next()?
+    };
+    if host.is_empty() {
+        None
+    } else {
+        Some(host.to_string())
+    }
 }
 
 fn request_id(msg: &Value) -> Option<&Value> {
@@ -210,8 +253,11 @@ fn sock_ensure(sock: &Path, agent: &str) -> Result<(), DeadboltError> {
     }
 }
 
-fn sock_decision(sock: &Path, agent: &str, tool: &str) -> Option<String> {
-    let body = json!({"agent_id": agent, "tool": tool}).to_string();
+fn sock_decision(sock: &Path, agent: &str, tool: &str, dest: Option<&str>) -> Option<String> {
+    let body = match dest {
+        Some(dest) => json!({"agent_id": agent, "tool": tool, "dest": dest}).to_string(),
+        None => json!({"agent_id": agent, "tool": tool}).to_string(),
+    };
     match http_json(sock, "POST", "/admit", Some(&body)) {
         Ok((401, _)) => Some("unauthorized".to_string()),
         Ok((_, v)) if v.get("decision").and_then(|d| d.as_str()) == Some("allow") => None,
@@ -448,7 +494,7 @@ mod tests {
                 pending: Vec::new(),
                 pos: 0,
             }),
-            &move |tool| match gate.admit("shop-bot", tool) {
+            &move |tool, _dest| match gate.admit("shop-bot", tool) {
                 AdmitDecision::Allow => None,
                 AdmitDecision::Deny { code } => Some(code.as_str().to_string()),
             },

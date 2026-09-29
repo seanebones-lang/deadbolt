@@ -285,6 +285,8 @@ fn dispatch_http(gate: &Deadbolt, raw: &str, token: Option<&str>) -> (u16, Strin
         ("POST", "/admit") => admit(gate, body),
         ("POST", "/ensure") => ensure(gate, body),
         ("POST", "/register_child") => register_child(gate, body),
+        ("POST", "/policy") => policy(gate, body),
+        ("POST", "/spend") => spend(gate, body),
         ("GET", "/status") => status(gate, query),
         _ => (404, json!({"code":"not_found"}).to_string()),
     }
@@ -300,13 +302,61 @@ fn admit(gate: &Deadbolt, body: &str) -> (u16, String) {
     let Some(tool) = v.get("tool").and_then(|x| x.as_str()) else {
         return (400, json!({"code":"bad_request"}).to_string());
     };
-    match gate.admit(agent_id, tool) {
+    let dest = v.get("dest").and_then(|x| x.as_str());
+    match gate.admit_dest(agent_id, tool, dest) {
         AdmitDecision::Allow => (200, json!({"decision":"allow"}).to_string()),
         AdmitDecision::Deny { code } => (
             200,
             json!({"decision":"deny","code": code.as_str()}).to_string(),
         ),
     }
+}
+
+fn policy(gate: &Deadbolt, body: &str) -> (u16, String) {
+    let Ok(v) = serde_json::from_str::<Value>(body) else {
+        return (400, json!({"code":"bad_request"}).to_string());
+    };
+    let Some(agent_id) = v.get("agent_id").and_then(|x| x.as_str()) else {
+        return (400, json!({"code":"bad_request"}).to_string());
+    };
+    let patch = crate::PolicyPatch {
+        tools_allow: string_list(v.get("tools")),
+        dest_allow: string_list(v.get("dest")),
+        spend_cap_usd: v.get("spend_cap").and_then(|x| x.as_f64()),
+        irreversible: string_list(v.get("irreversible")),
+    };
+    match gate.set_policy(agent_id, patch) {
+        Ok(()) => (200, json!({"ok":true}).to_string()),
+        Err(e) => (200, json!({"ok":false,"code": err_token(&e)}).to_string()),
+    }
+}
+
+fn spend(gate: &Deadbolt, body: &str) -> (u16, String) {
+    let Ok(v) = serde_json::from_str::<Value>(body) else {
+        return (400, json!({"code":"bad_request"}).to_string());
+    };
+    let Some(agent_id) = v.get("agent_id").and_then(|x| x.as_str()) else {
+        return (400, json!({"code":"bad_request"}).to_string());
+    };
+    let Some(usd) = v.get("usd").and_then(|x| x.as_f64()) else {
+        return (400, json!({"code":"bad_request"}).to_string());
+    };
+    match gate.spend_add(agent_id, usd) {
+        Ok(added) => (
+            200,
+            json!({"ok":true,"spend_usd": added.spend_usd, "code": if added.paused { "spend_cap" } else { "ok" }}).to_string(),
+        ),
+        Err(e) => (200, json!({"ok":false,"code": err_token(&e)}).to_string()),
+    }
+}
+
+fn string_list(value: Option<&Value>) -> Option<Vec<String>> {
+    let arr = value?.as_array()?;
+    Some(
+        arr.iter()
+            .filter_map(|v| v.as_str().map(str::to_string))
+            .collect(),
+    )
 }
 
 fn ensure(gate: &Deadbolt, body: &str) -> (u16, String) {
@@ -380,6 +430,7 @@ fn err_token(err: &DeadboltError) -> &'static str {
         DeadboltError::TokenRequired => "token_required",
         DeadboltError::ExportRefused(_) => "export_refused",
         DeadboltError::McpSpawn => "mcp_spawn",
+        DeadboltError::BadRequest => "bad_request",
     }
 }
 
