@@ -1,7 +1,7 @@
 [package]
 name = "n11-deadbolt"
 description = "Local execution gate for software agents: leases, policy, operator revocation, and structured evidence."
-version = "0.1.0"
+version = "1.0.0-rc.1"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/seanebones-lang/deadbolt"
@@ -12,9 +12,13 @@ keywords = ["agents", "security", "containment"]
 categories = ["command-line-utilities"]
 include = [
     "src/**/*",
-    "examples/**/*",
+    "examples/*.rs",
+    "examples/*.py",
+    "examples/*.js",
     "docs/**/*",
-    "tests/**/*",
+    "tests/*.rs",
+    "tests/*.py",
+    "tests/*.txt",
     "README.md",
     "LICENSE",
     "NOTICE",
@@ -25,6 +29,7 @@ include = [
     "dist/deadbolt.service",
     "dist/docker-compose.yml",
     "dist/deadbolt.env.example",
+    "dist/package_release.py",
     "Cargo.toml",
     "Cargo.lock",
 ]

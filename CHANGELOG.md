@@ -1,7 +1,20 @@
 # Changelog
 
-Changes below are local, unreleased work until merged and published. Cargo version
-remains 0.1.0; the older `v0.1.1-product` tag is not this hardening revision.
+Changes below are unreleased until a versioned release is published. Cargo version
+is 1.0.0-rc.1; the older `v0.1.1-product` tag is not this hardening revision.
+
+## 1.0.0-rc.1 — candidate preparation
+
+- Merge the standalone integration and protocol hardening work after successful
+  Linux/macOS/Windows and Rust 1.85 checks.
+- Add optional independent-host acceptance using pinned Hermes MCP transport
+  and the reference filesystem server; record actual allowed/denied file effects.
+- Define the intended v1 compatibility and upgrade contract and ordered roadmap.
+- Prepare native candidate archives, source identity, checksums and extraction
+  smoke tests for Linux x86_64, macOS arm64/x86_64 and Windows x86_64.
+
+This is a release candidate, not a stable 1.0 declaration. Native archive CI and
+the remaining release gates must pass before publication.
 
 ## Unreleased — standalone integration and hardening
 

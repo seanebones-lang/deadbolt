@@ -1,0 +1,15 @@
+{
+  "new_version": "deadbolt 1.0.0-rc.1",
+  "old_binary_sha256": "e69596ffbd676045fd62a419f1e91071d79429756884fb9a86b71d80e446ac04",
+  "new_binary_sha256": "b58e52c7bdc963fc01e9bea82d03f6bafd47f3586d240de98bd77895fe13e8bd",
+  "preserved": [
+    "terminal revocation",
+    "child lineage",
+    "tool policy",
+    "destination policy",
+    "one-shot approval",
+    "spend",
+    "evidence"
+  ],
+  "result": "passed"
+}

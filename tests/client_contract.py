@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import socket
+import shutil
 import subprocess
 import tempfile
 import time
@@ -72,6 +73,36 @@ class ClientContract(unittest.TestCase):
         self.server.wait(timeout=5)
         self.assertEqual(client.admit("agent", "shell")["code"], "store_unavailable")
         self.assertEqual(self.node('d.admit("agent", "shell").then(x => console.log(JSON.stringify(x)))')["code"], "store_unavailable")
+
+    def test_quiescent_backup_restore_preserves_revocation(self):
+        self.assertTrue(client.ensure("unrelated")["ok"])
+        subprocess.run([str(BINARY), "kill", "--agent", "agent"], env=self.env,
+                       check=True, capture_output=True)
+        self.server.terminate()
+        self.server.wait(timeout=5)
+        self.server.stderr.close()
+        with tempfile.TemporaryDirectory() as recovery:
+            restored = Path(recovery) / "restored"
+            shutil.copytree(self.temp.name, restored)
+            self.env.update({"DEADBOLT_DB": str(restored / "db"),
+                             "DEADBOLT_EVENTS": str(restored / "events.jsonl")})
+            os.environ.update(self.env)
+            self.server = subprocess.Popen(
+                [str(BINARY), "serve", "--bind", self.env["DEADBOLT_SOCK"]],
+                env=self.env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+            try:
+                for _ in range(100):
+                    if client.ensure("agent").get("ok") is True:
+                        break
+                    time.sleep(.02)
+                else:
+                    self.fail("restored sidecar did not become ready")
+                self.assertEqual(client.admit("agent", "shell")["code"], "killed")
+                self.assertEqual(client.admit("unrelated", "shell")["decision"], "allow")
+                self.assertEqual(self.node('d.admit("agent", "shell").then(x => console.log(JSON.stringify(x)))')["code"], "killed")
+            finally:
+                self.server.terminate()
+                self.server.wait(timeout=5)
 
     def test_invalid_response_denies(self):
         class Handler(BaseHTTPRequestHandler):
