@@ -1,4 +1,4 @@
-# Adoption roadmap after v1.0.1
+# Adoption roadmap after v1.0.2
 
 The immediate goal is reproducible use by developers outside NextEleven.
 This roadmap describes intended work, not completed adoption or release promises.
@@ -17,4 +17,5 @@ Start with [first evaluation](FIRST-EVALUATION.md), then the
 Outside developer feedback is an open milestone. Automated tests using upstream
 software do not substitute for independent human acceptance. Production claims
 require acceptance of the selected application's actual routes and deployment.
-Systemd remains experimental until tested on a disposable Linux host.
+Systemd passed a bounded disposable-container test; native Linux host and adopter
+application acceptance remain open.

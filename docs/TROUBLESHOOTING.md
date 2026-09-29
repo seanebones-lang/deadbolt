@@ -92,17 +92,18 @@ fail-closed enforcement is enabled. Keep the database on a local filesystem,
 reduce simultaneous independent writers, and prefer one long-lived sidecar or
 cloned Rust gate for an application. Do not disable enforcement to hide contention.
 
-On main after the concurrency maintenance change (not in the original v1.0.1
-binary archives), the default store writes a spend update, evidence sequence and
+In v1.0.2 (not the original v1.0.1 binary archives), the default store writes a spend update, evidence sequence and
 SQLite evidence row in one immediate transaction. Other default evidence writes
 also reserve their sequence and insert the row in one transaction. A JSONL write
 failure rolls back that SQLite transaction. The JSONL file and SQLite are still
 separate resources: a partial file write or failed SQLite commit can leave JSONL
 bytes without a committed row. Reconcile against SQLite when investigating errors.
 
-An error is not a promise that a mutation had no effect. A commit error can have
-an uncertain outcome, and an optional Witness-sink failure occurs after the primary
-commit. Other mutation methods can also commit before evidence emission fails.
+An error is not a general promise that a mutation had no effect. A commit error can
+have an uncertain outcome, and an optional Witness-sink failure occurs after the
+primary commit. On the default primary sink, a failed primary evidence write now
+rolls back `approve`, `resume`, and policy grants. Other mutations can still commit
+before evidence emission fails.
 Inspect current state before retrying `spend_add`; blind retries can double-count
 reported spend. No automatic mutation replay is performed. Record the exact source
 revision, OS and operation, and use the issue template with a redacted reproduction.

@@ -71,9 +71,15 @@ is an available alternative if your installation policy requires it.
    an archive.
 5. Review public API/compatibility policy and release notes. Keep experimental
    deployments and integration limits explicit.
-6. Create a reviewed prerelease with the RC tag, or set 1.0.0 and repeat candidate
-   checks before a stable tag/release. Never move an already published version tag.
+6. Create a reviewed prerelease with the RC tag, or repeat candidate checks at
+   the selected stable source before a versioned tag/release. Never move an
+   already published version tag.
 
-Registry publication is separate. Confirm package ownership, contents and
-authentication before using `cargo publish`; never claim an unpublished install
-path works. Python and Node integrations remain included source clients.
+Registry publication is separate. The first useful registry target is crates.io
+for the Rust crate `n11-deadbolt`; it supports both the library and CLI. Inspect
+`cargo package --list` and run `cargo publish --dry-run` at the exact release
+source, then verify name availability, publisher account/team ownership and the
+package contents before an actual upload. A registry version cannot be replaced
+after publication. Do not claim `cargo install n11-deadbolt` until the uploaded
+crate is visible and installable. Python and Node integrations remain included
+source clients; publish them only after their API and ownership are reviewed.

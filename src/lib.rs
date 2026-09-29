@@ -1038,15 +1038,8 @@ impl Deadbolt {
     /// Clear pause and clips. Does not resurrect a killed lease.
     pub fn resume(&self, agent_id: &str) -> Result<(), DeadboltError> {
         require_token(agent_id)?;
-        let store = self.store()?;
-        {
-            let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
-            let tx = rusqlite::Transaction::new_unchecked(
-                &g.conn,
-                rusqlite::TransactionBehavior::Immediate,
-            )
-            .map_err(|_| DeadboltError::StoreUnavailable)?;
-            let lease = load_lease(&tx, agent_id)
+        self.operator_grant("resume", json_tokens(&[("agent_id", agent_id), ("state", "active")]), |tx| {
+            let lease = load_lease(tx, agent_id)
                 .map_err(|_| DeadboltError::StoreUnavailable)?
                 .ok_or(DeadboltError::NotFound)?;
             if lease.state == "killed" {
@@ -1059,16 +1052,8 @@ impl Deadbolt {
                     params![exp, agent_id],
                 )
                 .map_err(|_| DeadboltError::StoreUnavailable)?;
-            tx.commit().map_err(|_| DeadboltError::StoreUnavailable)?;
-        }
-        self.emit(
-            EpistemicClass::Observed,
-            "resume",
-            json_tokens(&[("agent_id", agent_id), ("state", "active")]),
-            &[],
-        )
-        .map_err(|_| DeadboltError::StoreUnavailable)?;
-        Ok(())
+            Ok(())
+        })
     }
 
     /// Clip one tool on one agent. Other tools stay admitted.
@@ -1120,15 +1105,8 @@ impl Deadbolt {
         {
             return Err(DeadboltError::BadRequest);
         }
-        let store = self.store()?;
-        {
-            let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
-            let tx = rusqlite::Transaction::new_unchecked(
-                &g.conn,
-                rusqlite::TransactionBehavior::Immediate,
-            )
-            .map_err(|_| DeadboltError::StoreUnavailable)?;
-            let lease = load_lease(&tx, agent_id)
+        self.operator_grant("policy", json_tokens(&[("agent_id", agent_id), ("state", "set")]), |tx| {
+            let lease = load_lease(tx, agent_id)
                 .map_err(|_| DeadboltError::StoreUnavailable)?
                 .ok_or(DeadboltError::NotFound)?;
             if lease.state == "killed" {
@@ -1143,55 +1121,36 @@ impl Deadbolt {
                     params![tools, dest, patch.spend_cap_usd, irrev, now_secs(), agent_id],
                 )
                 .map_err(|_| DeadboltError::StoreUnavailable)?;
-            tx.commit().map_err(|_| DeadboltError::StoreUnavailable)?;
-        }
-        self.emit(
-            EpistemicClass::Observed,
-            "policy",
-            json_tokens(&[("agent_id", agent_id), ("state", "set")]),
-            &[],
-        )
-        .map(|_| ())
-        .map_err(|_| DeadboltError::StoreUnavailable)
+            Ok(())
+        })
     }
 
     /// One shot for an irreversible tool. Not a model tool.
     pub fn approve(&self, agent_id: &str, tool: &str) -> Result<(), DeadboltError> {
         require_token(agent_id)?;
         require_token(tool)?;
-        let store = self.store()?;
-        {
-            let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
-            let tx = rusqlite::Transaction::new_unchecked(
-                &g.conn,
-                rusqlite::TransactionBehavior::Immediate,
-            )
-            .map_err(|_| DeadboltError::StoreUnavailable)?;
-            let mut lease = load_lease(&tx, agent_id)
-                .map_err(|_| DeadboltError::StoreUnavailable)?
-                .ok_or(DeadboltError::NotFound)?;
-            if lease.state == "killed" {
-                return Err(DeadboltError::Killed);
-            }
-            if !lease.approvals.iter().any(|t| t == tool) {
-                lease.approvals.push(tool.to_string());
-            }
-            let raw = serde_json::to_string(&lease.approvals).unwrap_or_else(|_| "[]".into());
-            tx.execute(
-                "UPDATE leases SET approvals=?1, updated_at=?2 WHERE agent_id=?3",
-                params![raw, now_secs(), agent_id],
-            )
-            .map_err(|_| DeadboltError::StoreUnavailable)?;
-            tx.commit().map_err(|_| DeadboltError::StoreUnavailable)?;
-        }
-        self.emit(
-            EpistemicClass::Observed,
+        self.operator_grant(
             "approve",
             json_tokens(&[("agent_id", agent_id), ("tool", tool)]),
-            &[],
+            |tx| {
+                let mut lease = load_lease(tx, agent_id)
+                    .map_err(|_| DeadboltError::StoreUnavailable)?
+                    .ok_or(DeadboltError::NotFound)?;
+                if lease.state == "killed" {
+                    return Err(DeadboltError::Killed);
+                }
+                if !lease.approvals.iter().any(|t| t == tool) {
+                    lease.approvals.push(tool.to_string());
+                }
+                let raw = serde_json::to_string(&lease.approvals).unwrap_or_else(|_| "[]".into());
+                tx.execute(
+                    "UPDATE leases SET approvals=?1, updated_at=?2 WHERE agent_id=?3",
+                    params![raw, now_secs(), agent_id],
+                )
+                .map_err(|_| DeadboltError::StoreUnavailable)?;
+                Ok(())
+            },
         )
-        .map(|_| ())
-        .map_err(|_| DeadboltError::StoreUnavailable)
     }
 
     /// Add USD to the lease. Crossing `spend_cap_usd` pauses it.
@@ -1648,6 +1607,51 @@ impl Deadbolt {
         self.sink
             .as_ref()
             .is_some_and(|sink| Arc::ptr_eq(sink, &default))
+    }
+
+    // A grant must not survive a failed primary evidence write. Keep its state
+    // change, evidence sequence and SQLite evidence row in one writer transaction.
+    fn operator_grant<F>(&self, kind: &str, payload: Value, mutate: F) -> Result<(), DeadboltError>
+    where
+        F: FnOnce(&rusqlite::Transaction<'_>) -> Result<(), DeadboltError>,
+    {
+        let store = self.store()?;
+        let default_sink = self.uses_default_sink(&store);
+        let record = {
+            let mut g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
+            let StoreInner { conn, events } = &mut *g;
+            let tx = rusqlite::Transaction::new_unchecked(
+                conn,
+                rusqlite::TransactionBehavior::Immediate,
+            )
+            .map_err(|_| DeadboltError::StoreUnavailable)?;
+            mutate(&tx)?;
+            let record = if default_sink {
+                Some(
+                    emit_in_transaction(
+                        &tx,
+                        events,
+                        EpistemicClass::Observed,
+                        kind,
+                        payload.clone(),
+                        &[],
+                    )
+                    .map_err(|_| DeadboltError::StoreUnavailable)?,
+                )
+            } else {
+                None
+            };
+            tx.commit().map_err(|_| DeadboltError::StoreUnavailable)?;
+            record
+        };
+        if let Some(record) = record {
+            self.append_witness(&record)
+                .map_err(|_| DeadboltError::StoreUnavailable)?;
+        } else {
+            self.emit(EpistemicClass::Observed, kind, payload, &[])
+                .map_err(|_| DeadboltError::StoreUnavailable)?;
+        }
+        Ok(())
     }
 
     fn append_witness(&self, record: &EvidenceRecord) -> Result<(), SinkError> {
@@ -2217,6 +2221,83 @@ mod tests {
                 .unwrap();
         }
         assert_eq!(db.spend_add("A", 1.0).unwrap().spend_usd, 1.0);
+    }
+
+    #[test]
+    fn failed_primary_evidence_does_not_commit_operator_grants() {
+        for grant in ["approve", "resume", "policy"] {
+            let (dir, db) = gate();
+            db.ensure_agent("A").unwrap();
+            match grant {
+                "approve" => db
+                    .set_policy(
+                        "A",
+                        PolicyPatch {
+                            irreversible: Some(vec!["shell".into()]),
+                            ..Default::default()
+                        },
+                    )
+                    .unwrap(),
+                "resume" => db.pause("A").unwrap(),
+                "policy" => db
+                    .set_policy(
+                        "A",
+                        PolicyPatch {
+                            tools_allow: Some(vec!["shell".into()]),
+                            ..Default::default()
+                        },
+                    )
+                    .unwrap(),
+                _ => unreachable!(),
+            }
+            let store = db.store.as_ref().unwrap();
+            let before_seq = {
+                let mut g = store.lock().unwrap();
+                g.events = std::fs::File::open(dir.path().join("deadbolt-events.jsonl")).unwrap();
+                g.conn
+                    .query_row("SELECT seq FROM event_sequence WHERE id=1", [], |r| {
+                        r.get::<_, u64>(0)
+                    })
+                    .unwrap()
+            };
+            let result = match grant {
+                "approve" => db.approve("A", "shell"),
+                "resume" => db.resume("A"),
+                "policy" => db.set_policy(
+                    "A",
+                    PolicyPatch {
+                        tools_allow: Some(vec!["read_file".into()]),
+                        ..Default::default()
+                    },
+                ),
+                _ => unreachable!(),
+            };
+            assert!(
+                matches!(result, Err(DeadboltError::StoreUnavailable)),
+                "{grant}"
+            );
+            {
+                let mut g = store.lock().unwrap();
+                let lease = load_lease(&g.conn, "A").unwrap().unwrap();
+                match grant {
+                    "approve" => assert!(lease.approvals.is_empty()),
+                    "resume" => assert_eq!(lease.state, "paused"),
+                    "policy" => assert_eq!(lease.tools_allow, Some(vec!["shell".into()])),
+                    _ => unreachable!(),
+                }
+                let after_seq = g
+                    .conn
+                    .query_row("SELECT seq FROM event_sequence WHERE id=1", [], |r| {
+                        r.get::<_, u64>(0)
+                    })
+                    .unwrap();
+                assert_eq!(after_seq, before_seq, "{grant}");
+                g.events = OpenOptions::new()
+                    .append(true)
+                    .open(dir.path().join("deadbolt-events.jsonl"))
+                    .unwrap();
+            }
+        }
     }
 
     #[test]

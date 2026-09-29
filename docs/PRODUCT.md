@@ -7,7 +7,7 @@ descendants without asking the model to cooperate.
 
 ## Install and integrate
 
-[Deadbolt v1.0.1](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.1)
+[Deadbolt v1.0.2](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.2)
 is available as source and native archives for Linux x86_64, Windows x86_64,
 and Apple Silicon/Intel Macs. Verify the download and run the drill using
 [installation](INSTALL.md) and [quick start](QUICKSTART.md).

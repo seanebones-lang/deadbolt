@@ -13,7 +13,7 @@ executable is `deadbolt`. As checked on 2026-09-29, this package is not on
 crates.io. Use Git or a local checkout until a registry release is published.
 
 ```sh
-git clone --branch v1.0.1 --depth 1 https://github.com/seanebones-lang/deadbolt.git
+git clone --branch v1.0.2 --depth 1 https://github.com/seanebones-lang/deadbolt.git
 cd deadbolt
 cargo install --path . --locked --bin deadbolt
 deadbolt drill
@@ -31,7 +31,7 @@ In your project's `Cargo.toml`:
 
 ```toml
 [dependencies]
-deadbolt = { package = "n11-deadbolt", git = "https://github.com/seanebones-lang/deadbolt.git", tag = "v1.0.1" }
+deadbolt = { package = "n11-deadbolt", git = "https://github.com/seanebones-lang/deadbolt.git", tag = "v1.0.2" }
 ```
 
 For an adjacent source checkout, replace `git` and `tag` with
@@ -206,4 +206,5 @@ In your own dispatcher, check that kill, expiry, unavailable storage, missing
 sidecar, and denied policy prevent observable side effects. Check that killing
 one ID leaves unrelated IDs operational. macOS and Linux-container behavior is locally validated in
 [the standalone review](STANDALONE-REVIEW.md). Remote Linux/macOS/Windows and Rust 1.85 CI passed on 2026-09-29.
-Systemd host installation and actual application acceptance remain open.
+The systemd template passed bounded service acceptance in a disposable Ubuntu
+container. Native host installation and actual application acceptance remain open.

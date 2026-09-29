@@ -19,7 +19,7 @@ refuse execution unless the decision is explicitly `allow`.
 
 V1 native binaries target Linux x86_64, Windows x86_64, Apple Silicon and Intel
 Macs. Use the
-[v1.0.1 release](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.1)
+[v1.0.2 release](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.2)
 and verify its checksum using [the archive installation instructions](docs/RELEASING.md#install-an-archive).
 Source installation is available below; the release page is the authority for
 published downloads and their exact source identity.
@@ -33,10 +33,10 @@ Evaluating for a team? Start with the [technical brief](docs/EVALUATOR.md),
 [observable demonstration](docs/DEMO.md) and [application pilot](docs/PILOT.md).
 For a Python-only workflow with real file effects, use
 [first evaluation](docs/FIRST-EVALUATION.md). See the [adoption roadmap](docs/ROADMAP.md)
-for the next milestones after v1.0.1.
+for the next milestones after v1.0.2.
 
 ```sh
-git clone --branch v1.0.1 --depth 1 https://github.com/seanebones-lang/deadbolt.git
+git clone --branch v1.0.2 --depth 1 https://github.com/seanebones-lang/deadbolt.git
 cd deadbolt
 cargo install --path . --locked --bin deadbolt
 deadbolt --version
@@ -136,7 +136,8 @@ The last command requires Python 3 and Node. On Windows use `python` and set
 macOS and Linux container validation is recorded in [the standalone review](docs/STANDALONE-REVIEW.md).
 Remote Linux/macOS/Windows and Rust 1.85 CI passed on 2026-09-29. The
 [Hermes MCP showcase](docs/HERMES-SHOWCASE.md) records independent-host execution
-acceptance on macOS and Linux. Native systemd installation remains experimental;
+acceptance on macOS and Linux. The systemd template passed a bounded disposable
+Ubuntu-container test; native host installation remains experimental;
 each application must validate its own actual dispatch paths.
 These checks establish specific behavior, not universal integration or security
 certification. See [operations](docs/OPERATIONS.md) for deployment and recovery.

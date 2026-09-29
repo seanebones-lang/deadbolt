@@ -3,8 +3,14 @@
 Versioned GitHub releases identify publication and the exact source revision.
 The older `v0.1.1-product` tag is not the standalone hardening release.
 
-## Unreleased
+## 1.0.2 — 2026-09-29
 
+- Keep operator `approve`, `resume`, and policy grants in the same transaction as
+  primary evidence on the default sink. A failed primary evidence write now
+  rolls back the grant instead of reporting an error after making it live.
+- Validate the systemd unit in a disposable Ubuntu 24.04 arm64 container with
+  real systemd: empty-token startup denial, tokened admission and policy,
+  operator kill, restart persistence, and unrelated-agent isolation.
 - Reduce default-store writer contention: reserve an evidence sequence and insert
   its SQLite row in one transaction; include default spend updates in that same
   transaction. Roll back balance, pause state and sequence if primary evidence
