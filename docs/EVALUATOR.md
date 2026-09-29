@@ -58,7 +58,8 @@ browser, delegation or a full model conversation.
 
 1. [Install](INSTALL.md) the pinned release and run `deadbolt --version` and
    `deadbolt drill` in disposable state.
-2. [Reproduce the demonstration](DEMO.md), checking actual body effects.
+2. Run the [Python-only first evaluation](FIRST-EVALUATION.md), then
+   [reproduce the Hermes demonstration](DEMO.md), checking actual body effects.
 3. Select an [integration](INTEGRATION.md) and enumerate the application's action routes.
 4. Agree on the [pilot scope and acceptance criteria](PILOT.md).
 
@@ -67,4 +68,3 @@ For questions use [FAQ](FAQ.md), [troubleshooting](TROUBLESHOOTING.md),
 
 An evaluation succeeds when the selected application's protected bodies cannot
 start without a fresh explicit allow, including during the agreed failure cases.
-

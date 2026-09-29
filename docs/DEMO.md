@@ -1,6 +1,9 @@
 # Demonstrate enforcement with observable effects
 
-Use the published v1.0.0 executable and a disposable workspace. Prepare dependencies
+For a Python-only first run, use [first evaluation](FIRST-EVALUATION.md).
+The following demonstration exercises the third-party Hermes MCP transport.
+
+Use the published v1.0.1 executable and a disposable workspace. Prepare dependencies
 before a meeting; their download time is not part of the demonstration. No model
 key, paid model call or installed Hermes profile is needed.
 
@@ -48,4 +51,3 @@ checklist](PILOT.md) to define the next proof in their application.
 State the scope: this is a selected Hermes MCP route. It does not cover Hermes'
 other tools or stop an action already running. Whole-application coverage requires
 an inventory and acceptance of all intended routes.
-

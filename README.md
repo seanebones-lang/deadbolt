@@ -31,6 +31,9 @@ published downloads and their exact source identity.
 
 Evaluating for a team? Start with the [technical brief](docs/EVALUATOR.md),
 [observable demonstration](docs/DEMO.md) and [application pilot](docs/PILOT.md).
+For a Python-only workflow with real file effects, use
+[first evaluation](docs/FIRST-EVALUATION.md). See the [adoption roadmap](docs/ROADMAP.md)
+for the next milestones after v1.0.1.
 
 ```sh
 git clone --branch v1.0.1 --depth 1 https://github.com/seanebones-lang/deadbolt.git
