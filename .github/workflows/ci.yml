@@ -50,4 +50,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.85.0
       - run: cargo check --locked --all-targets
+      - run: cargo doc --locked --no-deps
+        env:
+          RUSTDOCFLAGS: '-D warnings'
       - run: cargo package --locked

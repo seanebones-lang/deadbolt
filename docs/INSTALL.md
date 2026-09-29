@@ -45,7 +45,7 @@ the exact source revision.
 Run these commands in Terminal, a Linux shell, or PowerShell:
 
 ```sh
-git clone https://github.com/seanebones-lang/deadbolt.git
+git clone --branch v1.0.0 --depth 1 https://github.com/seanebones-lang/deadbolt.git
 cd deadbolt
 cargo install --path . --locked --bin deadbolt
 deadbolt --version
@@ -62,7 +62,7 @@ version. Record `git rev-parse HEAD` as well for an exact source identity.
 ## Install directly from Git
 
 ```sh
-cargo install --git https://github.com/seanebones-lang/deadbolt.git --locked --bin deadbolt
+cargo install --git https://github.com/seanebones-lang/deadbolt.git --tag v1.0.0 --locked --bin deadbolt
 ```
 
 For a reviewed, reproducible deployment, replace `REVIEWED_COMMIT` below with
