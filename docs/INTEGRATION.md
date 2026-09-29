@@ -6,7 +6,7 @@ Build-in and `mcp-proxy` are enforced: the tool body cannot run without admit. P
 
 ## Build-in
 
-Link the crate. No socket. No model tool.
+Link the crate. Package name is `n11-deadbolt`. The Rust crate name stays `deadbolt`. No socket. No model tool.
 
 ```rust
 use deadbolt::{AdmitDecision, Deadbolt, DenyCode};

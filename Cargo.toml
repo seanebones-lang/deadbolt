@@ -1,5 +1,5 @@
 [package]
-name = "deadbolt"
+name = "n11-deadbolt"
 description = "Out-of-band lease gate. Cuts tool, MCP, and spawn. Does not shut down frontier models."
 version = "0.1.0"
 edition = "2021"
@@ -39,6 +39,10 @@ tempfile = "3"
 [[bin]]
 name = "deadbolt"
 path = "src/main.rs"
+
+[lib]
+name = "deadbolt"
+path = "src/lib.rs"
 
 [[example]]
 name = "build_in"

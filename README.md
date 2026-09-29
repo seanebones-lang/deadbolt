@@ -33,7 +33,8 @@ Bolt-on: `deadbolt serve` plus a client that admits before the tool. Python: `ex
 ## Install
 
 ```bash
-cargo install deadbolt
+cargo add n11-deadbolt
+cargo install n11-deadbolt --bin deadbolt
 deadbolt drill
 ```
 

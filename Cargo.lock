@@ -161,21 +161,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "deadbolt"
-version = "0.1.0"
-dependencies = [
- "clap",
- "dirs",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "thiserror",
- "tokio",
-]
-
-[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -345,6 +330,21 @@ name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
+
+[[package]]
+name = "n11-deadbolt"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "dirs",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror",
+ "tokio",
+]
 
 [[package]]
 name = "once_cell"
