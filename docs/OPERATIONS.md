@@ -24,8 +24,15 @@ Each child needs registration and explicit policy before its runner starts.
 
 ## Linux systemd setup
 
-This is a service template, not a verified host installation. Validate it on
-your target distribution before production. From a built checkout, install the
+The v1.0.2 service template passed a disposable Ubuntu 24.04 arm64 container
+test with real systemd: it refused startup without a token, accepted tokened
+admission and policy calls, and kept a killed identity denied after restart.
+This is not a verified native host installation; validate it on your target
+distribution before production. Reproduce the bounded test with
+`python3 tests/systemd_acceptance.py`. The test uses a privileged disposable
+Docker container and no host port or Deadbolt state.
+
+From a built checkout, install the
 binary at the unit's expected path, create a dedicated system account and configure
 a private environment file. These commands assume standard Linux user-management
 and systemd tools:

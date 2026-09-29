@@ -56,5 +56,5 @@ them tamper-proof. Back up quiescent state using the documented operations proce
 - [Operations and recovery](OPERATIONS.md) and [incident evidence](INCIDENT.md)
 - [Evaluator brief](EVALUATOR.md), [demonstration](DEMO.md) and [pilot](PILOT.md)
 
-The [published release](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.1)
+The [published release](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.2)
 identifies the exact released source, downloads, tested platforms and acceptance.

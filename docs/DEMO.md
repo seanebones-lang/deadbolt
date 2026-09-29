@@ -3,7 +3,7 @@
 For a Python-only first run, use [first evaluation](FIRST-EVALUATION.md).
 The following demonstration exercises the third-party Hermes MCP transport.
 
-Use the published v1.0.1 executable and a disposable workspace. Prepare dependencies
+Use the published v1.0.2 executable and a disposable workspace. Prepare dependencies
 before a meeting; their download time is not part of the demonstration. No model
 key, paid model call or installed Hermes profile is needed.
 
