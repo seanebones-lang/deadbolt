@@ -1,3 +1,4 @@
+[DeadBolt Banner Samples.pdf](https://github.com/user-attachments/files/32781339/DeadBolt.Banner.Samples.pdf)
 # Deadbolt
 
 Out-of-band lease gate. Apache-2.0. Not a model tool.
