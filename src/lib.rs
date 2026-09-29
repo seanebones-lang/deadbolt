@@ -1165,14 +1165,23 @@ impl Deadbolt {
         }
         let store = self.store()?;
         let (total, paused) = {
-            let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
+            let g = store.lock().map_err(|e| {
+                eprintln!("TEMP spend stage 1: {e:?}");
+                DeadboltError::StoreUnavailable
+            })?;
             let tx = rusqlite::Transaction::new_unchecked(
                 &g.conn,
                 rusqlite::TransactionBehavior::Immediate,
             )
-            .map_err(|_| DeadboltError::StoreUnavailable)?;
+            .map_err(|e| {
+                eprintln!("TEMP spend stage 2: {e:?}");
+                DeadboltError::StoreUnavailable
+            })?;
             let lease = load_lease(&tx, agent_id)
-                .map_err(|_| DeadboltError::StoreUnavailable)?
+                .map_err(|e| {
+                    eprintln!("TEMP spend stage 3: {e:?}");
+                    DeadboltError::StoreUnavailable
+                })?
                 .ok_or(DeadboltError::NotFound)?;
             if lease.state == "killed" {
                 return Err(DeadboltError::Killed);
@@ -1188,8 +1197,14 @@ impl Deadbolt {
                 "UPDATE leases SET spend_usd=?1, state=?2, updated_at=?3 WHERE agent_id=?4",
                 params![total, state, now_secs(), agent_id],
             )
-            .map_err(|_| DeadboltError::StoreUnavailable)?;
-            tx.commit().map_err(|_| DeadboltError::StoreUnavailable)?;
+            .map_err(|e| {
+                eprintln!("TEMP spend stage 4: {e:?}");
+                DeadboltError::StoreUnavailable
+            })?;
+            tx.commit().map_err(|e| {
+                eprintln!("TEMP spend stage 5: {e:?}");
+                DeadboltError::StoreUnavailable
+            })?;
             (total, paused)
         };
         let usd_tok = usd_token(usd);
@@ -1199,7 +1214,10 @@ impl Deadbolt {
             json_tokens(&[("agent_id", agent_id), ("usd", &usd_tok)]),
             &[],
         )
-        .map_err(|_| DeadboltError::StoreUnavailable)?;
+        .map_err(|e| {
+            eprintln!("TEMP spend stage 6: {e:?}");
+            DeadboltError::StoreUnavailable
+        })?;
         Ok(SpendAdded {
             spend_usd: total,
             paused,
@@ -1603,10 +1621,16 @@ impl Deadbolt {
                     [],
                     |row| row.get::<_, u64>(0),
                 )
-                .map_err(|_| SinkError::Unavailable)?
+                .map_err(|e| {
+                    eprintln!("TEMP sequence: {e:?}");
+                    SinkError::Unavailable
+                })?
         };
         let record = EvidenceRecord::seal(class, kind, payload, premises, seq)?;
-        sink.append(&record)?;
+        sink.append(&record).map_err(|e| {
+            eprintln!("TEMP sink: {e:?}");
+            e
+        })?;
         if let Some(witness) = &self.witness {
             witness.append(&record)?;
         }
