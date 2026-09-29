@@ -37,6 +37,10 @@ jobs:
       - run: cargo build --locked --bin deadbolt
       - run: cargo run --locked --bin deadbolt -- drill
       - run: cargo run --locked --example build_in
+      - run: python examples/evaluate.py --binary target/debug/deadbolt
+        if: runner.os != 'Windows'
+      - run: python examples/evaluate.py --binary target/debug/deadbolt.exe
+        if: runner.os == 'Windows'
       - run: python tests/client_contract.py
         if: runner.os != 'Windows'
       - run: python tests/client_contract.py
