@@ -48,6 +48,12 @@ silently create a new store. Downgrade is not generally supported; use the
 [backup and rollback procedure](OPERATIONS.md) and resolve revocations recorded
 after a backup before reopening dispatch.
 
+The candidate's recorded upgrade acceptance starts with original source
+`b8a13036567ca1b71ed14c6b36cbf84df80fe647` and preserves revocation, lineage,
+policy, approvals, spend and evidence. See [the upgrade record](evidence/upgrade-rc.1-2026-09-29.json)
+and `tests/upgrade_acceptance.py`. Other historical revisions require fresh
+acceptance; version 0.1.0 alone does not identify an exact development commit.
+
 ## Platforms and boundaries
 
 Source CI validates Linux, macOS, Windows and Rust 1.85. Native Windows uses
