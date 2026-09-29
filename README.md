@@ -24,6 +24,9 @@ published downloads and their exact source identity.
 3. [Integrate](docs/INTEGRATION.md): Rust, Python, Node, MCP, containers, services.
 4. [FAQ](docs/FAQ.md) and [troubleshooting](docs/TROUBLESHOOTING.md).
 
+Evaluating for a team? Start with the [technical brief](docs/EVALUATOR.md),
+[observable demonstration](docs/DEMO.md) and [application pilot](docs/PILOT.md).
+
 ```sh
 git clone https://github.com/seanebones-lang/deadbolt.git
 cd deadbolt

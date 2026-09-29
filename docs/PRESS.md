@@ -1,53 +1,38 @@
-# Deadbolt
+# Deadbolt v1.0.0
 
-28 September 2026
+29 September 2026
 
-Capability is compounding. Containment is lagging.
+NextEleven has released Deadbolt v1.0.0, a local admission gate for software
+agents. A trusted executor checks permission before starting each protected
+action and executes only on explicit allow. Operators can apply policy, require
+one-shot approval and revoke an identity and its registered descendants.
 
-Deadbolt is a local execution gate: leased tool access, explicit policy, operator stop and structured incident evidence.
+The release includes a Rust library, local HTTP sidecar with Python/Node source
+clients, stdio MCP proxy, and native archives for Linux x86_64, Windows x86_64,
+and Apple Silicon/Intel Macs. Source, documentation, checksums and dependency
+notices accompany the native distribution.
 
-It does not shut down GPT. Sidecar down = deny. A bolt-on client is cooperative. `mcp-proxy` gates routed tool calls; build-in requires a dispatcher that stops on deny.
+Tests using pinned Hermes MCP transport and the reference filesystem server
+verified 13 cases through actual file effects: four allowed writes ran and nine
+denied attempts created no file. NextEleven ran this acceptance against
+third-party software. It covers a selected MCP route, not a full Hermes model
+conversation, all Hermes tools, independent human validation or endorsement.
 
-This is your agent. It is not a lab research swarm on the public internet.
+The exact released source passed platform/MSRV CI, native packaging drills,
+client contracts, backup/restore and the tested legacy-state upgrade. Release
+notes link the runs and attached acceptance reports.
 
-## Install
+Kill blocks later admissions; it does not cancel a body already running.
+Application coverage requires a trusted dispatcher and mandatory admission on
+all protected routes. This release does not claim whole-agent containment or
+security certification. Native binaries are unsigned and Mac binaries are
+unnotarized. Systemd remains an experimental template.
 
-```bash
-cargo install --git https://github.com/seanebones-lang/deadbolt.git --locked --bin deadbolt
-```
+- [Release and downloads](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.0)
+- [Repository](https://github.com/seanebones-lang/deadbolt)
+- [Evaluator brief](EVALUATOR.md)
+- [Reproducible demonstration](DEMO.md)
+- [Pilot checklist](PILOT.md)
 
-The binary name stays `deadbolt`. The crate name is `n11-deadbolt`.
-
-## Two modes
-
-Build-in. Depend on crate `n11-deadbolt` and call the gate in process:
-
-```rust
-use deadbolt::Deadbolt;
-```
-
-The tool body does not run unless `admit` allows it.
-
-Bolt-on. `deadbolt serve` on a Unix socket, or loopback TCP with a token. `deadbolt mcp-proxy` admits `tools/call` before the child runs it. A client that skips admit is outside the trust boundary. If the sidecar is down, the answer is deny.
-
-## Measured live fire
-
-2026-09-28. Not a benchmark. No customer count.
-
-Agent `h-59378-18d9acf67c5ecdf8`:
-
-- `write_file` → `ok`
-- `shell` → `needs_human` (body did not run)
-- `approve` then `shell` → `ok`, body `LIVE-POLICY-SHELL`
-- second `shell` → `needs_human`
-- `kill` then `read_file` → `killed`
-
-Agent `h-60207-18d9ad7dce9803c8` wrote `LIVE-POLICY-B2`. That write was allow. Killing the first agent did not block it.
-
-## Links
-
-- Repository: https://github.com/seanebones-lang/deadbolt
-- Release: https://github.com/seanebones-lang/deadbolt/releases/tag/v0.1.1-product
-- Page: https://www.mothership-ai.com/deadbolt/
-
-Apache-2.0. NextEleven LLC. nextelevenstudios@gmail.com
+Deadbolt's own code is Apache-2.0; bundled dependencies retain their licenses.
+NextEleven LLC. Contact: nextelevenstudios@gmail.com

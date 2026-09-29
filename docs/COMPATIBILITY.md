@@ -1,8 +1,8 @@
-# Compatibility contract for the v1 candidate
+# Compatibility contract for v1
 
-This policy defines the intended 1.0 contract. It does not declare the current
-source or an unpublished candidate stable. Release notes identify the exact
-version and validated platforms.
+This policy defines the 1.0 contract. Version 1.0.0 is published; its release
+notes identify the exact source revision and validated platforms. Later source
+changes are not a new released version until separately tagged and published.
 
 ## Supported surfaces
 
