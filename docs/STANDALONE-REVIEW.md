@@ -43,7 +43,7 @@ untrusted code that can bypass the executor or write its own store.
 - Original baseline: 50 Rust tests passed.
 - Child revocation and inactive-parent regressions failed against the original
   implementation before fixes.
-- Updated build: 54 Rust tests passed, including separate-connection approval,
+- First integration revision: 54 Rust tests passed, including separate-connection approval,
   spend, evidence, and lineage checks.
 - Three external Python/Node contract tests passed against a real loopback TCP
   sidecar: module imports, destination policy, spend, operator kill, outage, and
@@ -59,14 +59,46 @@ untrusted code that can bypass the executor or write its own store.
 Checks used a fresh target directory to avoid relying on the checkout's stale
 binary. No model credentials were needed. Tests used temporary stores.
 
+## Additional hardening and runtime validation
+
+A completed standard security scan of integration commit `102bc2b` identified
+an MCP batch admission bypass conditional on a batch-capable downstream, and
+unbounded pre-authentication sidecar worker allocation. These were fixed in the
+subsequent hardening work: reject batches/invalid envelopes, forward canonical
+parsed messages, bound workers at 64, impose a total five-second request read
+deadline and write timeout, and reject ambiguous/truncated/oversized HTTP framing.
+
+The harmless MCP reproduction ran a downstream marker after kill before the fix;
+a fresh post-fix binary rejected the same batch without running the body.
+Regressions cover invalid envelopes, duplicate-key interpretation, non-2xx MCP
+sidecar responses, total deadline, saturation/recovery, framing and preservation
+of existing files/live sockets. Updated executable help includes version output.
+
+- The macOS suite now contains 62 tests (57 library, one CLI, four shared-store
+  integration tests). The Linux container suite ran the 61-test suite before the
+  final non-2xx regression and that added regression separately, all passing.
+  Python-dependent Rust checks may skip when Python is absent in the builder.
+- Fresh-binary external Python/Node contract tests passed on macOS.
+- Docker release build with Rust 1.85 succeeded; nonroot self-drill passed.
+- A separate Python container running as UID 10001 connected over the shared
+  mode-0600 socket, observed allow, then operator kill, then persistent killed
+  denial after restart. An unrelated lease remained operational.
+- Rust 1.85 all-target check, all-target Clippy and formatting checks passed.
+
+Developer onboarding now includes installation, runnable quick start, FAQ,
+troubleshooting, operations, contributor checks and an unreleased changelog.
+A source install into a temporary install root passed version output, self-drill
+and all three Python/Node contracts. The documented quick start passed allow,
+operator kill, expected sample exit 2, incident export, persistence after restart
+and an unrelated new run, using isolated state and that installed release binary.
+
 ## Remaining gates and integration requirements
 
-Linux and Windows runtime results are not established by this local macOS run.
-The expanded CI must run and pass. Docker runtime was unavailable locally;
-container build, shared-socket access as UID 10001, volume persistence, and
-service deployment require runtime verification. The service setup also requires
-installing the binary at the unit's path, creating its account, and configuring
-a nonempty token before startup.
+Native Windows runtime, remote CI and systemd host installation remain acceptance
+gates. The service setup requires installing the binary at the unit's path,
+creating its account, and configuring a nonempty token before startup. Real
+application acceptance still requires exercising every actual dispatch path,
+identity assignment and policy adapter on the selected target framework.
 
 The crate is not published to crates.io, and source clients are not pip/npm
 packages. This review does not publish a registry package, deploy a service, or
@@ -87,5 +119,6 @@ effect execution are not one atomic operation.
 
 SQLite evidence and JSONL are separate storage outputs. A crash or file-write
 failure can leave one output ahead of the other; content IDs do not prove that
-an operator with filesystem access could not alter the records. This review is
-an integration/correctness pass, not a claim of adversarial security certification.
+an operator with filesystem access could not alter the records. The bounded standard security scan and
+regressions do not constitute security certification, a dependency-advisory audit
+or proof of every third-party integration.

@@ -4,7 +4,7 @@
 
 Capability is compounding. Containment is lagging.
 
-Deadbolt is fail-closed execution: leased tools, blast radius, human stop, evidence for a lawyer.
+Deadbolt is a local execution gate: leased tool access, explicit policy, operator stop and structured incident evidence.
 
 It does not shut down GPT. Sidecar down = deny. A bolt-on client is cooperative. `mcp-proxy` gates routed tool calls; build-in requires a dispatcher that stops on deny.
 

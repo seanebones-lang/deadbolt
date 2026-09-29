@@ -141,7 +141,9 @@ deadbolt mcp-proxy --agent my-mcp-run-001 -- python3 your_mcp_server.py
 ```
 
 Use that command as the MCP server command in your host's configuration.
-It supports newline-delimited JSON-RPC over stdio. It does not proxy remote
+It supports newline-delimited JSON-RPC 2.0 objects over stdio. Batches and
+invalid envelopes are rejected; forwarded messages are serialized from the
+same parsed value used for admission. It does not proxy remote
 HTTP/SSE MCP servers. `tools/call` is gated; other methods (including resource
 reads and initialization) are forwarded. Those methods and startup side effects
 are outside the tool gate. Only place servers you trust behind the proxy.
@@ -200,5 +202,6 @@ spend, operator kill, sidecar outage, and malformed/error responses.
 
 In your own dispatcher, check that kill, expiry, unavailable storage, missing
 sidecar, and denied policy prevent observable side effects. Check that killing
-one ID leaves unrelated IDs operational. macOS is locally validated; Linux and
-Windows checks run in CI. Container execution needs Docker runtime validation.
+one ID leaves unrelated IDs operational. macOS and Linux-container behavior is locally validated in
+[the standalone review](STANDALONE-REVIEW.md). Native Windows, remote CI and
+systemd host installation remain acceptance gates.

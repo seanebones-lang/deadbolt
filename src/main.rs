@@ -1,4 +1,4 @@
-//! `deadbolt` operator CLI. Not a model tool. Local socket only.
+//! `deadbolt` operator CLI. Not a model tool. Local transports only.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -12,6 +12,7 @@ use deadbolt::{
 #[derive(Parser)]
 #[command(
     name = "deadbolt",
+    version,
     about = "Lease gate for tool, MCP, and spawn. Does not shut down frontier models."
 )]
 struct Cli {
@@ -53,7 +54,7 @@ enum Command {
     },
     /// In-process self-check. No API keys.
     Drill,
-    /// Local Unix sidecar. Refuses `0.0.0.0`.
+    /// Local Unix or token-required loopback TCP sidecar. Refuses public binds.
     Serve {
         /// Socket path or `127.0.0.1:PORT`. TCP requires `DEADBOLT_TOKEN`.
         #[arg(long)]
@@ -72,7 +73,7 @@ enum Command {
         #[arg(long, default_value_t = false)]
         children: bool,
     },
-    /// Set lease blast radius. Omitted fields stay open.
+    /// Set lease blast radius. Omitted fields remain as stored.
     Policy {
         #[arg(long)]
         agent: String,

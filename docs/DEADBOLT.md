@@ -59,7 +59,7 @@ Rows keep class, kind, cid, payload_sha256, premises, agent_id, tool, decision, 
 
 ## Sidecar
 
-`deadbolt serve [--bind PATH]` listens on a local Unix socket only. Default bind is `~/.deadbolt/deadbolt.sock`. Harness consumers keep `~/.harness/deadbolt.sock`. `0.0.0.0` and non-loopback TCP binds are refused. It serves the same db and JSONL as the CLI. It does not shut down frontier models and it is not a model tool.
+`deadbolt serve [--bind PATH]` listens on a mode-0600 Unix socket on Unix, or token-required loopback TCP. Default bind is `~/.deadbolt/deadbolt.sock` on Unix and `127.0.0.1:9782` elsewhere. Harness consumers keep `~/.harness/deadbolt.sock`. `0.0.0.0` and non-loopback TCP binds are refused. It serves the same db and JSONL as the CLI. It does not shut down frontier models and it is not a model tool.
 
 `POST /admit`, `POST /ensure`, `POST /register_child`, and `GET /status` return JSON tokens. `kill`, `pause`, `clip`, and `resume` stay on the CLI. The socket is mode `0600`. If `[deadbolt] token_env` is set and that variable is non-empty, or a `0600` token file is present, every request must send `X-Deadbolt-Token`. A missing or wrong token is HTTP 401 and does not admit.
 

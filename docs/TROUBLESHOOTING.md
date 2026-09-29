@@ -1,0 +1,84 @@
+# Troubleshooting
+
+First record the OS, `deadbolt --version`, source commit (`git rev-parse HEAD`),
+installation method and exact command. Avoid sharing tokens, private tool
+arguments, databases or full environment dumps. The installed binary's Cargo
+version may be shared by several unreleased commits.
+
+## Installation and startup
+
+| Symptom | Check | Action |
+| --- | --- | --- |
+| `deadbolt` command not found | Cargo bin directory is on PATH; `command -v deadbolt` on Unix or `Get-Command deadbolt` in PowerShell | Reopen the terminal or call the Cargo bin executable directly |
+| `cargo install n11-deadbolt` cannot find the crate | This package is not published on crates.io | Use the [source/Git installation](INSTALL.md) |
+| SQLite/compiler/linker build error | Native compiler and Rust version | Install the OS C/C++ toolchain; on Windows use MSVC Build Tools and SDK |
+| `token_required` | TCP server has a nonempty `DEADBOLT_TOKEN` | Configure a private token before starting TCP; provide the same token to clients |
+| `bind_refused` | Bind is loopback or a Unix path; port/socket already in use; token file mode | Use `127.0.0.1:PORT` or `[::1]:PORT`; stop the existing service deliberately; token files must be 0600 on Unix |
+| Permission denied on a Unix socket | Client and server OS user/UID, socket path and parent directory access | Run the trusted client under the intended same account; container clients use UID 10001; do not make the socket public |
+| `bind_refused` at an existing path | The path is a regular file, symlink, or live socket | Select a new path; the listener preserves those entries rather than deleting them |
+| Docker host cannot connect | Socket is inside the container's volume | Attach a consumer container to that volume or run a native host sidecar; published ports cannot reach container-local loopback |
+
+## Decision and operator problems
+
+| Result or symptom | Meaning | Check/action |
+| --- | --- | --- |
+| HTTP 401 / `unauthorized` | Missing or wrong token | Server/client environments match; restart the server deliberately after rotating the token |
+| `no_lease` | No lease for that ID in this store | Ensure once before dispatch; confirm the executor-assigned ID and store paths |
+| `killed` | Terminal revocation | Confirm operator intent; use a new ID only for a deliberately authorized new run |
+| `lease_expired` | Silence exceeded TTL | Ensure is not a refresh; operator resume can renew a non-killed lease after review, or start an intentional new run |
+| `paused` | Operator pause | Inspect status/policy; operator can resume after review |
+| `spend_cap` | Reported cumulative spend crossed cap | Inspect spend and policy; resume alone leaves spend/cap policy in place |
+| `purpose_exceeded` | Tool clip/allow-list or destination check denied | Inspect tool name, clips, explicit host and stored policy; use your tool's real name |
+| `needs_human` | Irreversible tool lacks an approval | Operator approves the exact agent/tool once; other policy must still allow it |
+| `store_unavailable` | Store/evidence/transport failed or response was unusable | Check service, endpoint, writable state, free disk, deadlines and logs; retain denial while diagnosing |
+| Kill seems to do nothing | Different database/agent or dispatch skipped admit | Match DB/events paths, UID and ID; inspect the dispatch path; do not cache allow results |
+| Sample exits with code 2 | Expected denial path | Read the emitted code; after kill, this is success for the demonstration |
+
+The CLI controls a local database; `DEADBOLT_SOCK` does not redirect CLI kill to
+a sidecar. Set `DEADBOLT_DB` and `DEADBOLT_EVENTS` to the executor's actual paths.
+For container state, run the CLI inside the sidecar container. Status reflects
+the stored row; expiration is checked at admission, so an `active` row can have
+an expiry timestamp already in the past.
+
+## Requests hang or disconnect
+
+The sidecar reads a complete request within five seconds, writes with a
+five-second timeout, limits requests to 65,536 bytes and caps active workers at
+64 per listener. Excess connections close. Use one request per connection with
+`Content-Length`; chunked transfer and duplicate/invalid lengths are rejected.
+A truncated, oversized or malformed request may close without a JSON response;
+the trusted client must treat that as denial. Avoid uncontrolled client retries
+and check for slow local callers or a saturated workload.
+
+## MCP-specific problems
+
+- Put child arguments after `--`; use an executable available in the proxy's PATH.
+- Keep child diagnostics on stderr. Stdio protocol messages must be one JSON-RPC
+  2.0 object per line; top-level batches are rejected.
+- A denied `tools/call` returns a JSON-RPC error with the denial token. A killed
+  lease does not prevent `tools/list`, initialization or other non-tool methods.
+- Use the server's actual tool names in policy. Automatic destination/cost
+  discovery is a convention; use a trusted adapter for custom semantics.
+- A sidecar-backed proxy needs `--serve-sock` plus the matching token. Without
+  that flag the proxy uses its local database directly.
+
+## Verify the binary you actually run
+
+After source changes, do not assume an old binary is current. Build into a new,
+empty target directory and point the consumer tests at that exact binary:
+
+```sh
+CARGO_TARGET_DIR=target/verification cargo build --locked --bin deadbolt
+DEADBOLT_BIN="$PWD/target/verification/debug/deadbolt" python3 tests/client_contract.py
+```
+
+Choose a new directory name when diagnosing stale build artifacts. In PowerShell,
+set `$env:CARGO_TARGET_DIR` and `$env:DEADBOLT_BIN` separately and use `.exe`.
+Record the source SHA and binary path alongside the results.
+
+## Report a reproducible problem
+
+Include OS/compiler versions, commit, mode (embedded/sidecar/MCP/container),
+redacted configuration paths, the decision token, expected behavior and a
+minimal synthetic reproduction. Ordinary bugs go to repository issues;
+suspected gate/auth bypasses go to private [security reporting](../SECURITY.md).

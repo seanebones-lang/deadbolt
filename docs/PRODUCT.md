@@ -2,7 +2,7 @@
 
 Capability is compounding. Containment is lagging.
 
-Deadbolt is fail-closed execution: leased tools, blast radius, human stop, evidence for a lawyer.
+Deadbolt is a local execution gate: leased tool access, explicit policy, operator stop and structured incident evidence.
 
 It does not shut down GPT. Sidecar down = deny. A bolt-on client is cooperative. `mcp-proxy` gates routed tool calls; build-in requires a dispatcher that stops on deny.
 
@@ -39,7 +39,7 @@ deadbolt kill --agent ID
 deadbolt incident --agent ID --json --children
 ```
 
-`policy` sets the lease. An off-list tool is deny `purpose_exceeded`. A present foreign host is deny `purpose_exceeded`. A missing host is deny `purpose_exceeded` only for a network-class tool (`http`, `fetch`, `browser`, `web_search`). A local `write_file` or `shell` with no host is not denied for the dest list alone.
+`policy` updates an existing lease's policy. An off-list tool is deny `purpose_exceeded`. A present foreign host is deny `purpose_exceeded`. A missing host is deny `purpose_exceeded` only for a network-class tool (`http`, `fetch`, `browser`, `web_search`). A local `write_file` or `shell` with no host is not denied for the dest list alone.
 
 `approve` is one shot for one irreversible tool. The next call of that tool is allow. The one after that is deny `needs_human`.
 
