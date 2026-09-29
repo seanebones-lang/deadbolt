@@ -1,0 +1,25 @@
+[package]
+name = "deadbolt"
+description = "Out-of-band lease gate. Cuts tool, MCP, and spawn. Does not shut down frontier models."
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/seanebones-lang/deadbolt"
+rust-version = "1.85"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+dirs = "5"
+rusqlite = { version = "0.31", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+thiserror = "1"
+tokio = { version = "1", features = ["time"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[[bin]]
+name = "deadbolt"
+path = "src/main.rs"
