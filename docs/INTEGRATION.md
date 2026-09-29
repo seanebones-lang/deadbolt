@@ -51,7 +51,7 @@ TCP requires `DEADBOLT_TOKEN`. Bind stays `127.0.0.1:9782`. Unit: `dist/deadbolt
 
 ## MCP proxy
 
-Not a model tool. The proxy speaks newline-delimited JSON-RPC on stdio and spawns the real MCP server. `initialize`, `tools/list`, resources, and `ping` are forwarded. `tools/call` is admitted first. A `url`, `uri`, `href`, `endpoint`, or `host` argument is parsed and passed as `dest`. If `dest_allow` is set and no host parses, the deny is `purpose_exceeded`. An irreversible tool is `needs_human`. `amount`, `usd`, or `cost`, when it parses as a number, is `spend_add` before admit. A deny is a JSON-RPC error whose message is the code token (`killed`, `paused`, `purpose_exceeded`, `lease_expired`, `store_unavailable`, `no_lease`, `spend_cap`, `needs_human`). The child is not invoked.
+Not a model tool. The proxy speaks newline-delimited JSON-RPC on stdio and spawns the real MCP server. `initialize`, `tools/list`, resources, and `ping` are forwarded. `tools/call` is admitted first. A `url`, `uri`, `href`, `endpoint`, or `host` argument is parsed and passed as `dest`. If dest is present and not on `dest_allow`, the deny is `purpose_exceeded`. If `dest_allow` is set and no host parses, the deny is `purpose_exceeded` only for a network-class tool (`http`, `fetch`, `browser`, `web_search`). A local tool with no host is not denied for that reason. An irreversible tool is `needs_human`. `amount`, `usd`, or `cost`, when it parses as a number, is `spend_add` before admit. A deny is a JSON-RPC error whose message is the code token (`killed`, `paused`, `purpose_exceeded`, `lease_expired`, `store_unavailable`, `no_lease`, `spend_cap`, `needs_human`). The child is not invoked.
 
 ```bash
 deadbolt mcp-proxy --agent shop-bot -- npx whatever-mcp

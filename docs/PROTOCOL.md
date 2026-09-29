@@ -27,7 +27,7 @@ Request body is JSON. Response body is JSON. `Content-Type: application/json`. `
 {"decision":"deny","code":"killed"}
 ```
 
-`decision` is `allow` or `deny`. `code` is present only on deny. Tokens: `killed`, `paused`, `purpose_exceeded`, `lease_expired`, `store_unavailable`, `no_lease`, `spend_cap`, `needs_human`. Optional `dest` is a host token. If `dest_allow` is unset, `dest` is ignored. HTTP status on a parsed admit is 200. The deny is in `decision`, not the status line.
+`decision` is `allow` or `deny`. `code` is present only on deny. Tokens: `killed`, `paused`, `purpose_exceeded`, `lease_expired`, `store_unavailable`, `no_lease`, `spend_cap`, `needs_human`. Optional `dest` is a host token. If `dest_allow` is unset, `dest` is ignored. A present dest not on the list is `purpose_exceeded`. A missing dest is `purpose_exceeded` only for a network-class tool. HTTP status on a parsed admit is 200. The deny is in `decision`, not the status line.
 
 ## POST /policy
 

@@ -14,13 +14,13 @@ Default fail-closed. Sidecar down or timeout = deny `store_unavailable`. Clients
 
 Build-in, `mcp-proxy`, and an in-executor hook are enforced: the tool body cannot run without admit. A bolt-on client is cooperative. A compromised agent that skips admit is outside the trust boundary.
 
-A lease is issued on `ensure`. TTL default is 60 seconds. Every admit rechecks it. Expiry is deny `lease_expired`. A successful admit renews the TTL. An expired lease is not slid, and a deny does not renew. Silence longer than the TTL expires the hands.
+A lease is issued on `ensure`. TTL default is 60 seconds. Every admit rechecks it. Expiry is deny `lease_expired`. A live admit, allow or deny, renews the TTL. An expired lease is not slid. Silence longer than the TTL expires the hands.
 
 The agent id is a claim. `DEADBOLT_TOKEN` authenticates the caller to serve, not the agent. Whoever holds the token can assert any id. The executor or the proxy assigns the id. The model does not.
 
 Admit-then-tool is a race. Admit immediately before the body. Do not admit once per session.
 
-Blast radius is the lease. `tools_allow`, `dest_allow`, `spend_cap_usd`, and `irreversible` are unset by default, so an old lease stays open. An off-list tool or dest is deny `purpose_exceeded`. Crossing the spend cap pauses the agent and the next admit is deny `spend_cap`. An irreversible tool is deny `needs_human` until `deadbolt approve --agent ID --tool TOOL`, one shot. Deadbolt does not contain another lab's agents on the public internet.
+Blast radius is the lease. `tools_allow`, `dest_allow`, `spend_cap_usd`, and `irreversible` are unset by default, so an old lease stays open. An off-list tool is deny `purpose_exceeded`. `dest_allow` denies a present foreign host, and a network-class tool (`http`, `fetch`, `browser`, `web_search`) with no host. A local `write_file` or `shell` with no host is not denied for `dest_allow` alone. Crossing the spend cap pauses the agent and the next admit is deny `spend_cap`. An irreversible tool is deny `needs_human` until `deadbolt approve --agent ID --tool TOOL`, one shot. Deadbolt does not contain another lab's agents on the public internet.
 
 Detail: `docs/TRUST.md`.
 

@@ -102,6 +102,24 @@ enum Command {
         agent: String,
         #[arg(long)]
         out: Option<PathBuf>,
+        /// JSON when true. Bare `--json` is true. `--json true` still works.
+        #[arg(
+            long,
+            action = ArgAction::Set,
+            num_args = 0..=1,
+            default_missing_value = "true",
+            default_value = "true"
+        )]
+        json: bool,
+        /// Accepted. The file always lists children.
+        #[arg(
+            long,
+            action = ArgAction::Set,
+            num_args = 0..=1,
+            default_missing_value = "true",
+            default_value = "true"
+        )]
+        children: bool,
     },
     /// Stdio MCP proxy. Admits `tools/call` before the child runs it.
     McpProxy {
@@ -117,10 +135,16 @@ enum Command {
 }
 
 fn cfg() -> DeadboltConfig {
-    DeadboltConfig {
+    let mut cfg = DeadboltConfig {
         token_env: Some("DEADBOLT_TOKEN".into()),
         ..DeadboltConfig::default()
+    };
+    if let Ok(path) = std::env::var("DEADBOLT_DB") {
+        if !path.is_empty() {
+            cfg.db_path = Some(path);
+        }
     }
+    cfg
 }
 
 fn run() -> Result<(), DeadboltError> {
@@ -223,7 +247,12 @@ fn run() -> Result<(), DeadboltError> {
             db.approve(&agent, &tool)?;
             println!("deadbolt approve {agent} {tool}");
         }
-        Command::Incident { agent, out } => {
+        Command::Incident {
+            agent,
+            out,
+            json: _,
+            children: _,
+        } => {
             let text = db.incident(&agent)?;
             if let Some(path) = out {
                 std::fs::write(path, text).map_err(|_| DeadboltError::StoreUnavailable)?;

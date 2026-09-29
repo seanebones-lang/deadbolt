@@ -38,7 +38,7 @@ pub struct DeadboltConfig {
     /// Deny tool actions when the store cannot be opened or written.
     #[serde(default = "default_true")]
     pub fail_closed: bool,
-    /// Lease lifetime. Rechecked on every admit. Not renewed once expired.
+    /// Lease lifetime. A live admit, allow or deny, renews it. Silence does not. An expired lease is not slid.
     #[serde(default = "default_ttl")]
     pub lease_ttl_secs: u64,
     /// SQLite path. Default `~/.deadbolt/deadbolt.db`.
@@ -262,7 +262,10 @@ pub trait ToolAdmit: Send + Sync {
 pub struct PolicyPatch {
     /// If set, a tool not on the list is `purpose_exceeded`.
     pub tools_allow: Option<Vec<String>>,
-    /// If set, a missing or foreign dest is `purpose_exceeded`.
+    /// If set, a present foreign dest is `purpose_exceeded`. A missing dest is
+    /// `purpose_exceeded` only for a network-class tool (`http`, `fetch`,
+    /// `browser`, `web_search`). A local tool with no host is not denied for
+    /// this list alone.
     pub dest_allow: Option<Vec<String>>,
     /// Crossing this pauses the lease. Admit then returns `spend_cap`.
     pub spend_cap_usd: Option<f64>,
@@ -420,6 +423,10 @@ fn is_sqlite_busy(err: &rusqlite::Error) -> bool {
         }
         _ => false,
     }
+}
+
+fn network_class(tool: &str) -> bool {
+    matches!(tool, "http" | "fetch" | "browser" | "web_search")
 }
 
 fn keeps_deny_code(decision: AdmitDecision) -> bool {
@@ -642,6 +649,8 @@ impl Deadbolt {
     }
 
     /// Same as [`Self::admit`]. `dest` is a host token. Unset `dest_allow` ignores it.
+    /// A present dest is checked against the list. A missing dest is checked only
+    /// when `tool` is network-class.
     pub fn admit_dest(&self, agent_id: &str, tool: &str, dest: Option<&str>) -> AdmitDecision {
         self.decide(agent_id, tool, dest, true)
     }
@@ -727,6 +736,11 @@ impl Deadbolt {
                 code: DenyCode::LeaseExpired,
             };
         }
+        let exp = now_secs().saturating_add(self.ttl as i64);
+        let _ = g.conn.execute(
+            "UPDATE leases SET expires_at=?1, updated_at=?1 WHERE agent_id=?2 AND state!='killed'",
+            params![exp, agent_id],
+        );
         if let Some(cap) = lease.spend_cap_usd {
             if lease.spend_usd >= cap {
                 let _ = g.conn.execute(
@@ -756,8 +770,9 @@ impl Deadbolt {
             }
         }
         if let Some(allow) = &lease.dest_allow {
-            let ok = dest.is_some_and(|d| allow.iter().any(|h| h.eq_ignore_ascii_case(d)));
-            if !ok {
+            let foreign = dest.is_some_and(|d| !allow.iter().any(|h| h.eq_ignore_ascii_case(d)));
+            let missing_network = dest.is_none() && network_class(tool);
+            if foreign || missing_network {
                 return AdmitDecision::Deny {
                     code: DenyCode::PurposeExceeded,
                 };
@@ -2368,12 +2383,7 @@ mod tests {
             },
         )
         .unwrap();
-        assert!(matches!(
-            db.admit("A", "shell"),
-            AdmitDecision::Deny {
-                code: DenyCode::PurposeExceeded
-            }
-        ));
+        assert!(matches!(db.admit("A", "shell"), AdmitDecision::Allow));
         assert!(matches!(
             db.admit_dest("A", "shell", Some("github.com")),
             AdmitDecision::Deny {
@@ -2459,5 +2469,106 @@ mod tests {
             .any(|d| d["code"] == "killed"));
         assert!(v["killed_at"].is_number());
         assert!(v.get("summary").is_none());
+    }
+
+    #[test]
+    fn dest_allow_does_not_block_write_file_without_host() {
+        let (_dir, db) = gate();
+        db.ensure_agent("A").unwrap();
+        db.set_policy(
+            "A",
+            PolicyPatch {
+                dest_allow: Some(vec!["github.com".into()]),
+                ..PolicyPatch::default()
+            },
+        )
+        .unwrap();
+        assert!(matches!(db.admit("A", "write_file"), AdmitDecision::Allow));
+        assert!(matches!(db.admit("A", "shell"), AdmitDecision::Allow));
+    }
+
+    #[test]
+    fn dest_allow_blocks_foreign_host() {
+        let (_dir, db) = gate();
+        db.ensure_agent("A").unwrap();
+        db.set_policy(
+            "A",
+            PolicyPatch {
+                dest_allow: Some(vec!["github.com".into()]),
+                ..PolicyPatch::default()
+            },
+        )
+        .unwrap();
+        assert!(matches!(
+            db.admit_dest("A", "write_file", Some("evil.example")),
+            AdmitDecision::Deny {
+                code: DenyCode::PurposeExceeded
+            }
+        ));
+        assert!(matches!(
+            db.admit_dest("A", "shell", Some("github.com")),
+            AdmitDecision::Allow
+        ));
+    }
+
+    #[test]
+    fn dest_allow_blocks_network_tool_without_host() {
+        let (_dir, db) = gate();
+        db.ensure_agent("A").unwrap();
+        db.set_policy(
+            "A",
+            PolicyPatch {
+                dest_allow: Some(vec!["github.com".into()]),
+                ..PolicyPatch::default()
+            },
+        )
+        .unwrap();
+        for tool in ["http", "fetch", "browser", "web_search"] {
+            assert!(
+                matches!(
+                    db.admit("A", tool),
+                    AdmitDecision::Deny {
+                        code: DenyCode::PurposeExceeded
+                    }
+                ),
+                "{tool}"
+            );
+        }
+    }
+
+    #[test]
+    fn deny_renews_lease_ttl() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Deadbolt::open_at(dir.path(), true, 60);
+        db.ensure_agent("A").unwrap();
+        db.set_policy(
+            "A",
+            PolicyPatch {
+                tools_allow: Some(vec!["read_file".into()]),
+                ..PolicyPatch::default()
+            },
+        )
+        .unwrap();
+        let soon = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64
+            + 5;
+        {
+            let conn = rusqlite::Connection::open(dir.path().join("deadbolt.db")).unwrap();
+            conn.execute(
+                "UPDATE leases SET expires_at=?1 WHERE agent_id='A'",
+                rusqlite::params![soon],
+            )
+            .unwrap();
+        }
+        assert!(matches!(
+            db.admit("A", "shell"),
+            AdmitDecision::Deny {
+                code: DenyCode::PurposeExceeded
+            }
+        ));
+        let after = db.status(Some("A")).unwrap()[0].expires_at;
+        assert!(after > soon, "deny must slide TTL: {after} <= {soon}");
     }
 }
