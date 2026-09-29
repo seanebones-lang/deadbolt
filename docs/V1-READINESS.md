@@ -57,12 +57,12 @@ first release's enforcement or installation contract.
 | --- | --- | --- |
 | Independent-host MCP acceptance | Passed for the selected route | Hermes' real MCP transport and reference filesystem server passed 13 checks; see [showcase](HERMES-SHOWCASE.md). Whole-agent Hermes coverage is not claimed |
 | Stable API and compatibility policy | Defined for candidate review | See [compatibility](COMPATIBILITY.md); stable 1.0 starts only with final publication |
-| Release packaging | Prepared; platform archive checks pending | Build and test versioned assets with the candidate workflow; see [release procedure](RELEASING.md) |
+| Release packaging | Four native targets passed at initial candidate | [Candidate run](https://github.com/seanebones-lang/deadbolt/actions/runs/36583922121) passed Linux x86_64, Windows x86_64, Mac arm64/x86_64 archive extraction and drills. Repeat for the final release source identity |
 | Candidate version/changelog | Prepared | Candidate is 1.0.0-rc.1; assign stable 1.0.0 only when final gates pass |
 | Native systemd deployment | Unvalidated | Validate on a disposable systemd host, or clearly keep this deployment template experimental for v1 |
 | Registry distribution | Unpublished | Source/binary distribution can support v1; publish crates.io only if selected and prepared. Python/Node remain source clients unless separately packaged |
 | Final source review and publication | Open | Review the candidate and its evidence before merge/tag/release |
-| Dependency advisories | Pending fresh audit | Audit the locked Rust dependencies against the current RustSec database before stable publication |
+| Dependency advisories | Passed on 2026-09-29 | cargo-audit 0.22.2 found no matching vulnerabilities or warnings in 84 locked dependencies against RustSec database commit f23b768236fe2880e4cfa167da662cad8ca79240 |
 
 The first application's acceptance is a claim about that application. It does
 not imply that other developers can bypass integration work or that any arbitrary
@@ -73,7 +73,11 @@ surface. Its transport-level acceptance uses no paid model calls. A model-driven
 conversation and whole-agent dispatcher adapter are separate later milestones.
 The candidate also passes four Python/Node consumer contracts locally, including
 a quiescent state-directory backup/restore that preserves killed denial and an
-unrelated allowed identity. Candidate archive CI remains a separate gate.
+unrelated allowed identity. Hermes MCP acceptance also passed on Linux in the
+candidate run. The upgrade test exercises state created by original source
+`b8a13036567ca1b71ed14c6b36cbf84df80fe647` against the RC executable. It preserves
+revocations, lineage, policies, approvals, spend and existing evidence; it does
+not imply every historical source revision or a downgrade is supported.
 
 ## Application acceptance record
 

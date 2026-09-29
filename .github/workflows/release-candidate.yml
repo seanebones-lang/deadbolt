@@ -11,6 +11,7 @@ on:
       - 'src/**'
       - 'tests/hermes_mcp_acceptance.py'
       - 'tests/hermes-acceptance-requirements.txt'
+      - 'tests/upgrade_acceptance.py'
 
 permissions:
   contents: read
@@ -81,9 +82,21 @@ jobs:
             --binary target/release/deadbolt \
             --filesystem-server "$RUNNER_TEMP/mcp-reference/node_modules/@modelcontextprotocol/server-filesystem/dist/index.js" \
             > hermes-acceptance.json
+      - name: Verify pre-v1 state upgrade
+        shell: bash
+        run: |
+          git fetch origin b8a13036567ca1b71ed14c6b36cbf84df80fe647
+          mkdir -p "$RUNNER_TEMP/deadbolt-baseline"
+          git archive b8a13036567ca1b71ed14c6b36cbf84df80fe647 | tar -x -C "$RUNNER_TEMP/deadbolt-baseline"
+          cargo build --release --locked --manifest-path "$RUNNER_TEMP/deadbolt-baseline/Cargo.toml" --target-dir "$RUNNER_TEMP/deadbolt-baseline-build" --bin deadbolt
+          python tests/upgrade_acceptance.py \
+            --old-binary "$RUNNER_TEMP/deadbolt-baseline-build/release/deadbolt" \
+            --new-binary target/release/deadbolt > upgrade-acceptance.json
       - uses: actions/upload-artifact@v4
         with:
           name: hermes-mcp-acceptance
-          path: hermes-acceptance.json
+          path: |
+            hermes-acceptance.json
+            upgrade-acceptance.json
           retention-days: 7
           if-no-files-found: error
