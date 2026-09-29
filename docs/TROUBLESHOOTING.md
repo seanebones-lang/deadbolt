@@ -106,3 +106,11 @@ commit. Other mutation methods can also commit before evidence emission fails.
 Inspect current state before retrying `spend_add`; blind retries can double-count
 reported spend. No automatic mutation replay is performed. Record the exact source
 revision, OS and operation, and use the issue template with a redacted reproduction.
+
+For a reproduction, enable `DEADBOLT_STORE_DIAGNOSTICS=1` in the trusted operator's
+process environment (PowerShell: `$env:DEADBOLT_STORE_DIAGNOSTICS = "1"`). Selected
+spend and primary-evidence errors write a static stage and error code to stderr,
+for example `stage=spend.begin code=DatabaseBusy/5`. Diagnostics are off by default
+and omit SQL, error messages, paths, tokens and payloads. They do not cover every
+storage failure, change retry behavior, or replace state inspection. Windows CI
+enables this diagnostic flag so a failing repetition retains useful stage evidence.
