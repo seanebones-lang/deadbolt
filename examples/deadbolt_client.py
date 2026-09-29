@@ -40,11 +40,12 @@ def _tcp_target(raw):
 
 class _UnixHTTPConnection(http.client.HTTPConnection):
     def __init__(self, path):
-        super().__init__("localhost")
+        super().__init__("localhost", timeout=5)
         self._path = path
 
     def connect(self):
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.settimeout(self.timeout)
         sock.connect(self._path)
         self.sock = sock
 
@@ -57,21 +58,31 @@ def _headers():
     return headers
 
 
+def _down(path):
+    if path.startswith("/status"):
+        return {"code": "store_unavailable"}
+    return {"decision": "deny", "code": "store_unavailable"}
+
+
 def _call(method, path, body=None):
-    payload = None if body is None else json.dumps(body).encode("utf-8")
-    target = _tcp_target(sock_path())
-    if target:
-        host, port = target
-        conn = http.client.HTTPConnection(host, port, timeout=5)
-    else:
-        conn = _UnixHTTPConnection(sock_path())
-    conn.request(method, path, body=payload, headers=_headers())
-    resp = conn.getresponse()
-    raw = resp.read()
-    conn.close()
-    if not raw:
-        raise SystemExit("deadbolt:empty")
-    return json.loads(raw.decode("utf-8"))
+    try:
+        payload = None if body is None else json.dumps(body).encode("utf-8")
+        target = _tcp_target(sock_path())
+        if target:
+            host, port = target
+            conn = http.client.HTTPConnection(host, port, timeout=5)
+        else:
+            conn = _UnixHTTPConnection(sock_path())
+        conn.request(method, path, body=payload, headers=_headers())
+        resp = conn.getresponse()
+        raw = resp.read()
+        status = resp.status
+        conn.close()
+        if status >= 500 or not raw:
+            return _down(path)
+        return json.loads(raw.decode("utf-8"))
+    except Exception:
+        return _down(path)
 
 
 def ensure(agent_id):

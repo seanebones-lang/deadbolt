@@ -4,9 +4,17 @@
 
 Out-of-band lease gate. Apache-2.0. Not a model tool.
 
-Deadbolt does not shut down frontier models. It cuts tool, MCP, and spawn calls for one agent id and that agent's children. The sidecar is a local Unix socket only. Harness is a consumer of this crate. This repository does not include the Harness executor, TUI, providers, confirm-gate, or jail, and it does not relicense Harness.
+Default fail-closed. Sidecar down or timeout = deny `store_unavailable`. Clients default deny. A gate with `fail_closed=true` does the same.
 
-Inference may be probabilistic. Execution is admit or deny.
+Build-in, `mcp-proxy`, and an in-executor hook are enforced: the tool body cannot run without admit. A bolt-on client is cooperative. A compromised agent that skips admit is outside the trust boundary.
+
+A lease is issued on `ensure`. TTL default is 60 seconds. Every admit rechecks it. Expiry is deny `lease_expired`. A successful admit renews the TTL. An expired lease is not slid, and a deny does not renew. Silence longer than the TTL expires the hands.
+
+The agent id is a claim. `DEADBOLT_TOKEN` authenticates the caller to serve, not the agent. Whoever holds the token can assert any id. The executor or the proxy assigns the id. The model does not.
+
+Admit-then-tool is a race. Admit immediately before the body. Do not admit once per session.
+
+Detail: `docs/TRUST.md`.
 
 ## Two modes
 
@@ -75,3 +83,5 @@ if admit(agent, "shell")["decision"] != "allow":
 Stdlib clients: `examples/deadbolt_client.py` and `examples/deadbolt_client.js`. Sample loop: `examples/deadbolt_sample_agent.py`. `DEADBOLT_SOCK` overrides the socket.
 
 Operator detail: `docs/DEADBOLT.md`.
+
+Harness is one consumer of this crate. This repository does not include it.

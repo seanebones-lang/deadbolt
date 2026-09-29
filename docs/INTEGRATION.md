@@ -1,6 +1,8 @@
 # Integration
 
-Inference may be probabilistic. Execution is admit or deny. Call admit before the tool body. A deny does not run the tool.
+Inference may be probabilistic. Execution is admit or deny. Call admit before the tool body. A deny does not run the tool. Trust boundary: `docs/TRUST.md`.
+
+Build-in and `mcp-proxy` are enforced: the tool body cannot run without admit. Python and Node `admit` are cooperative. A caller that skips them is outside the trust boundary.
 
 ## Build-in
 

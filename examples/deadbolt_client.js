@@ -32,35 +32,63 @@ function tcpTarget(raw) {
   return { host, port: Number(port) };
 }
 
+function down(urlPath) {
+  if (urlPath.startsWith("/status")) return { code: "store_unavailable" };
+  return { decision: "deny", code: "store_unavailable" };
+}
+
 function call(method, urlPath, body) {
   const payload = body == null ? null : JSON.stringify(body);
   const headers = { "Content-Type": "application/json", Connection: "close" };
   if (process.env.DEADBOLT_TOKEN) headers["X-Deadbolt-Token"] = process.env.DEADBOLT_TOKEN;
   if (payload) headers["Content-Length"] = Buffer.byteLength(payload);
-  const target = tcpTarget(sockPath());
+  let target;
+  try {
+    target = tcpTarget(sockPath());
+  } catch (err) {
+    return Promise.reject(err);
+  }
   const options = target
-    ? { host: target.host, port: target.port, method, path: urlPath, headers }
+    ? { host: target.host, port: target.port, method, path: urlPath, headers, timeout: 5000 }
     : {
-        createConnection: () => net.connect(sockPath()),
+        createConnection: () => {
+          const sock = net.connect(sockPath());
+          sock.setTimeout(5000, () => sock.destroy());
+          return sock;
+        },
         method,
         path: urlPath,
         headers,
+        timeout: 5000,
       };
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (obj) => {
+      if (settled) return;
+      settled = true;
+      resolve(obj);
+    };
     const req = http.request(options, (res) => {
-        const chunks = [];
-        res.on("data", (c) => chunks.push(c));
-        res.on("end", () => {
-          const raw = Buffer.concat(chunks).toString("utf8");
-          if (!raw) {
-            reject(new Error("deadbolt:empty"));
-            return;
-          }
-          resolve(JSON.parse(raw));
-        });
-      }
-    );
-    req.on("error", reject);
+      const chunks = [];
+      res.on("data", (c) => chunks.push(c));
+      res.on("end", () => {
+        const raw = Buffer.concat(chunks).toString("utf8");
+        if (res.statusCode >= 500 || !raw) {
+          finish(down(urlPath));
+          return;
+        }
+        try {
+          finish(JSON.parse(raw));
+        } catch {
+          finish(down(urlPath));
+        }
+      });
+    });
+    req.on("timeout", () => {
+      req.destroy();
+      finish(down(urlPath));
+    });
+    req.on("error", () => finish(down(urlPath)));
     if (payload) req.write(payload);
     req.end();
   });

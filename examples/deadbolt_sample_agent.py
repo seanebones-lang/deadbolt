@@ -31,7 +31,10 @@ def main(argv):
     args = parser.parse_args(argv)
     signal.signal(signal.SIGTERM, _mark_stop)
     signal.signal(signal.SIGINT, _mark_stop)
-    ensure(args.agent)
+    ensured = ensure(args.agent)
+    if ensured.get("ok") is not True:
+        _line({"decision": "deny", "code": ensured.get("code") or "store_unavailable"})
+        return 2
     while not _stop:
         decision = admit(args.agent, args.tool)
         if decision.get("decision") != "allow":

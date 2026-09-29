@@ -856,6 +856,65 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
     }
 
+    fn node_missing() -> bool {
+        std::process::Command::new("node")
+            .arg("--version")
+            .output()
+            .map(|o| !o.status.success())
+            .unwrap_or(true)
+    }
+
+    fn node_json(sock: &Path, args: &[&str]) -> Value {
+        let client = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("examples/deadbolt_client.js");
+        let out = std::process::Command::new("node")
+            .arg(client)
+            .args(args)
+            .env("DEADBOLT_SOCK", sock)
+            .output()
+            .expect("node");
+        assert!(
+            out.status.success(),
+            "node failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        serde_json::from_slice(&out.stdout).expect("node json")
+    }
+
+    #[test]
+    fn client_deny_store_unavailable_when_serve_down() {
+        if python_missing() {
+            eprintln!("client_deny_store_unavailable_when_serve_down: python3 missing");
+            return;
+        }
+        let dir = sock_dir();
+        let sock = dir.join("absent.sock");
+        for args in [
+            &["admit", "--agent", "A", "--tool", "shell"][..],
+            &["ensure", "--agent", "A"][..],
+            &["register-child", "--parent", "P", "--child", "C"][..],
+        ] {
+            let denied = python_json(&sock, args);
+            assert_eq!(denied["decision"], "deny");
+            assert_eq!(denied["code"], "store_unavailable");
+        }
+        let status = python_json(&sock, &["status", "--agent", "A"]);
+        assert_eq!(status["code"], "store_unavailable");
+        if !node_missing() {
+            for args in [
+                &["admit", "--agent", "A", "--tool", "shell"][..],
+                &["ensure", "--agent", "A"][..],
+                &["register-child", "--parent", "P", "--child", "C"][..],
+            ] {
+                let denied = node_json(&sock, args);
+                assert_eq!(denied["decision"], "deny");
+                assert_eq!(denied["code"], "store_unavailable");
+            }
+            let status = node_json(&sock, &["status", "--agent", "A"]);
+            assert_eq!(status["code"], "store_unavailable");
+        }
+        let _ = fs::remove_dir_all(&dir);
+    }
+
     fn python_missing() -> bool {
         std::process::Command::new("python3")
             .arg("--version")
