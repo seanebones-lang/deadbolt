@@ -32,12 +32,21 @@ struct WorkerPermit(Arc<AtomicUsize>);
 
 impl WorkerPermit {
     fn acquire(active: &Arc<AtomicUsize>, limit: usize) -> Option<Self> {
-        active
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
-                (n < limit).then_some(n + 1)
-            })
-            .ok()
-            .map(|_| Self(Arc::clone(active)))
+        let mut count = active.load(Ordering::Acquire);
+        loop {
+            if count >= limit {
+                return None;
+            }
+            match active.compare_exchange_weak(
+                count,
+                count + 1,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => return Some(Self(Arc::clone(active))),
+                Err(observed) => count = observed,
+            }
+        }
     }
 }
 
