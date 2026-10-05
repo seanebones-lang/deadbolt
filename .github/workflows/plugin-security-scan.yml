@@ -23,9 +23,27 @@ jobs:
       - uses: hashgraph-online/ai-plugin-scanner-action@d0e7bf3ebeb0312c347e51f1dc3552fb264b426c # v1.2.766
         with:
           plugin_dir: '.'
-          min_score: 80
-          fail_on_severity: high
+          format: json
+          output: plugin-scan.json
+          min_score: 0
+          fail_on_severity: none
           online: false
           upload_sarif: false
           submission_enabled: false
           trust_repository_policy: false
+      - name: Enforce scan result without printing matched content
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path('plugin-scan.json').read_text())
+          score = report.get('score', 0)
+          findings = report.get('findings', [])
+          severe = [f for f in findings if f.get('severity') in ('critical', 'high')]
+          print(f'Scanner score: {score}/100; high or critical findings: {len(severe)}')
+          for finding in severe:
+              print(f"{finding.get('severity')}: {finding.get('ruleId') or finding.get('title')}; {finding.get('filePath') or 'location unavailable'}")
+          if score < 80 or severe:
+              raise SystemExit(1)
+          PY
