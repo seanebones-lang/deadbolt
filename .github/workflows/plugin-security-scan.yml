@@ -1,0 +1,49 @@
+name: plugin security scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: plugin-security-scan-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: hashgraph-online/ai-plugin-scanner-action@d0e7bf3ebeb0312c347e51f1dc3552fb264b426c # v1.2.766
+        with:
+          plugin_dir: '.'
+          format: json
+          output: plugin-scan.json
+          min_score: 0
+          fail_on_severity: none
+          online: false
+          upload_sarif: false
+          submission_enabled: false
+          trust_repository_policy: false
+      - name: Enforce scan result without printing matched content
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path('plugin-scan.json').read_text())
+          score = report.get('score', 0)
+          findings = report.get('findings', [])
+          severe = [f for f in findings if f.get('severity') in ('critical', 'high')]
+          print(f'Scanner score: {score}/100; high or critical findings: {len(severe)}')
+          for finding in severe:
+              print(f"{finding.get('severity')}: {finding.get('ruleId') or finding.get('title')}; {finding.get('filePath') or 'location unavailable'}")
+          if score < 80 or severe:
+              raise SystemExit(1)
+          PY

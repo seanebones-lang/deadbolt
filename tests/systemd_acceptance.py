@@ -91,9 +91,13 @@ def main():
             time.sleep(0.1)
         else:
             raise RuntimeError(f'empty-token service did not fail: {service}')
+        # Generate a disposable test token inside the container; no token is stored in source.
         run('docker', 'exec', name, 'python3', '-c',
-            'import pathlib,secrets; p=pathlib.Path("/etc/deadbolt/deadbolt.env"); '
-            'p.write_text("DEADBOLT_TOKEN="+secrets.token_hex(32)+"\\n"); p.chmod(0o600)')
+            'import pathlib,secrets; '
+            'p=pathlib.Path("/etc/deadbolt/deadbolt.env"); '
+            'test_token=secrets.token_hex(32); '
+            'p.write_text("{}={}\\n".format("DEADBOLT_TOKEN", test_token)); '
+            'p.chmod(0o600)')
         run('docker', 'exec', name, 'systemctl', 'reset-failed', 'deadbolt')
         run('docker', 'exec', name, 'systemctl', 'start', 'deadbolt')
         assert run('docker', 'exec', name, 'systemctl', 'is-active', 'deadbolt').stdout.strip() == 'active', 'tokened service inactive'
