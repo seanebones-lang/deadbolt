@@ -24,6 +24,8 @@ The older `v0.1.1-product` tag is not the standalone hardening release.
   dependency inventory; its upstream crate does not use a LICENSE filename.
 - Exercise dispatcher effects, concurrent one-shot callbacks, invalid configuration,
   oversized/partial responses, independent drill state and MCP shutdown in regression tests.
+- Verify a separate embedded application against the unpacked Cargo artifact in
+  CI, using real allowed file effects and denied callbacks outside the checkout.
 
 These changes are source-only until a new reviewed release is published; v1.0.3
 downloads do not contain the new helpers or hardening.
