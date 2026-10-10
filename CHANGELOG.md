@@ -5,6 +5,8 @@ The older `v0.1.1-product` tag is not the standalone hardening release.
 
 ## Unreleased
 
+Source candidate version: `1.1.0-rc.1`. No release/tag is published by this change.
+
 - Add `dispatch` helpers for embedded Rust, Python and Node. A trusted callback
   runs only after a fresh explicit allow; denial leaves it untouched. Preserve
   callback results and errors without retrying effects. Node supports async bodies.
