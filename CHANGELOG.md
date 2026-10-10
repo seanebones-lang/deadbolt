@@ -18,8 +18,9 @@ Source candidate version: `1.1.0-rc.1`. No release/tag is published by this chan
   sidecar HTTP responses to 1 MiB, and close Python connections on all paths.
 - Bound stdio MCP frames to 16 MiB and coordinate both readers with a bounded
   queue. Child EOF/read failures no longer wait for client EOF. Close child input
-  on client EOF, drain final output for at most one second, then kill/wait the
-  immediate child without joining blocked readers. Descendants remain executor-owned.
+  on client EOF, drain final output for at most one second, allow one further
+  second for natural child exit, then kill/wait without joining blocked readers.
+  Descendants remain executor-owned.
   Report an already completed child failure as a proxy error.
 - Create the Docker image's state directory with mode 0700. Existing named
   volumes retain their existing modes and require operator review.

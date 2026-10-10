@@ -25,8 +25,9 @@ partial responses; Python uses five-second I/O timeouts and always closes its
 connection. These changes are not present in v1.0.3 downloads.
 
 Current-source stdio MCP frames are capped at 16 MiB. On client EOF the proxy
-closes child input and drains final output for at most one second, then
-kills/waits the immediate child. Child EOF or a framing/read failure ends the
+closes child input and drains final output for at most one second. It allows
+one further second for the OS child exit status before killing/waiting the
+immediate child. Child EOF or a framing/read failure ends the
 proxy even when client input remains open; a completed child failure returns a
 proxy error. Two read-only threads use a bounded
 two-frame queue; only the coordinating thread admits calls and writes output.

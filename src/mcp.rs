@@ -100,12 +100,21 @@ fn spawn_proxy(
 }
 
 fn stop_child(child: &mut Child) -> std::io::Result<()> {
-    if let Some(status) = child.try_wait()? {
-        return if status.success() {
-            Ok(())
-        } else {
-            Err(std::io::Error::other("mcp_child_failed"))
-        };
+    // EOF can precede availability of the OS exit status. Do not overwrite a
+    // natural failure with our own kill while the process is still exiting.
+    let started = Instant::now();
+    loop {
+        if let Some(status) = child.try_wait()? {
+            return if status.success() {
+                Ok(())
+            } else {
+                Err(std::io::Error::other("mcp_child_failed"))
+            };
+        }
+        if started.elapsed() >= SHUTDOWN_GRACE {
+            break;
+        }
+        thread::sleep(Duration::from_millis(10));
     }
     // The child can exit between the last poll and kill.
     if let Err(error) = child.kill() {
