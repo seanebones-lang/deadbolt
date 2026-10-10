@@ -57,9 +57,11 @@ fn main() {
     println!("outside-checkout embedded consumer passed");
 }
 ''', encoding="utf-8")
-        # Isolate both the project and output; preserve the package's locked
-        # dependency versions and resolve only the added consumer offline.
+        # Isolate both the project and output. A clean runner may have fetched
+        # only its native dependencies; metadata also needs other target crates.
+        # Fetch the package's locked closure, then resolve the added root offline.
         env = {**os.environ, "CARGO_TARGET_DIR": str(root / "build")}
+        subprocess.run(["cargo", "fetch", "--locked"], cwd=package, env=env, check=True)
         subprocess.run(["cargo", "metadata", "--offline", "--format-version", "1"],
                        cwd=consumer, env=env, check=True, stdout=subprocess.DEVNULL)
         subprocess.run(["cargo", "run", "--locked", "--offline", "--", str(root)],
