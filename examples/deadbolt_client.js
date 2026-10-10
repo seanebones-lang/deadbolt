@@ -37,15 +37,16 @@ function tcpTarget(raw) {
   return { host, port: number };
 }
 
-function down(urlPath) {
-  if (urlPath.startsWith("/status")) return { code: "store_unavailable" };
-  return { decision: "deny", code: "store_unavailable" };
+function down(urlPath, code = "store_unavailable") {
+  if (urlPath.startsWith("/status")) return { code };
+  return { decision: "deny", code };
 }
 
 function call(method, urlPath, body) {
   let payload;
   const headers = { "Content-Type": "application/json", Connection: "close" };
-  if (process.env.DEADBOLT_TOKEN) headers["X-Deadbolt-Token"] = process.env.DEADBOLT_TOKEN;
+  if (process.env.DEADBOLT_ADMISSION_TOKEN !== undefined) headers["X-Deadbolt-Admission"] = process.env.DEADBOLT_ADMISSION_TOKEN;
+  else if (process.env.DEADBOLT_TOKEN) headers["X-Deadbolt-Token"] = process.env.DEADBOLT_TOKEN;
   let target;
   try {
     payload = body == null ? null : JSON.stringify(body);
@@ -97,6 +98,10 @@ function call(method, urlPath, body) {
         });
         res.on("end", () => {
           const raw = Buffer.concat(chunks).toString("utf8");
+          if (res.statusCode === 401 || res.statusCode === 403) {
+            finish(down(urlPath, res.statusCode === 401 ? "unauthorized" : "forbidden"));
+            return;
+          }
           if (res.statusCode < 200 || res.statusCode >= 300 || !raw) {
             finish(down(urlPath));
             return;

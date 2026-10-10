@@ -74,7 +74,9 @@ approval flow remain in place, and DeadBolt checks before the body executes.
 The base client has no third-party runtime dependencies. The SDK adapter pins a
 tested SDK version and is verified through installed-wheel, real-runner tests
 without paid model calls. See the [next architecture decisions](docs/ARCHITECTURE-NEXT.md)
-for the scoped-credential and exact-action approval work still to do.
+for the exact-action approval work still to do. The current candidate also adds
+[admission-only credentials](docs/CREDENTIALS.md) bound to one agent, so a dispatcher
+can ask for permission without receiving operator controls.
 
 | Your application | Use | What you control |
 | --- | --- | --- |

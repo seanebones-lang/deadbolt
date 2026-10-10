@@ -79,6 +79,17 @@ def main():
             assert client.admit("B", "shell")["code"] == "needs_human"
             assert client.spend("B", 3.75)["code"] == "spend_cap"
             assert client.admit("B", "fetch", "example.com")["code"] == "spend_cap"
+            credential = Path(temp) / "credential"
+            operator(new, "credential", "issue", "--agent", "B", "--id", "migrated-key", "--out", str(credential))
+            os.environ["DEADBOLT_ADMISSION_TOKEN"] = credential.read_text()
+            try:
+                assert client.admit("B", "fetch", "example.com")["code"] == "spend_cap"
+                assert client.admit("A", "shell")["code"] == "unauthorized"
+                assert client.ensure("A")["code"] == "forbidden"
+                operator(new, "credential", "revoke", "--id", "migrated-key")
+                assert client.admit("B", "fetch", "example.com")["code"] == "unauthorized"
+            finally:
+                os.environ.pop("DEADBOLT_ADMISSION_TOKEN", None)
         finally:
             server.terminate()
             server.wait(timeout=10)
@@ -90,7 +101,8 @@ def main():
                           "old_binary_sha256": hashlib.sha256(old.read_bytes()).hexdigest(),
                           "new_binary_sha256": hashlib.sha256(new.read_bytes()).hexdigest(),
                           "preserved": ["terminal revocation", "child lineage", "tool policy",
-                                        "destination policy", "one-shot approval", "spend", "evidence"],
+                                        "destination policy", "one-shot approval", "spend", "evidence",
+                                        "credential migration and independent revocation"],
                           "result": "passed"}, indent=2))
 
 

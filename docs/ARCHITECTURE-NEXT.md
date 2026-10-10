@@ -40,11 +40,12 @@ change; adapter acceptance pins the released package `openai-agents==0.23.1`.
    real SDK runner/sidecar, verify actual file effects, preserve approval checks,
    and exercise revocation after resume, unavailable sidecar and competing
    one-shot calls. The base wheel must import without the SDK dependency.
-2. **Separate operator authority from workload admission.** Design credentials
-   bound to a fixed agent/run, with only admission/probe rights, independently
-   revocable credentials and no policy/ensure/approve/control privileges. Preserve
-   legacy operator routes explicitly, migrate state deliberately, and test role
-   enforcement at every route. This is not implemented by the Python wrapper.
+2. **Implemented in the next candidate: separate operator authority from workload admission.**
+   Credentials bind a fixed agent, with admission-only rights, fixed expiry and
+   independent revocation. No policy/ensure/approve/control privileges; no probe
+   endpoint is exposed. Authentication and lease evaluation share a SQLite writer
+   transaction. [Credential setup](CREDENTIALS.md) documents legacy Unix migration
+   and tests cover role enforcement at every route and installed client effects.
 3. **Bind sensitive grants to exact actions.** Define a versioned canonical
    representation of trusted tool identity, validated arguments, destination,
    nonce, expiry and run ID. Store the reviewed fingerprint and consume it

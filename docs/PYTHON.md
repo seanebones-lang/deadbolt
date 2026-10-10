@@ -33,7 +33,9 @@ working; there is one implementation, rather than a copied package client.
 See [operations](OPERATIONS.md) for durable state, private paths and credentials.
 Use a new executor-assigned run ID and configure its policy before running it.
 On Unix the default local socket can be used. Windows requires a loopback TCP
-address and `DEADBOLT_TOKEN` in both the sidecar and client environments.
+address. Keep `DEADBOLT_TOKEN` in the sidecar/operator environment. Set
+`DEADBOLT_ADMISSION_TOKEN` in the dispatcher environment after trusted setup; see
+[credential issuance](CREDENTIALS.md).
 
 ```sh
 deadbolt serve
@@ -138,8 +140,10 @@ network tool; always provide its actual destination when using destination polic
   error handlers and hooks are trusted application code outside the protected
   function body. Do not put protected effects there.
 - The model must not control the run ID, tool identity, gate credentials, stored
-  policy or operator approval. The sidecar token currently grants all route
-  authority; it is not a scoped agent credential.
+  policy or operator approval. Use a fixed-agent admission credential for the
+  dispatcher. `DEADBOLT_TOKEN` retains all operator route authority and must stay
+  outside workload access. Setting `DEADBOLT_ADMISSION_TOKEN` puts all client
+  calls in workload mode, including control calls, with no operator fallback.
 - Admission is not atomic with execution, does not revoke work already running,
   and does not create a filesystem/network/process sandbox. A cancelled sync
   body may continue in its worker thread; other already admitted tools in a

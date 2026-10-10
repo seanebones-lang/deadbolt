@@ -36,13 +36,19 @@ pub fn mcp_proxy(
     if argv.is_empty() {
         return Err(DeadboltError::McpSpawn);
     }
+    let scoped = std::env::var_os("DEADBOLT_ADMISSION_TOKEN").is_some();
+    if scoped && serve_sock.is_none() {
+        return Err(DeadboltError::BadRequest);
+    }
     if let Some(sock) = serve_sock {
         let sock = normalize_sock(sock)?;
         if bind_refused(&sock) {
             return Err(DeadboltError::BindRefused);
         }
-        if let Err(err) = sock_ensure(&sock, agent) {
-            eprintln!("{err}");
+        if !scoped {
+            if let Err(err) = sock_ensure(&sock, agent) {
+                eprintln!("{err}");
+            }
         }
         let sock = sock.clone();
         let agent = agent.to_string();
@@ -78,7 +84,9 @@ fn spawn_proxy(
     admit: impl Fn(&str, Option<&str>, Option<f64>) -> Option<String> + 'static,
 ) -> Result<(), DeadboltError> {
     let mut cmd = Command::new(&argv[0]);
-    cmd.args(&argv[1..])
+    cmd.env_remove("DEADBOLT_TOKEN")
+        .env_remove("DEADBOLT_ADMISSION_TOKEN")
+        .args(&argv[1..])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit());
@@ -495,13 +503,32 @@ fn http_json(
     body: Option<&str>,
 ) -> Result<(u16, Value), DeadboltError> {
     let body = body.unwrap_or("");
-    let token = std::env::var("DEADBOLT_TOKEN")
-        .ok()
-        .filter(|t| !t.is_empty());
-    let token_line = token
-        .as_deref()
-        .map(|t| format!("x-deadbolt-token: {t}\r\n"))
-        .unwrap_or_default();
+    let token_line = if std::env::var_os("DEADBOLT_ADMISSION_TOKEN").is_some() {
+        let secret =
+            std::env::var("DEADBOLT_ADMISSION_TOKEN").map_err(|_| DeadboltError::TokenRequired)?;
+        if secret.is_empty()
+            || !secret
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+        {
+            return Err(DeadboltError::TokenRequired);
+        }
+        format!("x-deadbolt-admission: {secret}\r\n")
+    } else {
+        let token = std::env::var("DEADBOLT_TOKEN")
+            .ok()
+            .filter(|t| !t.is_empty());
+        if token
+            .as_ref()
+            .is_some_and(|t| t.bytes().any(|b| b == b'\r' || b == b'\n'))
+        {
+            return Err(DeadboltError::TokenRequired);
+        }
+        token
+            .as_deref()
+            .map(|t| format!("x-deadbolt-token: {t}\r\n"))
+            .unwrap_or_default()
+    };
     let req = format!(
         "{method} {path} HTTP/1.1\r\nhost: 127.0.0.1\r\n{token_line}content-length: {}\r\nconnection: close\r\n\r\n{body}",
         body.len()

@@ -23,6 +23,8 @@ use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
+mod credentials;
+pub use credentials::CredentialStatus;
 mod mcp;
 mod serve;
 mod witness;
@@ -161,7 +163,7 @@ pub enum DeadboltError {
     /// Bind was not loopback. `0.0.0.0` is refused.
     #[error("deadbolt:bind_refused")]
     BindRefused,
-    /// TCP serve started without a token.
+    /// TCP serve needs an operator token, or an admission credential is invalid.
     #[error("deadbolt:token_required")]
     TokenRequired,
     /// Export refused. The string is a code token, not prose.
@@ -332,6 +334,14 @@ impl JsonlSqliteSink {
                clip_cids TEXT NOT NULL,
                swarm_task_id TEXT,
                updated_at INTEGER NOT NULL
+             );
+             CREATE TABLE IF NOT EXISTS admission_credentials (
+               credential_id TEXT PRIMARY KEY,
+               agent_id TEXT NOT NULL,
+               token_hash TEXT NOT NULL UNIQUE,
+               expires_at INTEGER NOT NULL,
+               revoked_at INTEGER,
+               created_at INTEGER NOT NULL
              );
              CREATE TABLE IF NOT EXISTS events (
                seq INTEGER PRIMARY KEY,
@@ -831,7 +841,19 @@ impl Deadbolt {
             &g.conn,
             rusqlite::TransactionBehavior::Immediate,
         )?;
-        let lease = match load_lease(&tx, agent_id) {
+        let decision = self.evaluate_in_transaction(&tx, agent_id, tool, dest)?;
+        tx.commit()?;
+        Ok(decision)
+    }
+
+    fn evaluate_in_transaction(
+        &self,
+        tx: &rusqlite::Transaction<'_>,
+        agent_id: &str,
+        tool: &str,
+        dest: Option<&str>,
+    ) -> Result<AdmitDecision, rusqlite::Error> {
+        let lease = match load_lease(tx, agent_id) {
             Ok(v) => v,
             Err(_) => {
                 return Ok(AdmitDecision::Deny {
@@ -865,27 +887,23 @@ impl Deadbolt {
                     "UPDATE leases SET state='paused', updated_at=?1 WHERE agent_id=?2 AND state!='killed'",
                     params![now_secs(), agent_id],
                 )?;
-                tx.commit()?;
                 return Ok(AdmitDecision::Deny {
                     code: DenyCode::SpendCap,
                 });
             }
         }
         if lease.state == "paused" {
-            tx.commit()?;
             return Ok(AdmitDecision::Deny {
                 code: DenyCode::Paused,
             });
         }
         if lease.clips.iter().any(|c| c == tool) {
-            tx.commit()?;
             return Ok(AdmitDecision::Deny {
                 code: DenyCode::PurposeExceeded,
             });
         }
         if let Some(allow) = &lease.tools_allow {
             if !allow.iter().any(|t| t == tool) {
-                tx.commit()?;
                 return Ok(AdmitDecision::Deny {
                     code: DenyCode::PurposeExceeded,
                 });
@@ -895,7 +913,6 @@ impl Deadbolt {
             let foreign = dest.is_some_and(|d| !allow.iter().any(|h| h.eq_ignore_ascii_case(d)));
             let missing_network = dest.is_none() && network_class(tool);
             if foreign || missing_network {
-                tx.commit()?;
                 return Ok(AdmitDecision::Deny {
                     code: DenyCode::PurposeExceeded,
                 });
@@ -906,7 +923,6 @@ impl Deadbolt {
             .as_ref()
             .is_some_and(|list| list.iter().any(|t| t == tool));
         if shot && !lease.approvals.iter().any(|t| t == tool) {
-            tx.commit()?;
             return Ok(AdmitDecision::Deny {
                 code: DenyCode::NeedsHuman,
             });
@@ -924,7 +940,6 @@ impl Deadbolt {
                 params![raw, agent_id],
             )?;
         }
-        tx.commit()?;
         Ok(AdmitDecision::Allow)
     }
 

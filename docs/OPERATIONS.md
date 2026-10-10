@@ -10,7 +10,8 @@ environment settings; server/executor/operator paths must match.
 | `DEADBOLT_DB` | CLI/sidecar/MCP SQLite store | `~/.deadbolt/deadbolt.db` |
 | `DEADBOLT_EVENTS` | CLI/sidecar/MCP JSONL evidence | `~/.deadbolt/deadbolt-events.jsonl` |
 | `DEADBOLT_SOCK` | Python/Node client endpoint | Unix default socket; non-Unix loopback `127.0.0.1:9782` |
-| `DEADBOLT_TOKEN` | Sidecar/client authentication | No default; required for TCP |
+| `DEADBOLT_ADMISSION_TOKEN` | Single-agent dispatcher admission; takes precedence in clients/MCP | No default; issue after trusted setup |
+| `DEADBOLT_TOKEN` | Sidecar/operator authentication | No default; required for TCP |
 | `DEADBOLT_BIN` | Consumer-test executable path | `target/debug/deadbolt` |
 
 `DEADBOLT_SOCK` does not configure the server's bind or the CLI's store: use
@@ -18,7 +19,8 @@ environment settings; server/executor/operator paths must match.
 `DeadboltConfig` or `open_at` arguments; it does not automatically adopt every
 CLI environment variable. The CLI has no general config-file/TTL option.
 
-Keep the operator and token in trusted infrastructure. Model-controlled code
+Keep the operator and operator token in trusted infrastructure. Use
+[scoped admission credentials](CREDENTIALS.md) for dispatchers. Model-controlled code
 must not choose fresh IDs, alter policy, write the store or bypass the dispatcher.
 Each child needs registration and explicit policy before its runner starts.
 
@@ -85,7 +87,7 @@ docker compose -f dist/docker-compose.yml exec deadbolt deadbolt status
 ```
 
 The default Compose sidecar uses a mode-0600 Unix socket and named state volume;
-its token is optional for this same-UID transport. If you configure a token,
+its operator token is optional only until the first admission credential is issued. If you configure a token,
 supply it to the executor too. Keep `dist/deadbolt.env` private and ignored.
 
 Add a trusted executor service to the same Compose project, attach the declared

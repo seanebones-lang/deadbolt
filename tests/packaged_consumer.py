@@ -33,7 +33,7 @@ def main():
             + json.dumps(str(package)) + '}\n', encoding="utf-8")
         shutil.copy2(package / "Cargo.lock", consumer / "Cargo.lock")
         (consumer / "src/main.rs").write_text('''
-use deadbolt::{Deadbolt, DenyCode, PolicyPatch};
+use deadbolt::{Deadbolt, DeadboltError, AdmitDecision, DenyCode, PolicyPatch};
 fn main() {
     let root = std::path::PathBuf::from(std::env::args_os().nth(1).unwrap());
     let gate = Deadbolt::open_at(&root.join("state"), true, 60);
@@ -41,6 +41,13 @@ fn main() {
     gate.set_policy("consumer-run", PolicyPatch {
         tools_allow: Some(vec!["write_file".into()]), ..Default::default()
     }).unwrap();
+    let key = root.join("credential");
+    gate.issue_credential("consumer-run", "consumer-key", 60, &key).unwrap();
+    let secret = std::fs::read_to_string(&key).unwrap();
+    assert_eq!(gate.admit_credential(&secret, "consumer-run", "write_file", None), Ok(AdmitDecision::Allow));
+    gate.revoke_credential("consumer-key").unwrap();
+    assert_eq!(gate.admit_credential(&secret, "consumer-run", "write_file", None), Err(DeadboltError::TokenRequired));
+    assert!(gate.credentials().unwrap()[0].revoked_at.is_some());
     let effect = root.join("effect.txt");
     let result = gate.dispatch("consumer-run", "write_file", None, || {
         std::fs::write(&effect, "allowed").unwrap(); 42

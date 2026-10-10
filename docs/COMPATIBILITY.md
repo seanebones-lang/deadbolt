@@ -13,8 +13,8 @@ changes are not a new released version until separately tagged and published.
 - CLI commands and documented JSON output used by operator integrations.
   Human-readable status text, help layout and diagnostic prose are not parsers.
 - Included Python/Node source clients, and individual stdio MCP JSON-RPC 2.0
-  objects with routed `tools/call`. Clients are source integrations, not separately
-  versioned registry packages.
+  objects with routed `tools/call`. The optional Python client is an installable source-candidate wheel/sdist;
+  native and registry publication remain separate release actions.
 
 Consumers must execute only on explicit allow. Unknown decisions, unsuccessful
 responses and invalid payloads cannot become permission. Existing denial tokens
@@ -74,3 +74,13 @@ cost accounting, remote MCP, per-agent sidecar credentials, atomic execution wit
 admission, tamper-proof evidence, an SLA or a throughput target. See
 [trust boundaries](TRUST.md). Optional Witness-shaped output is an additional
 record format, not a requirement to run another service.
+
+## Admission-credential protocol
+
+The unreleased `1.1.0-rc.1` candidate adds a credential table without changing
+existing lease, policy, approval or evidence fields. It supports legacy operator
+HTTP authentication and a separate single-agent admission header. See
+[credential migration](CREDENTIALS.md): issuing the first credential deliberately
+disables anonymous Unix HTTP authority. This persists after revocation/expiry.
+Older binaries do not enforce this boundary; quiesce workload access before
+rollback and do not expose an anonymous old Unix listener to scoped clients.

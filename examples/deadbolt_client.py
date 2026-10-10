@@ -63,16 +63,20 @@ class _UnixHTTPConnection(http.client.HTTPConnection):
 
 def _headers():
     headers = {"Content-Type": "application/json", "Connection": "close"}
+    workload = os.environ.get("DEADBOLT_ADMISSION_TOKEN")
+    if workload is not None:
+        headers["X-Deadbolt-Admission"] = workload
+        return headers
     token = os.environ.get("DEADBOLT_TOKEN")
     if token:
         headers["X-Deadbolt-Token"] = token
     return headers
 
 
-def _down(path):
+def _down(path, code="store_unavailable"):
     if path.startswith("/status"):
-        return {"code": "store_unavailable"}
-    return {"decision": "deny", "code": "store_unavailable"}
+        return {"code": code}
+    return {"decision": "deny", "code": code}
 
 
 def _call(method, path, body=None):
@@ -89,6 +93,8 @@ def _call(method, path, body=None):
         resp = conn.getresponse()
         raw = resp.read(MAX_RESPONSE_BYTES + 1)
         status = resp.status
+        if status in (401, 403):
+            return _down(path, "unauthorized" if status == 401 else "forbidden")
         if not 200 <= status < 300 or not raw or len(raw) > MAX_RESPONSE_BYTES:
             return _down(path)
         return json.loads(raw.decode("utf-8"))

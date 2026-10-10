@@ -22,6 +22,11 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Manage single-agent admission credentials. Operator-only; secrets go to files.
+    Credential {
+        #[command(subcommand)]
+        command: CredentialCommand,
+    },
     /// List leases. Read-only.
     Status {
         /// One agent id. Omit to list every lease.
@@ -135,6 +140,28 @@ enum Command {
     },
 }
 
+#[derive(Subcommand)]
+enum CredentialCommand {
+    /// Issue to a new file. Never prints the secret or replaces an existing file.
+    Issue {
+        #[arg(long)]
+        agent: String,
+        #[arg(long)]
+        id: String,
+        #[arg(long, default_value_t = 3600)]
+        ttl_secs: u64,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Revoke one credential, leaving the lease and other credentials intact.
+    Revoke {
+        #[arg(long)]
+        id: String,
+    },
+    /// List metadata only, without changing leases.
+    List,
+}
+
 fn cfg() -> DeadboltConfig {
     let mut cfg = DeadboltConfig {
         token_env: Some("DEADBOLT_TOKEN".into()),
@@ -162,6 +189,37 @@ fn run() -> Result<(), DeadboltError> {
     }
     let db = Deadbolt::open(&cfg());
     match cli.command {
+        Command::Credential { command } => match command {
+            CredentialCommand::Issue {
+                agent,
+                id,
+                ttl_secs,
+                out,
+            } => {
+                let status = db.issue_credential(&agent, &id, ttl_secs, &out)?;
+                println!(
+                    "credential={} agent={} expires_at={}",
+                    status.credential_id, status.agent_id, status.expires_at
+                );
+            }
+            CredentialCommand::Revoke { id } => {
+                db.revoke_credential(&id)?;
+                println!("deadbolt credential revoked {id}");
+            }
+            CredentialCommand::List => {
+                for row in db.credentials()? {
+                    println!(
+                        "credential={} agent={} expires_at={} revoked_at={}",
+                        row.credential_id,
+                        row.agent_id,
+                        row.expires_at,
+                        row.revoked_at
+                            .map(|v| v.to_string())
+                            .unwrap_or_else(|| "-".into())
+                    );
+                }
+            }
+        },
         Command::Status { agent } => {
             let rows = db.status(agent.as_deref())?;
             if rows.is_empty() {

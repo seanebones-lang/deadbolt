@@ -85,6 +85,20 @@ class OpenAIAcceptance(unittest.IsolatedAsyncioTestCase):
     async def run_tool(self, tool, arguments=None, **kwargs):
         return await Runner.run(self.make_agent(tool, arguments), "synthetic test", **kwargs)
 
+    async def test_scoped_credential_runner_allow_revoke_and_control_denial(self):
+        key = Path(self.temp.name) / "key"
+        self.operator("credential", "issue", "--agent", "worker", "--id", "sdk-key", "--out", str(key))
+        os.environ["DEADBOLT_ADMISSION_TOKEN"] = key.read_text()
+        self.assertNotEqual(client.policy("worker", tools=["send"]).get("ok"), True)
+        tool = self.make_tool()
+        await self.run_tool(tool)
+        self.assertEqual(self.file.read_text(), "allowed")
+        self.operator("credential", "revoke", "--id", "sdk-key")
+        with self.assertRaises(UserError) as denied:
+            await self.run_tool(tool, {"content":"must not execute"})
+        self.assertEqual(denial_code(denied.exception), "unauthorized")
+        self.assertEqual(self.file.read_text(), "allowed")
+
     async def test_runner_allow_and_policy_denial_have_real_effects(self):
         tool = self.make_tool()
         self.assertEqual((await self.run_tool(tool)).final_output, "finished")

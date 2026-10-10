@@ -7,6 +7,19 @@ The older `v0.1.1-product` tag is not the standalone hardening release.
 
 Source candidate version: `1.1.0-rc.1`. No release/tag is published by this change.
 
+- Add operator-issued single-agent admission credentials with OS-generated 256-bit
+  bearer secrets, stored hashes, fixed expiry and independent revocation. Credential
+  authentication and policy/approval evaluation share a SQLite writer transaction.
+  Add CLI issue/revoke/list controls; issuance writes an exclusive output file
+  (0600 on Unix) and primary-evidence failure rolls back activation.
+- Keep operator HTTP authority separate: workload credentials authorize only
+  `POST /admit`, mixed/duplicate auth headers fail closed, and the first credential
+  permanently disables anonymous Unix operator access in that store. Existing
+  stores migrate without changing lease/policy/approval state.
+- Add workload-mode Python/Node/MCP requests without operator fallback. Scoped
+  MCP skips lease creation, requires a sidecar and refuses workload spend updates;
+  child servers no longer inherit the two DeadBolt bearer-token environment values.
+  Preserve useful `unauthorized`/`forbidden` denials in Python and Node.
 - Package the existing stdlib Python client as an installable wheel/sdist with
   an optional OpenAI Agents SDK 0.23.1 decorator. Keep native sidecar installation
   separate and preserve source imports. No PyPI publication is performed.

@@ -163,6 +163,9 @@ deadbolt serve --bind 127.0.0.1:9782
 Keep that terminal running. Supply the same endpoint and token to your trusted
 executor. For PowerShell, use `$env:DEADBOLT_TOKEN` and `$env:DEADBOLT_SOCK`.
 Keep operator access and credentials away from the model-controlled process.
+For the current candidate, finish trusted lease/policy setup and issue an
+[admission credential](CREDENTIALS.md); pass only `DEADBOLT_ADMISSION_TOKEN`
+to the dispatcher. The shared operator token remains a compatibility path.
 
 Copy `examples/deadbolt_client.py` or `examples/deadbolt_client.js` into your
 project. These are source clients, not published pip/npm packages. Python uses

@@ -49,7 +49,15 @@ A live admit, allow or deny, renews the TTL inside `evaluate` before the deny re
 
 ## Agent id
 
-The agent id is a claim. `DEADBOLT_TOKEN` authenticates the caller to serve. It does not authenticate the agent. Whoever holds the token can assert any id. The binding that matters is the executor or the proxy assigning the id. The model does not.
+The operator token `DEADBOLT_TOKEN` authenticates full HTTP authority and can
+assert any agent ID. The current candidate also accepts single-agent admission
+credentials: their stored hash, agent binding, fixed expiry and revocation are
+checked in the same writer transaction as lease/policy evaluation. These
+credentials authorize only `POST /admit`, not setup or control routes. See
+[credential setup](CREDENTIALS.md), including migration from anonymous Unix
+access. In either mode the trusted executor assigns the ID and tool identity;
+the model does not. Scoped admission always fails closed, even when the trusted
+Rust host has disabled enforcement or configured legacy fail-open behavior.
 
 ## TOCTOU
 

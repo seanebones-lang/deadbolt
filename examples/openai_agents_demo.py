@@ -79,6 +79,11 @@ def main():
                         raise RuntimeError("demo sidecar did not become ready")
                     if client.policy("demo-run", tools=["write_file"]).get("ok") is not True:
                         raise RuntimeError("demo policy could not be set")
+                    key = Path(state) / "admission-key"
+                    subprocess.run([str(binary), "credential", "issue", "--agent", "demo-run", "--id", "demo-key",
+                                    "--out", str(key)], check=True, capture_output=True, timeout=10)
+                    os.environ["DEADBOLT_ADMISSION_TOKEN"] = key.read_text()
+                    os.environ.pop("DEADBOLT_TOKEN", None)
                     print(json.dumps(asyncio.run(evaluate(binary, Path(state) / "effect")), indent=2))
                 finally:
                     if server.poll() is None:

@@ -56,6 +56,45 @@ class ClientContract(unittest.TestCase):
         self.assertEqual(out.returncode, 0, out.stderr)
         return json.loads(out.stdout)
 
+    def test_scoped_python_node_and_mcp_keep_control_with_operator(self):
+        root = Path(self.temp.name)
+        self.assertTrue(client.ensure("other")["ok"])
+        self.assertTrue(client.policy("agent", tools=["write_file", "read"])["ok"])
+        issued = subprocess.run([str(BINARY), "credential", "issue", "--agent", "agent", "--id", "key",
+                                 "--out", str(root / "key")], env=self.env, check=True, capture_output=True, text=True)
+        secret = (root / "key").read_text()
+        self.assertNotIn(secret, issued.stdout + issued.stderr)
+        self.env["DEADBOLT_ADMISSION_TOKEN"] = os.environ["DEADBOLT_ADMISSION_TOKEN"] = secret
+        # Operator token remains deliberately present: workload mode must take precedence.
+        self.assertEqual(client.admit("agent", "read")["decision"], "allow")
+        self.assertEqual(self.node('d.admit("agent", "read").then(x => console.log(JSON.stringify(x)))')["decision"], "allow")
+        self.assertEqual(client.admit("other", "read")["decision"], "deny")
+        for result in [client.ensure("agent"), client.policy("agent", tools=["send"]), client.spend("agent", -1),
+                       client.register_child("agent", "child"), client.status("agent")]:
+            self.assertNotEqual(result.get("ok"), True)
+            self.assertNotIn("agents", result)
+        self.assertEqual(self.node('d.policy("agent", {tools:["send"]}).then(x => console.log(JSON.stringify(x)))')["decision"], "deny")
+        effect = root / "effect"
+        self.assertTrue(client.dispatch("agent", "write_file", lambda: effect.write_text("allowed"))["executed"])
+        # Real proxy routes one tools/call to a child that reports its environment.
+        child = "import sys,json,os; [print(json.dumps({'jsonrpc':'2.0','id':json.loads(line)['id'],'result':{'secrets_inherited':any(k in os.environ for k in ['DEADBOLT_TOKEN','DEADBOLT_ADMISSION_TOKEN'])}}),flush=True) for line in sys.stdin]"
+        proxy = subprocess.run([str(BINARY), "mcp-proxy", "--agent", "agent", "--serve-sock", self.env["DEADBOLT_SOCK"],
+                                "--", sys.executable, "-c", child], input=json.dumps({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read","arguments":{}}})+"\n",
+                               env=self.env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(proxy.returncode, 0, proxy.stderr)
+        self.assertFalse(json.loads(proxy.stdout)["result"]["secrets_inherited"])
+        no_remote = subprocess.run([str(BINARY), "mcp-proxy", "--agent", "agent", "--", sys.executable, "-c", "raise Exception('must not start')"], env=self.env, capture_output=True, text=True, timeout=10)
+        self.assertNotEqual(no_remote.returncode, 0)
+        self.assertIn("bad_request", no_remote.stderr)
+        subprocess.run([str(BINARY), "credential", "revoke", "--id", "key"], env=self.env, check=True, capture_output=True)
+        self.assertFalse(client.dispatch("agent", "write_file", lambda: effect.write_text("wrong"))["executed"])
+        self.assertFalse(self.node(f'd.dispatch("agent", "write_file", () => require("fs").writeFileSync({json.dumps(str(effect))}, "wrong")).then(x => console.log(JSON.stringify(x)))')["executed"])
+        self.assertEqual(effect.read_text(), "allowed")
+        # Empty workload credentials must not fall back to the still-valid operator token.
+        self.env["DEADBOLT_ADMISSION_TOKEN"] = os.environ["DEADBOLT_ADMISSION_TOKEN"] = ""
+        self.assertEqual(client.admit("agent", "read")["decision"], "deny")
+        self.assertEqual(self.node('d.admit("agent", "read").then(x => console.log(JSON.stringify(x)))')["decision"], "deny")
+
     def test_mcp_child_failure_returns_while_host_input_is_open(self):
         proxy = subprocess.Popen([str(BINARY), "mcp-proxy", "--agent", "failed-child", "--",
                                   sys.executable, "-c", "import sys; sys.exit(7)"],

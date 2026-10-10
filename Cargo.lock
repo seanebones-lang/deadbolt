@@ -337,6 +337,7 @@ version = "1.1.0-rc.1"
 dependencies = [
  "clap",
  "dirs",
+ "getrandom 0.4.3",
  "rusqlite",
  "serde",
  "serde_json",
