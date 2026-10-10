@@ -20,6 +20,7 @@ Source candidate version: `1.1.0-rc.1`. No release/tag is published by this chan
   queue. Child EOF/read failures no longer wait for client EOF. Close child input
   on client EOF, drain final output for at most one second, then kill/wait the
   immediate child without joining blocked readers. Descendants remain executor-owned.
+  Report an already completed child failure as a proxy error.
 - Create the Docker image's state directory with mode 0700. Existing named
   volumes retain their existing modes and require operator review.
 - Include r-efi 6.0.0's packaged AUTHORS copyright/license notices in the native
@@ -28,6 +29,8 @@ Source candidate version: `1.1.0-rc.1`. No release/tag is published by this chan
   oversized/partial responses, independent drill state and MCP shutdown in regression tests.
 - Verify a separate embedded application against the unpacked Cargo artifact in
   CI, using real allowed file effects and denied callbacks outside the checkout.
+- Audit the locked dependencies against the current RustSec database in CI and
+  retain the machine-readable report, including on failure.
 
 These changes are source-only until a new reviewed release is published; v1.0.3
 downloads do not contain the new helpers or hardening.

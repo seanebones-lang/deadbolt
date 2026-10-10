@@ -27,12 +27,16 @@ connection. These changes are not present in v1.0.3 downloads.
 Current-source stdio MCP frames are capped at 16 MiB. On client EOF the proxy
 closes child input and drains final output for at most one second, then
 kills/waits the immediate child. Child EOF or a framing/read failure ends the
-proxy even when client input remains open. Two read-only threads use a bounded
+proxy even when client input remains open; a completed child failure returns a
+proxy error. Two read-only threads use a bounded
 two-frame queue; only the coordinating thread admits calls and writes output.
 Descendants are not terminated; the executor owns process-tree cleanup. Readers
 blocked in OS input may remain until their pipes close, but cannot admit or
 forward after the proxy returns. Pipe writes still depend on the host/child
 consuming input; this is not general process confinement or a write deadline.
+Use the CLI as a dedicated stdio process. Embedded `mcp_proxy` owns one session
+of process-global stdin/stdout; do not restart it in the same process while an
+old stdin reader is still blocked. Use a fresh proxy process for reconnection.
 Closing the proxy is distinct from an operator kill,
 which still denies subsequent admissions rather than cancelling running bodies.
 

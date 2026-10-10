@@ -56,6 +56,21 @@ class ClientContract(unittest.TestCase):
         self.assertEqual(out.returncode, 0, out.stderr)
         return json.loads(out.stdout)
 
+    def test_mcp_child_failure_returns_while_host_input_is_open(self):
+        proxy = subprocess.Popen([str(BINARY), "mcp-proxy", "--agent", "failed-child", "--",
+                                  sys.executable, "-c", "import sys; sys.exit(7)"],
+                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE, env=self.env)
+        try:
+            self.assertNotEqual(proxy.wait(timeout=5), 0)
+            self.assertIn("store_unavailable", proxy.stderr.read().decode())
+        finally:
+            if proxy.poll() is None:
+                proxy.kill()
+                proxy.wait(timeout=5)
+            for stream in (proxy.stdin, proxy.stdout, proxy.stderr):
+                stream.close()
+
     def test_import_dest_and_spend(self):
         self.assertEqual(self.node('console.log(JSON.stringify(Object.keys(d).sort()))'),
                          sorted(["admit", "dispatch", "ensure", "policy", "registerChild", "spend", "status"]))

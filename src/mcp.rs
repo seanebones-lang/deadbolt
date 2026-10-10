@@ -100,13 +100,18 @@ fn spawn_proxy(
 }
 
 fn stop_child(child: &mut Child) -> std::io::Result<()> {
-    if child.try_wait()?.is_some() {
-        return Ok(());
+    if let Some(status) = child.try_wait()? {
+        return if status.success() {
+            Ok(())
+        } else {
+            Err(std::io::Error::other("mcp_child_failed"))
+        };
     }
     // The child can exit between the last poll and kill.
     if let Err(error) = child.kill() {
-        if child.try_wait()?.is_none() {
-            return Err(error);
+        match child.try_wait()? {
+            Some(status) if status.success() => return Ok(()),
+            _ => return Err(error),
         }
     }
     child.wait().map(|_| ())
