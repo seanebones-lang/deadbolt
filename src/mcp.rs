@@ -9,16 +9,21 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr, TcpStream};
 #[cfg(unix)]
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{self, RecvTimeoutError, SyncSender};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
 use crate::{bind_refused, AdmitDecision, Deadbolt, DeadboltError};
 
 type AdmitFn = dyn Fn(&str, Option<&str>, Option<f64>) -> Option<String>;
+const MAX_MCP_FRAME_BYTES: usize = 16 * 1024 * 1024;
+const MAX_RESPONSE_BYTES: u64 = 1024 * 1024;
+const SHUTDOWN_GRACE: Duration = Duration::from_secs(1);
 
 /// Run an MCP server as a child. Admit `tools/call` in-process, or over
 /// `serve_sock` when set. Does not bind `0.0.0.0`.
@@ -80,64 +85,158 @@ fn spawn_proxy(
     let mut child = cmd.spawn().map_err(|_| DeadboltError::McpSpawn)?;
     let child_in = child.stdin.take().ok_or(DeadboltError::McpSpawn)?;
     let child_out = child.stdout.take().ok_or(DeadboltError::McpSpawn)?;
-    let stdin = std::io::stdin();
-    let stdout = std::io::stdout();
     let ran = proxy_loop(
-        stdin.lock(),
-        stdout,
+        BufReader::new(std::io::stdin()),
+        std::io::stdout(),
         child_in,
         BufReader::new(child_out),
         &admit,
     );
-    let _ = child.kill();
-    let _ = child.wait();
-    ran.map_err(|_| DeadboltError::StoreUnavailable)
+    // The loop already drained final responses after closing child stdin.
+    // Always reap the immediate child, including after a read/write failure.
+    let stopped = stop_child(&mut child);
+    ran.and(stopped)
+        .map_err(|_| DeadboltError::StoreUnavailable)
+}
+
+fn stop_child(child: &mut Child) -> std::io::Result<()> {
+    if child.try_wait()?.is_some() {
+        return Ok(());
+    }
+    // The child can exit between the last poll and kill.
+    if let Err(error) = child.kill() {
+        if child.try_wait()?.is_none() {
+            return Err(error);
+        }
+    }
+    child.wait().map(|_| ())
+}
+
+enum ProxyEvent {
+    ClientLine(String),
+    ChildLine(String),
+    ClientEof,
+    ChildEof,
+    Error(std::io::Error),
+}
+
+fn pipe_reader<R: BufRead + Send + 'static>(
+    mut input: R,
+    events: SyncSender<ProxyEvent>,
+    active: Arc<AtomicBool>,
+    client: bool,
+) -> thread::JoinHandle<()> {
+    thread::spawn(move || {
+        while active.load(Ordering::Acquire) {
+            let mut line = String::new();
+            let (event, terminal) = match read_mcp_line(&mut input, &mut line) {
+                Ok(0) => (
+                    if client {
+                        ProxyEvent::ClientEof
+                    } else {
+                        ProxyEvent::ChildEof
+                    },
+                    true,
+                ),
+                Ok(_) => (
+                    if client {
+                        ProxyEvent::ClientLine(line)
+                    } else {
+                        ProxyEvent::ChildLine(line)
+                    },
+                    false,
+                ),
+                Err(error) => (ProxyEvent::Error(error), true),
+            };
+            if !active.load(Ordering::Acquire) || events.send(event).is_err() || terminal {
+                break;
+            }
+        }
+    })
+}
+
+fn read_mcp_line(reader: &mut impl BufRead, line: &mut String) -> std::io::Result<usize> {
+    let bytes = reader
+        .take(MAX_MCP_FRAME_BYTES as u64 + 1)
+        .read_line(line)?;
+    if bytes > MAX_MCP_FRAME_BYTES {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "mcp_frame_too_large",
+        ));
+    }
+    Ok(bytes)
 }
 
 fn proxy_loop<R, W, CW, CR>(
-    mut client_in: R,
+    client_in: R,
     client_out: W,
-    mut child_in: CW,
-    mut child_out: CR,
+    child_in: CW,
+    child_out: CR,
     admit: &AdmitFn,
 ) -> std::io::Result<()>
 where
-    R: BufRead,
-    W: Write + Send + 'static,
+    R: BufRead + Send + 'static,
+    W: Write,
     CW: Write,
     CR: BufRead + Send + 'static,
 {
-    let client_out = Arc::new(Mutex::new(client_out));
-    let out_for_child = Arc::clone(&client_out);
-    let reader = thread::spawn(move || {
-        let mut line = String::new();
+    // Readers only enqueue bounded frames. This thread alone admits calls and
+    // writes output, so neither EOF nor a read failure depends on client input.
+    let (events_tx, events_rx) = mpsc::sync_channel(2);
+    let active = Arc::new(AtomicBool::new(true));
+    let client_reader = pipe_reader(client_in, events_tx.clone(), active.clone(), true);
+    let child_reader = pipe_reader(child_out, events_tx, active.clone(), false);
+    let client_out = Mutex::new(client_out);
+    let mut child_in = Some(child_in);
+    let mut deadline: Option<Instant> = None;
+    let ran = (|| {
         loop {
-            line.clear();
-            match child_out.read_line(&mut line) {
-                Ok(0) | Err(_) => break,
-                Ok(_) => {
-                    let mut w = out_for_child.lock().unwrap_or_else(|e| e.into_inner());
-                    if w.write_all(line.as_bytes()).is_err() {
-                        break;
-                    }
-                    let _ = w.flush();
+            let event = if let Some(end) = deadline {
+                let remaining = end.saturating_duration_since(Instant::now());
+                if remaining.is_zero() {
+                    break;
                 }
+                match events_rx.recv_timeout(remaining) {
+                    Ok(event) => event,
+                    Err(RecvTimeoutError::Timeout | RecvTimeoutError::Disconnected) => break,
+                }
+            } else {
+                match events_rx.recv() {
+                    Ok(event) => event,
+                    Err(_) => break,
+                }
+            };
+            match event {
+                ProxyEvent::ClientLine(line) => {
+                    if let Some(child) = child_in.as_mut() {
+                        dispatch(&line, admit, child, &client_out)?;
+                    }
+                }
+                ProxyEvent::ChildLine(line) => write_client(&client_out, &line)?,
+                ProxyEvent::ClientEof => {
+                    // Closing stdin lets cooperative children finish. Drain
+                    // final responses, bounded even if a descendant holds stdout.
+                    child_in.take();
+                    deadline = Some(Instant::now() + SHUTDOWN_GRACE);
+                }
+                ProxyEvent::ChildEof => break,
+                ProxyEvent::Error(error) => return Err(error),
             }
         }
-    });
-    let mut line = String::new();
-    loop {
-        line.clear();
-        match client_in.read_line(&mut line) {
-            Ok(0) | Err(_) => break,
-            Ok(_) => {
-                let _ = dispatch(&line, admit, &mut child_in, &client_out);
-            }
+        Ok(())
+    })();
+    active.store(false, Ordering::Release);
+    drop(events_rx); // Release readers waiting on the bounded queue.
+    drop(child_in);
+    // A reader blocked in OS input may outlive this call until that pipe closes.
+    // It cannot admit or forward anything. Never join such a reader indefinitely.
+    for reader in [client_reader, child_reader] {
+        if reader.is_finished() && reader.join().is_err() && ran.is_ok() {
+            return Err(std::io::Error::other("mcp_reader_thread_failed"));
         }
     }
-    drop(child_in);
-    let _ = reader.join();
-    Ok(())
+    ran
 }
 
 fn dispatch(
@@ -400,8 +499,11 @@ fn http_json(
     let _ = stream.shutdown_write();
     let mut raw = String::new();
     stream
-        .read_to_string(&mut raw)
+        .read_to_string_limited(&mut raw)
         .map_err(|_| DeadboltError::StoreUnavailable)?;
+    if raw.len() as u64 > MAX_RESPONSE_BYTES {
+        return Err(DeadboltError::StoreUnavailable);
+    }
     let status = raw
         .split_whitespace()
         .nth(1)
@@ -435,11 +537,11 @@ impl Dial {
         }
     }
 
-    fn read_to_string(&mut self, out: &mut String) -> std::io::Result<usize> {
+    fn read_to_string_limited(&mut self, out: &mut String) -> std::io::Result<usize> {
         match self {
             #[cfg(unix)]
-            Self::Unix(s) => s.read_to_string(out),
-            Self::Tcp(s) => s.read_to_string(out),
+            Self::Unix(s) => s.take(MAX_RESPONSE_BYTES + 1).read_to_string(out),
+            Self::Tcp(s) => s.take(MAX_RESPONSE_BYTES + 1).read_to_string(out),
         }
     }
 }
@@ -498,6 +600,97 @@ mod tests {
     use std::io::Cursor;
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::mpsc;
+
+    #[test]
+    fn oversized_frame_never_reaches_admission_or_child() {
+        let frame = json!({"jsonrpc":"2.0", "id":1, "method":"tools/call", "params":{
+            "name":"write_file", "arguments":{"padding":"x".repeat(MAX_MCP_FRAME_BYTES)}
+        }})
+        .to_string();
+        let mut child = Vec::new();
+        let (response_tx, response_rx) = mpsc::channel();
+        let ran = proxy_loop(
+            Cursor::new(frame),
+            Vec::new(),
+            &mut child,
+            BufReader::new(ChanReader {
+                rx: response_rx,
+                pending: Vec::new(),
+                pos: 0,
+            }),
+            &|_, _, _| panic!("oversized frame reached admission"),
+        );
+        assert_eq!(ran.unwrap_err().kind(), std::io::ErrorKind::InvalidData);
+        drop(response_tx);
+        assert!(child.is_empty());
+    }
+
+    #[test]
+    fn retained_child_output_does_not_block_shutdown_or_forward_late_data() {
+        let (response_tx, response_rx) = mpsc::channel();
+        let (out_tx, out_rx) = mpsc::channel();
+        let started = Instant::now();
+        let ran = proxy_loop(
+            Cursor::new(Vec::<u8>::new()),
+            ChanWriter::new(out_tx),
+            Vec::new(),
+            BufReader::new(ChanReader {
+                rx: response_rx,
+                pending: Vec::new(),
+                pos: 0,
+            }),
+            &|_, _, _| panic!("EOF reached admission"),
+        );
+        ran.unwrap();
+        assert!(started.elapsed() < Duration::from_secs(2));
+        // Release the simulated inherited pipe after the bounded drain. Its late bytes
+        // must not escape into the client after the proxy has returned.
+        let _ = response_tx.send("late output\n".to_string());
+        drop(response_tx);
+        assert!(matches!(
+            out_rx.recv_timeout(SHUTDOWN_GRACE),
+            Err(mpsc::RecvTimeoutError::Disconnected)
+        ));
+    }
+
+    #[test]
+    fn child_eof_and_oversized_output_do_not_wait_for_client_eof() {
+        for oversized in [false, true] {
+            // Keep client input open while the child exits or fails framing.
+            let (input_tx, input_rx) = mpsc::channel();
+            let output = if oversized {
+                format!("{}\n", "x".repeat(MAX_MCP_FRAME_BYTES + 1))
+            } else {
+                String::new()
+            };
+            let (out_tx, out_rx) = mpsc::channel();
+            let started = Instant::now();
+            let ran = proxy_loop(
+                BufReader::new(ChanReader {
+                    rx: input_rx,
+                    pending: Vec::new(),
+                    pos: 0,
+                }),
+                ChanWriter::new(out_tx),
+                Vec::new(),
+                Cursor::new(output),
+                &|_, _, _| panic!("idle client reached admission"),
+            );
+            assert!(started.elapsed() < Duration::from_secs(2));
+            if oversized {
+                assert_eq!(ran.unwrap_err().kind(), std::io::ErrorKind::InvalidData);
+            } else {
+                ran.unwrap();
+            }
+            // The detached input reader cannot admit or write after return.
+            let _ = input_tx.send("late input\n".into());
+            drop(input_tx);
+            assert!(matches!(
+                out_rx.try_recv(),
+                Err(mpsc::TryRecvError::Disconnected)
+            ));
+        }
+    }
 
     struct ChanWriter {
         tx: Option<mpsc::Sender<String>>,
@@ -598,7 +791,7 @@ mod tests {
         });
         let (out_tx, out_rx) = mpsc::channel::<String>();
         let gate = gate.clone();
-        proxy_loop(
+        let ran = proxy_loop(
             Cursor::new(input),
             ChanWriter::new(out_tx),
             ChanWriter::new(child_tx),
@@ -618,8 +811,8 @@ mod tests {
                     AdmitDecision::Deny { code } => Some(code.as_str().to_string()),
                 }
             },
-        )
-        .unwrap();
+        );
+        ran.unwrap();
         let seen = seen.lock().unwrap().clone();
         let mut out = Vec::new();
         while let Ok(line) = out_rx.try_recv() {

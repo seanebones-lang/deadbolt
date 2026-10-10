@@ -3,6 +3,29 @@
 Versioned GitHub releases identify publication and the exact source revision.
 The older `v0.1.1-product` tag is not the standalone hardening release.
 
+## Unreleased
+
+- Add `dispatch` helpers for embedded Rust, Python and Node. A trusted callback
+  runs only after a fresh explicit allow; denial leaves it untouched. Preserve
+  callback results and errors without retrying effects. Node supports async bodies.
+- Isolate each production drill in an exclusively created random workspace,
+  explicitly mode 0700 on Unix, and create its fixture exclusively. Concurrent
+  drills no longer share state or cleanup. Use temporary ownership in the Rust example.
+- Normalize synchronous Node HTTP/configuration/serialization failures to denial,
+  enforce a five-second total Node request deadline, bound source-client and MCP
+  sidecar HTTP responses to 1 MiB, and close Python connections on all paths.
+- Bound stdio MCP frames to 16 MiB and coordinate both readers with a bounded
+  queue. Child EOF/read failures no longer wait for client EOF. Close child input
+  on client EOF, drain final output for at most one second, then kill/wait the
+  immediate child without joining blocked readers. Descendants remain executor-owned.
+- Create the Docker image's state directory with mode 0700. Existing named
+  volumes retain their existing modes and require operator review.
+- Exercise dispatcher effects, concurrent one-shot callbacks, invalid configuration,
+  oversized/partial responses, independent drill state and MCP shutdown in regression tests.
+
+These changes are source-only until a new reviewed release is published; v1.0.3
+downloads do not contain the new helpers or hardening.
+
 ## 1.0.3 — 2026-09-29
 
 - Prepare Developer ID signing and Apple notarization for the macOS native

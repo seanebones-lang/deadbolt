@@ -62,6 +62,11 @@ source; pin a reviewed Git commit for reproducible use.
 
 ## Choose an integration
 
+The current source includes [callback dispatch helpers](docs/INTEGRATION.md#current-source-dispatch-helpers-unreleased)
+for Rust, Python and Node, including async variants. Pass the actual tool body
+to the helper; it checks admission before calling it and leaves it untouched on
+denial. These additions are unreleased and are not in v1.0.3 downloads.
+
 | Your application | Use | What you control |
 | --- | --- | --- |
 | Rust executor | Embedded library | Every tool/spawn dispatch checks admission in process |

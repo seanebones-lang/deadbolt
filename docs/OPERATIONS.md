@@ -22,6 +22,16 @@ Keep the operator and token in trusted infrastructure. Model-controlled code
 must not choose fresh IDs, alter policy, write the store or bypass the dispatcher.
 Each child needs registration and explicit policy before its runner starts.
 
+Protect every configured state parent with private ownership/modes or ACLs.
+The general Rust/CLI store does not automatically repair existing permissions;
+the Unix socket's 0600 mode does not protect separately located DB/events files.
+Use a private parent (0700 on Unix) and restrictive umask before first startup.
+Review independently configured events, Witness and export paths as well.
+
+Current source creates the Docker image's state directory with mode 0700.
+Existing named volumes retain their modes; inspect those separately. This
+does not isolate a same-UID trusted executor sharing the state volume.
+
 ## Linux systemd setup
 
 The v1.0.2 service template passed a disposable Ubuntu 24.04 arm64 container

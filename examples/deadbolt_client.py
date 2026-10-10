@@ -2,12 +2,16 @@
 """Bolt-on client for `deadbolt serve`. Stdlib only. Not a model tool."""
 
 import argparse
+import asyncio
 import http.client
+import inspect
 import json
 import os
 import socket
 import sys
 from urllib.parse import quote
+
+MAX_RESPONSE_BYTES = 1024 * 1024
 
 
 def sock_path():
@@ -49,7 +53,11 @@ class _UnixHTTPConnection(http.client.HTTPConnection):
     def connect(self):
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.settimeout(self.timeout)
-        sock.connect(self._path)
+        try:
+            sock.connect(self._path)
+        except Exception:
+            sock.close()
+            raise
         self.sock = sock
 
 
@@ -68,6 +76,7 @@ def _down(path):
 
 
 def _call(method, path, body=None):
+    conn = None
     try:
         payload = None if body is None else json.dumps(body).encode("utf-8")
         target = _tcp_target(sock_path())
@@ -78,14 +87,16 @@ def _call(method, path, body=None):
             conn = _UnixHTTPConnection(sock_path())
         conn.request(method, path, body=payload, headers=_headers())
         resp = conn.getresponse()
-        raw = resp.read()
+        raw = resp.read(MAX_RESPONSE_BYTES + 1)
         status = resp.status
-        conn.close()
-        if not 200 <= status < 300 or not raw:
+        if not 200 <= status < 300 or not raw or len(raw) > MAX_RESPONSE_BYTES:
             return _down(path)
         return json.loads(raw.decode("utf-8"))
     except Exception:
         return _down(path)
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 def ensure(agent_id):
@@ -104,6 +115,41 @@ def admit(agent_id, tool, dest=None):
 
 def policy(agent_id, **fields):
     return _call("POST", "/policy", {**fields, "agent_id": agent_id})
+
+
+def dispatch(agent_id, tool, body, dest=None):
+    """Run a trusted synchronous callback only on a fresh explicit allow.
+
+    Returns executed, decision, and (on execution) result. Tool exceptions
+    propagate normally; they are not sidecar errors and are never retried.
+    """
+    if not callable(body) or inspect.iscoroutinefunction(body):
+        raise TypeError("deadbolt dispatch requires a synchronous callable; use dispatch_async for async bodies")
+    decision = admit(agent_id, tool, dest)
+    if decision.get("decision") != "allow":
+        return {"executed": False, "decision": decision}
+    result = body()
+    if inspect.isawaitable(result):
+        if inspect.iscoroutine(result):
+            result.close()
+        raise TypeError("deadbolt dispatch received an awaitable; use dispatch_async")
+    return {"executed": True, "decision": decision, "result": result}
+
+
+async def dispatch_async(agent_id, tool, body, dest=None):
+    """Check in a worker thread, then call/await the trusted body once.
+
+    Admission does not block the event loop. Requires Python 3.9+.
+    """
+    if not callable(body):
+        raise TypeError("deadbolt dispatch requires a callable body")
+    decision = await asyncio.to_thread(admit, agent_id, tool, dest)
+    if decision.get("decision") != "allow":
+        return {"executed": False, "decision": decision}
+    result = body()
+    if inspect.isawaitable(result):
+        result = await result
+    return {"executed": True, "decision": decision, "result": result}
 
 
 def spend(agent_id, usd):

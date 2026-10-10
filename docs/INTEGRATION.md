@@ -5,6 +5,72 @@ bundled SQLite and local files. Choose the integration that owns your executor's
 actual dispatch boundary. Calling `admit` alone does not intercept execution:
 your dispatcher must stop on every result other than `allow`.
 
+## Current-source dispatch helpers (unreleased)
+
+The current source adds helpers that take your actual tool callback and check
+immediately before invoking it. They are not in the published v1.0.3 archives.
+Use a reviewed source checkout for these APIs; use the local Rust `path`
+dependency described below or copy its Python/Node source client into your project.
+
+Configure the local gate/sidecar, stable run ID and policy first, then wrap the
+actual body. Operator setup and credentials belong outside model control.
+
+```rust
+// The callback's I/O result is preserved inside the admission result.
+match gate.dispatch("my-run-001", "write_file", None, || {
+    std::fs::write("output.txt", "allowed work")
+}) {
+    Ok(tool_result) => tool_result?,
+    Err(code) => eprintln!("blocked: {}", code.as_str()),
+}
+```
+
+```python
+from pathlib import Path
+from deadbolt_client import dispatch
+
+outcome = dispatch("my-run-001", "write_file", lambda: Path("output.txt").write_text("allowed work"))
+if not outcome["executed"]:
+    print("blocked:", outcome["decision"]["code"])
+else:
+    print("tool result:", outcome["result"])
+```
+
+```js
+const { dispatch } = require("./deadbolt_client.js");
+const fs = require("fs/promises");
+
+async function run() {
+  const outcome = await dispatch("my-run-001", "write_file", () => fs.writeFile("output.txt", "allowed work"));
+  if (!outcome.executed) console.log("blocked:", outcome.decision.code);
+}
+run().catch(error => { console.error(error.message); process.exitCode = 1; });
+```
+
+Python async applications can `await dispatch_async(agent, tool, body, dest=None)`;
+admission I/O runs in a worker thread and the returned awaitable is awaited once.
+The synchronous Python helper rejects async bodies rather than returning a
+deferred coroutine under an old admission. Node's `dispatch` supports sync and
+async callbacks. Rust async executors can
+`gate.dispatch_async(agent, tool, dest, || async { /* actual body */ }).await`;
+admission occurs when the wrapper is polled, not when its future is created.
+Rust admission performs synchronous SQLite I/O; plan runtime capacity for storage
+contention. Use synchronous Rust `dispatch` for synchronous bodies.
+
+Python/Node helpers return `executed: false` plus the denial on blocked work,
+or `executed: true`, the admission decision and callback result on success.
+Rust returns `Result<T, DenyCode>` and preserves the callback's value in `T`.
+Callback errors propagate normally and are never retried. Validate callback
+arguments in your trusted executor; destination is an optional host token and
+spend must be recorded separately. Configure each child's policy.
+
+Each protected route needs this wrapper. It does not intercept arbitrary code,
+make the body atomic with admission, or cancel running work. Never call `admit`
+separately before a one-shot helper invocation or cache an allow. Try
+`cargo run --locked --example build_in` and
+`python3 examples/evaluate.py --binary /absolute/path/to/deadbolt` from this source
+checkout to inspect real allowed/blocked effects without an AI account.
+
 ## Install from source
 
 Requires Rust 1.85 or newer and a C/C++ build toolchain for bundled SQLite.

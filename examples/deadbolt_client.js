@@ -5,6 +5,8 @@ const http = require("http");
 const net = require("net");
 const os = require("os");
 const path = require("path");
+const MAX_RESPONSE_BYTES = 1024 * 1024;
+const REQUEST_TIMEOUT_MS = 5000;
 
 function sockPath() {
   if (process.env.DEADBOLT_SOCK) return process.env.DEADBOLT_SOCK;
@@ -30,7 +32,9 @@ function tcpTarget(raw) {
   }
   if (!host || !port || !/^\d+$/.test(port)) return null;
   if (host !== "127.0.0.1" && host !== "::1") throw new Error("deadbolt:bind_refused");
-  return { host, port: Number(port) };
+  const number = Number(port);
+  if (!Number.isInteger(number) || number < 1 || number > 65535) throw new Error("deadbolt:bind_refused");
+  return { host, port: number };
 }
 
 function down(urlPath) {
@@ -39,61 +43,79 @@ function down(urlPath) {
 }
 
 function call(method, urlPath, body) {
-  const payload = body == null ? null : JSON.stringify(body);
+  let payload;
   const headers = { "Content-Type": "application/json", Connection: "close" };
   if (process.env.DEADBOLT_TOKEN) headers["X-Deadbolt-Token"] = process.env.DEADBOLT_TOKEN;
-  if (payload) headers["Content-Length"] = Buffer.byteLength(payload);
   let target;
   try {
+    payload = body == null ? null : JSON.stringify(body);
     target = tcpTarget(sockPath());
   } catch (err) {
     return Promise.resolve(down(urlPath));
   }
+  if (payload) headers["Content-Length"] = Buffer.byteLength(payload);
   const options = target
-    ? { host: target.host, port: target.port, method, path: urlPath, headers, timeout: 5000 }
+    ? { host: target.host, port: target.port, method, path: urlPath, headers, timeout: REQUEST_TIMEOUT_MS }
     : {
         createConnection: () => {
           const sock = net.connect(sockPath());
-          sock.setTimeout(5000, () => sock.destroy());
+          sock.setTimeout(REQUEST_TIMEOUT_MS, () => sock.destroy());
           return sock;
         },
         method,
         path: urlPath,
         headers,
-        timeout: 5000,
+        timeout: REQUEST_TIMEOUT_MS,
       };
   return new Promise((resolve) => {
     let settled = false;
-    const finish = (obj) => {
+    let req;
+    let response;
+    const finish = (obj, abort = false) => {
       if (settled) return;
       settled = true;
+      clearTimeout(deadline);
+      if (abort) {
+        if (response) response.destroy();
+        if (req) req.destroy();
+      }
       resolve(obj);
     };
-    const req = http.request(options, (res) => {
-      const chunks = [];
-      res.on("error", () => finish(down(urlPath)));
-      res.on("aborted", () => finish(down(urlPath)));
-      res.on("data", (c) => chunks.push(c));
-      res.on("end", () => {
-        const raw = Buffer.concat(chunks).toString("utf8");
-        if (res.statusCode < 200 || res.statusCode >= 300 || !raw) {
-          finish(down(urlPath));
-          return;
-        }
-        try {
-          finish(JSON.parse(raw));
-        } catch {
-          finish(down(urlPath));
-        }
+    // An idle socket timeout alone can be renewed indefinitely by partial data.
+    const deadline = setTimeout(() => finish(down(urlPath), true), REQUEST_TIMEOUT_MS);
+    try {
+      req = http.request(options, (res) => {
+        response = res;
+        const chunks = [];
+        let bytes = 0;
+        res.on("error", () => finish(down(urlPath), true));
+        res.on("aborted", () => finish(down(urlPath), true));
+        res.on("data", (c) => {
+          bytes += c.length;
+          if (bytes > MAX_RESPONSE_BYTES) finish(down(urlPath), true);
+          else if (!settled) chunks.push(c);
+        });
+        res.on("end", () => {
+          const raw = Buffer.concat(chunks).toString("utf8");
+          if (res.statusCode < 200 || res.statusCode >= 300 || !raw) {
+            finish(down(urlPath));
+            return;
+          }
+          try {
+            finish(JSON.parse(raw));
+          } catch {
+            finish(down(urlPath));
+          }
+        });
       });
-    });
-    req.on("timeout", () => {
-      req.destroy();
-      finish(down(urlPath));
-    });
-    req.on("error", () => finish(down(urlPath)));
-    if (payload) req.write(payload);
-    req.end();
+      req.on("timeout", () => finish(down(urlPath), true));
+      req.on("error", () => finish(down(urlPath), true));
+      if (payload) req.write(payload);
+      req.end();
+    } catch {
+      // Invalid ports, headers and other synchronous HTTP errors also deny.
+      finish(down(urlPath), true);
+    }
   });
 }
 
@@ -112,6 +134,15 @@ function admit(agentId, tool, dest) {
 
 function policy(agentId, fields) {
   return call("POST", "/policy", { ...fields, agent_id: agentId });
+}
+
+async function dispatch(agentId, tool, body, dest) {
+  if (typeof body !== "function") throw new TypeError("deadbolt dispatch requires a callable body");
+  const decision = await admit(agentId, tool, dest);
+  if (decision.decision !== "allow") return { executed: false, decision };
+  // Tool errors propagate normally. Never retry an effect or mistake it for a
+  // failed admission. Sync and async trusted callbacks are both supported.
+  return { executed: true, decision, result: await body() };
 }
 
 function spend(agentId, usd) {
@@ -149,7 +180,7 @@ async function main() {
   process.stdout.write(JSON.stringify(out) + "\n");
 }
 
-module.exports = { ensure, admit, registerChild, status, policy, spend };
+module.exports = { ensure, admit, dispatch, registerChild, status, policy, spend };
 
 if (require.main === module) main().catch((err) => {
   console.error(String(err && err.message ? err.message : err));
