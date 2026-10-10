@@ -36,6 +36,15 @@ def collect(output):
                  f.name.upper().startswith(("LICENSE", "COPYING", "NOTICE", "COPYRIGHT"))}
         if package["license_file"]:
             files.add((root / package["license_file"]).resolve())
+        # This exact locked crate embeds its full MIT permission notice and
+        # copyright attribution in AUTHORS, rather than a LICENSE filename.
+        # Keep the fallback explicit; an arbitrary AUTHORS file is not a license.
+        if package["name"] == "r-efi" and package["version"] == "6.0.0":
+            authors = root / "AUTHORS"
+            if authors.is_file():
+                notice = authors.read_text(encoding="utf-8")
+                if "AUTHORS-MIT:" in notice and "COPYRIGHT:" in notice:
+                    files.add(authors.resolve())
         if not files:
             raise RuntimeError(f"missing license files: {package['name']} {package['version']}")
         sections.append(f"\n{'=' * 72}\n{package['name']} {package['version']}\n"

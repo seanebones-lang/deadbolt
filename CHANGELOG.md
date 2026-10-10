@@ -20,6 +20,8 @@ The older `v0.1.1-product` tag is not the standalone hardening release.
   immediate child without joining blocked readers. Descendants remain executor-owned.
 - Create the Docker image's state directory with mode 0700. Existing named
   volumes retain their existing modes and require operator review.
+- Include r-efi 6.0.0's packaged AUTHORS copyright/license notices in the native
+  dependency inventory; its upstream crate does not use a LICENSE filename.
 - Exercise dispatcher effects, concurrent one-shot callbacks, invalid configuration,
   oversized/partial responses, independent drill state and MCP shutdown in regression tests.
 
