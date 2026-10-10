@@ -3,6 +3,11 @@
 The immediate goal is reproducible use by developers outside NextEleven.
 This roadmap describes intended work, not completed adoption or release promises.
 
+The current candidate adds an installable Python client and a tested OpenAI
+function-tool adapter. Follow [next architecture decisions](ARCHITECTURE-NEXT.md)
+for the evidence and ordered work on scoped admission credentials, exact-action
+grants and setup inspection. Those protocol improvements are not implemented yet.
+
 | Order | Milestone | Completion evidence |
 | --- | --- | --- |
 | 1 | Reduce first-evaluation friction | A Python-only disposable workflow checks real body effects against the published executable; CI exercises it on Linux, macOS and Windows |

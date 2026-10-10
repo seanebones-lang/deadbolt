@@ -67,6 +67,15 @@ for Rust, Python and Node, including async variants. Pass the actual tool body
 to the helper; it checks admission before calling it and leaves it untouched on
 denial. These additions are unreleased and are not in v1.0.3 downloads.
 
+The candidate also offers an [installable Python client and optional OpenAI
+Agents SDK decorator](docs/PYTHON.md). Protect a Python function with
+`@protected_tool(agent_id="executor-run-id")`; the normal SDK validation and
+approval flow remain in place, and DeadBolt checks before the body executes.
+The base client has no third-party runtime dependencies. The SDK adapter pins a
+tested SDK version and is verified through installed-wheel, real-runner tests
+without paid model calls. See the [next architecture decisions](docs/ARCHITECTURE-NEXT.md)
+for the scoped-credential and exact-action approval work still to do.
+
 | Your application | Use | What you control |
 | --- | --- | --- |
 | Rust executor | Embedded library | Every tool/spawn dispatch checks admission in process |

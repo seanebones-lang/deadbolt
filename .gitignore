@@ -5,3 +5,5 @@ __pycache__/
 
 .demo-state/
 release-artifacts/
+build/
+*.egg-info/

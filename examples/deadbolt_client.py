@@ -200,5 +200,9 @@ def main(argv):
     return 0
 
 
+def cli():
+    return main(sys.argv[1:])
+
+
 if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))
+    raise SystemExit(cli())

@@ -64,6 +64,12 @@ Callback errors propagate normally and are never retried. Validate callback
 arguments in your trusted executor; destination is an optional host token and
 spend must be recorded separately. Configure each child's policy.
 
+For Python package installation and the OpenAI Agents SDK's validated tool-body
+decorator, see [Python integration](PYTHON.md). This optional integration supports
+the pinned Python SDK contract; it does not automatically gate an entire agent
+or hosted tools. Its installed-wheel tests exercise the actual SDK runner and
+sidecar without a model-provider account.
+
 Each protected route needs this wrapper. It does not intercept arbitrary code,
 make the body atomic with admission, or cancel running work. Never call `admit`
 separately before a one-shot helper invocation or cache an allow. Try

@@ -37,6 +37,8 @@ include = [
     "dist/collect_licenses.py",
     "Cargo.toml",
     "Cargo.lock",
+    "pyproject.toml",
+    "MANIFEST.in",
 ]
 rust-version = "1.85"
 

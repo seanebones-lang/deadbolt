@@ -1,0 +1,2 @@
+include LICENSE NOTICE Cargo.toml
+include docs/PYTHON.md

@@ -7,6 +7,18 @@ The older `v0.1.1-product` tag is not the standalone hardening release.
 
 Source candidate version: `1.1.0-rc.1`. No release/tag is published by this change.
 
+- Package the existing stdlib Python client as an installable wheel/sdist with
+  an optional OpenAI Agents SDK 0.23.1 decorator. Keep native sidecar installation
+  separate and preserve source imports. No PyPI publication is performed.
+- Gate validated Python tool bodies through the SDK's normal schema/approval
+  machinery, recheck after approval/resume, preserve sync/async results, and stop
+  the run on denial or tool failure. Reject SDK error-as-output handlers and
+  deferred sync awaitables. Exact-action SDK review remains separate from
+  DeadBolt's existing agent/tool one-shot grant.
+- Verify outside-checkout Python packaging and installed SDK runner/sidecar
+  effects on Linux, macOS and Windows CI. Pin the SDK acceptance dependencies;
+  tests use the upstream ScriptedModel with tracing disabled and no API requests.
+
 - Add `dispatch` helpers for embedded Rust, Python and Node. A trusted callback
   runs only after a fresh explicit allow; denial leaves it untouched. Preserve
   callback results and errors without retrying effects. Node supports async bodies.

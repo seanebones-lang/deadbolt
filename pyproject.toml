@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "n11-deadbolt-client"
+version = "1.1.0rc1"
+description = "Local DeadBolt sidecar client and optional OpenAI Agents SDK function-tool integration"
+readme = "docs/PYTHON.md"
+requires-python = ">=3.9"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{name = "NextEleven LLC"}]
+dependencies = []
+
+[project.optional-dependencies]
+# Pin the tested SDK contract; upgrading requires the runner acceptance tests.
+openai-agents = ["openai-agents==0.23.1"]
+
+[project.urls]
+Repository = "https://github.com/seanebones-lang/deadbolt"
+Documentation = "https://github.com/seanebones-lang/deadbolt/blob/main/docs/PYTHON.md"
+
+[project.scripts]
+deadbolt-client = "deadbolt_client:cli"
+
+[tool.setuptools]
+py-modules = ["deadbolt_client", "deadbolt_openai_agents"]
+package-dir = {"" = "examples"}
