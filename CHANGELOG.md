@@ -26,6 +26,8 @@ Source candidate version: `1.1.0-rc.1`. No release/tag is published by this chan
   volumes retain their existing modes and require operator review.
 - Include r-efi 6.0.0's packaged AUTHORS copyright/license notices in the native
   dependency inventory; its upstream crate does not use a LICENSE filename.
+- Accept Cargo prerelease/build version identities in macOS signing preflight,
+  still binding the full version/target to BUILD.json and checking archive bytes.
 - Exercise dispatcher effects, concurrent one-shot callbacks, invalid configuration,
   oversized/partial responses, independent drill state and MCP shutdown in regression tests.
 - Verify a separate embedded application against the unpacked Cargo artifact in

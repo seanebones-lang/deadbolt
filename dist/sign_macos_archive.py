@@ -45,7 +45,10 @@ def main():
         if len(roots) != 1:
             raise ValueError("expected one archive root")
         root = roots.pop()
-        match = re.fullmatch(r"deadbolt-([0-9]+\.[0-9]+\.[0-9]+)-((?:aarch64|x86_64)-apple-darwin)", root)
+        # Cargo prereleases are real candidate identities. Keep the complete
+        # version (including optional build metadata) bound to BUILD.json.
+        version = r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
+        match = re.fullmatch(rf"deadbolt-({version})-((?:aarch64|x86_64)-apple-darwin)", root)
         if not match:
             raise ValueError("expected a versioned macOS release archive")
         binary_name = f"{root}/deadbolt"

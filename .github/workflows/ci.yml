@@ -55,6 +55,8 @@ jobs:
         with:
           node-version: '22'
       - run: cargo fmt --check
+      - name: Verify archive signing preflight without credentials
+        run: python tests/release_contract.py
       - name: Repeat independent-connection concurrency tests
         if: runner.os == 'Windows'
         shell: pwsh
