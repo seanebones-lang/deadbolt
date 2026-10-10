@@ -18,6 +18,9 @@ Source candidate version: `1.1.0-rc.1`. No release/tag is published by this chan
 - Verify outside-checkout Python packaging and installed SDK runner/sidecar
   effects on Linux, macOS and Windows CI. Pin the SDK acceptance dependencies;
   tests use the upstream ScriptedModel with tracing disabled and no API requests.
+- Pin the Python build backend to setuptools 83.0.0 after auditing its source
+  distribution exclusions, and audit the pinned optional SDK/build dependency
+  set in CI with a retained machine-readable report.
 
 - Add `dispatch` helpers for embedded Rust, Python and Node. A trusted callback
   runs only after a fresh explicit allow; denial leaves it untouched. Preserve

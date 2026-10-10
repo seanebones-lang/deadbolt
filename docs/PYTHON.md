@@ -4,7 +4,8 @@ This source candidate provides an installable Python client and an optional
 OpenAI Agents SDK adapter. It is not published on PyPI and is not in v1.0.3.
 The client talks to the separately installed DeadBolt executable; the wheel
 does not bundle or start it. The base client uses only Python's standard library
-and requires Python 3.9+. The optional adapter uses the pinned, tested
+and its wheel runs on Python 3.9+. Building/installing from source requires
+Python 3.10+ for the patched build backend. The optional adapter uses the pinned, tested
 `openai-agents==0.23.1`; use Python 3.10+ for that SDK.
 
 ## Install a reviewed checkout
