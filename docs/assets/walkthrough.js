@@ -15,7 +15,7 @@
   overview.setAttribute("aria-pressed", String(kind === "overview"));
   full.setAttribute("aria-pressed", String(kind === "full"));
   video.setAttribute("aria-label", "DeadBolt " + (kind === "full" ? "complete developer walkthrough" : "overview") + ", with narration and visible English captions");
-  description.textContent = kind === "full" ? "Full walkthrough: 23 chapters covering installation, integration, policy, approval, revocation, evidence, recovery, and the actual Harness terminal and UI." : "Overview: the execution boundary, exact-action approval preview, actual Harness terminal and web UI, and how to start a bounded pilot.";
+  description.textContent = kind === "full" ? "Full walkthrough: 23 chapters covering installation, integration, policy, approval, revocation, evidence, recovery, and the actual Harness terminal and UI." : "Overview: the execution boundary, exact-action approval, actual Harness terminal and web UI, and how to start a bounded pilot.";
   if (start !== undefined) {
    const seek = () => { video.currentTime = start; video.focus(); };
    if (video.readyState >= 1) seek();
