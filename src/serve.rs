@@ -351,15 +351,19 @@ fn handle_io(
     Ok(())
 }
 
-fn header_value(raw: &str, name: &str) -> Option<String> {
+fn unique_header(raw: &str, name: &str) -> Result<Option<String>, ()> {
+    let mut found = None;
     let headers = raw.split_once("\r\n\r\n").map(|(h, _)| h).unwrap_or(raw);
     for line in headers.lines().skip(1) {
-        let (key, value) = line.split_once(':')?;
+        let (key, value) = line.split_once(':').ok_or(())?;
         if key.eq_ignore_ascii_case(name) {
-            return Some(value.trim().to_string());
+            if found.is_some() {
+                return Err(());
+            }
+            found = Some(value.trim().to_string());
         }
     }
-    None
+    Ok(found)
 }
 
 fn token_eq(got: &str, expected: &str) -> bool {
@@ -401,12 +405,6 @@ fn content_length(header: &str) -> std::io::Result<usize> {
 }
 
 fn dispatch_http(gate: &Deadbolt, raw: &str, token: Option<&str>) -> (u16, String) {
-    if let Some(expected) = token {
-        match header_value(raw, "x-deadbolt-token") {
-            Some(got) if token_eq(&got, expected) => {}
-            _ => return (401, json!({"code":"unauthorized"}).to_string()),
-        }
-    }
     let mut lines = raw.split("\r\n");
     let Some(req) = lines.next() else {
         return (400, json!({"code":"bad_request"}).to_string());
@@ -416,8 +414,43 @@ fn dispatch_http(gate: &Deadbolt, raw: &str, token: Option<&str>) -> (u16, Strin
     let target = parts.next().unwrap_or("");
     let (path, query) = target.split_once('?').unwrap_or((target, ""));
     let body = raw.split_once("\r\n\r\n").map(|(_, b)| b).unwrap_or("");
+    // A supplied workload credential never falls back to operator/Unix access.
+    let workload = match unique_header(raw, "x-deadbolt-admission") {
+        Ok(v) => v,
+        Err(()) => return (401, json!({"code":"unauthorized"}).to_string()),
+    };
+    let operator = match unique_header(raw, "x-deadbolt-token") {
+        Ok(v) => v,
+        Err(()) => return (401, json!({"code":"unauthorized"}).to_string()),
+    };
+    if let Some(secret) = workload {
+        if operator.is_some() {
+            return (401, json!({"code":"unauthorized"}).to_string());
+        }
+        if method != "POST" || !matches!(path, "/admit" | "/admit-action") {
+            return (403, json!({"code":"forbidden"}).to_string());
+        }
+        if path == "/admit-action" {
+            return admit_action(gate, body, Some(&secret));
+        }
+        return admit_scoped(gate, body, &secret);
+    }
+    if let Some(expected) = token {
+        if !operator.is_some_and(|got| token_eq(&got, expected)) {
+            return (401, json!({"code":"unauthorized"}).to_string());
+        }
+    } else {
+        // Once scoped credentials exist, socket possession alone cannot confer
+        // operator authority. CLI controls remain available to the trusted owner.
+        match gate.has_credentials() {
+            Ok(false) if operator.is_none() => {}
+            Ok(_) => return (401, json!({"code":"unauthorized"}).to_string()),
+            Err(_) => return (503, json!({"code":"store_unavailable"}).to_string()),
+        }
+    }
     match (method, path) {
         ("POST", "/admit") => admit(gate, body),
+        ("POST", "/admit-action") => admit_action(gate, body, None),
         ("POST", "/ensure") => ensure(gate, body),
         ("POST", "/register_child") => register_child(gate, body),
         ("POST", "/policy") => policy(gate, body),
@@ -444,6 +477,54 @@ fn admit(gate: &Deadbolt, body: &str) -> (u16, String) {
             200,
             json!({"decision":"deny","code": code.as_str()}).to_string(),
         ),
+    }
+}
+
+fn admit_scoped(gate: &Deadbolt, body: &str, secret: &str) -> (u16, String) {
+    let Ok(v) = serde_json::from_str::<Value>(body) else {
+        return (400, json!({"code":"bad_request"}).to_string());
+    };
+    let (Some(agent), Some(tool)) = (
+        v.get("agent_id").and_then(Value::as_str),
+        v.get("tool").and_then(Value::as_str),
+    ) else {
+        return (400, json!({"code":"bad_request"}).to_string());
+    };
+    let dest = match v.get("dest") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(s)) => Some(s.as_str()),
+        _ => return (400, json!({"code":"bad_request"}).to_string()),
+    };
+    match gate.admit_credential(secret, agent, tool, dest) {
+        Ok(AdmitDecision::Allow) => (200, json!({"decision":"allow"}).to_string()),
+        Ok(AdmitDecision::Deny { code }) => (
+            200,
+            json!({"decision":"deny","code":code.as_str()}).to_string(),
+        ),
+        Err(DeadboltError::TokenRequired) => (401, json!({"code":"unauthorized"}).to_string()),
+        Err(DeadboltError::BadRequest) => (400, json!({"code":"bad_request"}).to_string()),
+        Err(_) => (503, json!({"code":"store_unavailable"}).to_string()),
+    }
+}
+
+fn admit_action(gate: &Deadbolt, body: &str, secret: Option<&str>) -> (u16, String) {
+    let action = match crate::ActionRequest::from_json(body) {
+        Ok(a) => a,
+        Err(_) => return (400, json!({"code":"bad_request"}).to_string()),
+    };
+    let decision = match secret {
+        Some(secret) => gate.admit_action_credential(secret, &action),
+        None => gate.admit_action(&action),
+    };
+    match decision {
+        Ok(AdmitDecision::Allow) => (200, json!({"decision":"allow"}).to_string()),
+        Ok(AdmitDecision::Deny { code }) => (
+            200,
+            json!({"decision":"deny","code":code.as_str()}).to_string(),
+        ),
+        Err(DeadboltError::TokenRequired) => (401, json!({"code":"unauthorized"}).to_string()),
+        Err(DeadboltError::BadRequest) => (400, json!({"code":"bad_request"}).to_string()),
+        Err(_) => (503, json!({"code":"store_unavailable"}).to_string()),
     }
 }
 
@@ -566,6 +647,218 @@ fn err_token(err: &DeadboltError) -> &'static str {
         DeadboltError::ExportRefused(_) => "export_refused",
         DeadboltError::McpSpawn => "mcp_spawn",
         DeadboltError::BadRequest => "bad_request",
+    }
+}
+
+#[cfg(test)]
+mod credential_tests {
+    use super::*;
+    use std::fs;
+
+    fn request(method: &str, path: &str, headers: &str, body: &str) -> String {
+        format!("{method} {path} HTTP/1.1\r\nhost: localhost\r\n{headers}content-length: {}\r\n\r\n{body}", body.len())
+    }
+
+    #[test]
+    fn exact_route_rejects_malformed_and_mixed_auth_without_consumption() {
+        let dir = tempfile::tempdir().unwrap();
+        let gate = Deadbolt::open_at(dir.path(), true, 60);
+        gate.ensure_agent("A").unwrap();
+        let action = crate::ActionRequest::new(
+            "A",
+            "send",
+            None,
+            serde_json::json!({"body":"reviewed"}),
+            60,
+        )
+        .unwrap();
+        gate.approve_action(&action).unwrap();
+        let raw = serde_json::to_string(&action).unwrap();
+        let duplicate = raw.replace("\"version\":1", "\"version\":1,\"version\":1");
+        assert_eq!(
+            dispatch_http(
+                &gate,
+                &request(
+                    "POST",
+                    "/admit-action",
+                    "X-Deadbolt-Token: operator\r\n",
+                    &duplicate
+                ),
+                Some("operator")
+            )
+            .0,
+            400
+        );
+        gate.issue_credential("A", "key", 60, &dir.path().join("key"))
+            .unwrap();
+        let secret = fs::read_to_string(dir.path().join("key")).unwrap();
+        let mixed = format!("X-Deadbolt-Admission: {secret}\r\nX-Deadbolt-Token: operator\r\n");
+        assert_eq!(
+            dispatch_http(
+                &gate,
+                &request("POST", "/admit-action", &mixed, &raw),
+                Some("operator")
+            )
+            .0,
+            401
+        );
+        let header = format!("X-Deadbolt-Admission: {secret}\r\n");
+        assert_eq!(
+            dispatch_http(
+                &gate,
+                &request("POST", "/admit-action", &header, &raw),
+                Some("operator")
+            ),
+            (200, r#"{"decision":"allow"}"#.into())
+        );
+        assert!(dispatch_http(
+            &gate,
+            &request("POST", "/admit-action", &header, &raw),
+            Some("operator")
+        )
+        .1
+        .contains("needs_human"));
+    }
+
+    #[test]
+    fn workload_route_matrix_never_grants_operator_or_other_agent_access() {
+        let dir = tempfile::tempdir().unwrap();
+        let gate = Deadbolt::open(&crate::DeadboltConfig {
+            db_path: Some(dir.path().join("db").display().to_string()),
+            events_path: Some(dir.path().join("events").display().to_string()),
+            ..Default::default()
+        });
+        gate.ensure_agent("A").unwrap();
+        gate.ensure_agent("B").unwrap();
+        gate.issue_credential("A", "key", 60, &dir.path().join("key"))
+            .unwrap();
+        let secret = fs::read_to_string(dir.path().join("key")).unwrap();
+        let header = format!("X-Deadbolt-Admission: {secret}\r\n");
+        for operator in [None, Some("operator")] {
+            let good = request(
+                "POST",
+                "/admit",
+                &header,
+                r#"{"agent_id":"A","tool":"read"}"#,
+            );
+            assert_eq!(
+                dispatch_http(&gate, &good, operator),
+                (200, r#"{"decision":"allow"}"#.into())
+            );
+            let wrong = request(
+                "POST",
+                "/admit",
+                &header,
+                r#"{"agent_id":"B","tool":"read"}"#,
+            );
+            assert_eq!(dispatch_http(&gate, &wrong, operator).0, 401);
+            for (method, path, body) in [
+                ("POST", "/ensure", r#"{"agent_id":"new"}"#),
+                ("POST", "/policy", r#"{"agent_id":"A","tools":["send"]}"#),
+                ("POST", "/spend", r#"{"agent_id":"A","usd":-1}"#),
+                ("POST", "/register_child", r#"{"parent":"A","child":"new"}"#),
+                ("GET", "/status?agent=A", ""),
+                ("POST", "/approve", r#"{"agent_id":"A","tool":"send"}"#),
+                ("POST", "/resume", r#"{"agent_id":"A"}"#),
+                ("POST", "/unknown", ""),
+            ] {
+                assert_eq!(
+                    dispatch_http(&gate, &request(method, path, &header, body), operator).0,
+                    403,
+                    "{path}"
+                );
+                // Stripping the scoped header must not restore socket-only authority.
+                assert_eq!(
+                    dispatch_http(&gate, &request(method, path, "", body), operator).0,
+                    401,
+                    "{path}"
+                );
+            }
+            let mixed = format!("{header}X-Deadbolt-Token: operator\r\n");
+            assert_eq!(
+                dispatch_http(
+                    &gate,
+                    &request(
+                        "POST",
+                        "/admit",
+                        &mixed,
+                        r#"{"agent_id":"A","tool":"read"}"#
+                    ),
+                    operator
+                )
+                .0,
+                401
+            );
+            let duplicate = format!("{header}x-deadbolt-admission: invalid\r\n");
+            assert_eq!(
+                dispatch_http(
+                    &gate,
+                    &request(
+                        "POST",
+                        "/admit",
+                        &duplicate,
+                        r#"{"agent_id":"A","tool":"read"}"#
+                    ),
+                    operator
+                )
+                .0,
+                401
+            );
+            assert_eq!(
+                dispatch_http(
+                    &gate,
+                    &request(
+                        "POST",
+                        "/admit",
+                        "X-Deadbolt-Admission: \r\n",
+                        r#"{"agent_id":"A","tool":"read"}"#
+                    ),
+                    operator
+                )
+                .0,
+                401
+            );
+        }
+        assert_eq!(gate.status(Some("new")).unwrap().len(), 0);
+        assert_eq!(
+            dispatch_http(
+                &gate,
+                &request("GET", "/status", "X-Deadbolt-Token: operator\r\n", ""),
+                Some("operator")
+            )
+            .0,
+            200
+        );
+        let duplicate_operator = "X-Deadbolt-Token: operator\r\nx-deadbolt-token: operator\r\n";
+        assert_eq!(
+            dispatch_http(
+                &gate,
+                &request("GET", "/status", duplicate_operator, ""),
+                Some("operator")
+            )
+            .0,
+            401
+        );
+        gate.revoke_credential("key").unwrap();
+        assert_eq!(
+            dispatch_http(
+                &gate,
+                &request(
+                    "POST",
+                    "/admit",
+                    &header,
+                    r#"{"agent_id":"A","tool":"read"}"#
+                ),
+                None
+            )
+            .0,
+            401
+        );
+        // Revoking the last credential does not re-enable anonymous operator access.
+        assert_eq!(
+            dispatch_http(&gate, &request("GET", "/status", "", ""), None).0,
+            401
+        );
     }
 }
 

@@ -3,6 +3,86 @@
 Versioned GitHub releases identify publication and the exact source revision.
 The older `v0.1.1-product` tag is not the standalone hardening release.
 
+## 1.1.0-rc.1
+
+Developer-evaluation prerelease. Native archives and the Python wheel/sdist are
+distributed through the versioned GitHub release; package registries remain separate.
+See its release notes for the exact source SHA, checks and signing status.
+
+- Keep hosted walkthrough media out of native and Cargo packages. Validate successful
+  accounting and evidence under bounded SQLite contention without retrying spends.
+
+- Reorganize developer onboarding around one-command real-effect evaluation,
+  explicit published/candidate API selection, native/source/wheel installation,
+  embedded Rust and operator/dispatcher setup. Correct stale future-work and
+  package-installation statements; keep registry publication separate.
+
+- Add opt-in operator-reviewed exact-action grants, RFC 8785 fingerprints, fixed
+  deadlines, atomic single-use admission and a separate `/admit-action` route.
+  Exact-only tool policy closes normal admit/probe/broad approval paths under
+  enabled fail-closed enforcement. Add private-review CLI with expected digest,
+  snapshotting Rust/Python/Node dispatch, optional SDK integration and MCP metadata.
+  See `docs/ACTION-APPROVALS.md` for trust boundaries, migration and retry limits.
+
+- Add operator-issued single-agent admission credentials with OS-generated 256-bit
+  bearer secrets, stored hashes, fixed expiry and independent revocation. Credential
+  authentication and policy/approval evaluation share a SQLite writer transaction.
+  Add CLI issue/revoke/list controls; issuance writes an exclusive output file
+  (0600 on Unix) and primary-evidence failure rolls back activation.
+- Keep operator HTTP authority separate: workload credentials authorize only
+  `POST /admit` and `POST /admit-action`, mixed/duplicate auth headers fail closed, and the first credential
+  permanently disables anonymous Unix operator access in that store. Existing
+  stores migrate without changing lease/policy/approval state.
+- Add workload-mode Python/Node/MCP requests without operator fallback. Scoped
+  MCP skips lease creation, requires a sidecar and refuses workload spend updates;
+  child servers no longer inherit the two DeadBolt bearer-token environment values.
+  Preserve useful `unauthorized`/`forbidden` denials in Python and Node.
+- Package the existing stdlib Python client as an installable wheel/sdist with
+  an optional OpenAI Agents SDK 0.23.1 decorator. Keep native sidecar installation
+  separate and preserve source imports. No PyPI publication is performed.
+- Gate validated Python tool bodies through the SDK's normal schema/approval
+  machinery, recheck after approval/resume, preserve sync/async results, and stop
+  the run on denial or tool failure. Reject SDK error-as-output handlers and
+  deferred sync awaitables. Exact-action SDK review remains separate from
+  DeadBolt's existing agent/tool one-shot grant.
+- Verify outside-checkout Python packaging and installed SDK runner/sidecar
+  effects on Linux, macOS and Windows CI. Pin the SDK acceptance dependencies;
+  tests use the upstream ScriptedModel with tracing disabled and no API requests.
+- Pin the Python build backend to setuptools 83.0.0 after auditing its source
+  distribution exclusions, and audit the pinned optional SDK/build dependency
+  set in CI with a retained machine-readable report.
+
+- Add `dispatch` helpers for embedded Rust, Python and Node. A trusted callback
+  runs only after a fresh explicit allow; denial leaves it untouched. Preserve
+  callback results and errors without retrying effects. Node supports async bodies.
+- Isolate each production drill in an exclusively created random workspace,
+  explicitly mode 0700 on Unix, and create its fixture exclusively. Concurrent
+  drills no longer share state or cleanup. Use temporary ownership in the Rust example.
+- Normalize synchronous Node HTTP/configuration/serialization failures to denial,
+  enforce a five-second total Node request deadline, bound source-client and MCP
+  sidecar HTTP responses to 1 MiB, and close Python connections on all paths.
+- Bound stdio MCP frames to 16 MiB and coordinate both readers with a bounded
+  queue. Child EOF/read failures no longer wait for client EOF. Close child input
+  on client EOF, drain final output for at most one second, allow one further
+  second for natural child exit, then kill/wait without joining blocked readers.
+  Descendants remain executor-owned.
+  Report an already completed child failure as a proxy error.
+- Create the Docker image's state directory with mode 0700. Existing named
+  volumes retain their existing modes and require operator review.
+- Include r-efi 6.0.0's packaged AUTHORS copyright/license notices in the native
+  dependency inventory; its upstream crate does not use a LICENSE filename.
+- Accept Cargo prerelease/build version identities in macOS signing preflight,
+  still binding the full version/target to BUILD.json and checking archive bytes.
+- Exercise dispatcher effects, concurrent one-shot callbacks, invalid configuration,
+  oversized/partial responses, independent drill state and MCP shutdown in regression tests.
+- Verify a separate embedded application against the unpacked Cargo artifact in
+  CI, using real allowed file effects and denied callbacks outside the checkout.
+- Audit the locked dependencies against the current RustSec database in CI and
+  retain the machine-readable report, including on failure.
+
+These changes are source-only until a new reviewed release is published; v1.0.3
+downloads do not contain the new helpers or hardening.
+
 ## 1.0.3 — 2026-09-29
 
 - Prepare Developer ID signing and Apple notarization for the macOS native

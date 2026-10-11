@@ -9,7 +9,7 @@
   video.pause();
   if (current !== kind) {
    current = kind;
-   video.src = "assets/media/" + (kind === "full" ? "deadbolt-walkthrough-cedar-captioned.mp4" : "deadbolt-showcase-extract-cedar-captioned.mp4");
+   video.src = 'https://github.com/seanebones-lang/deadbolt/releases/download/walkthrough-2026-10-10/' + (kind === "full" ? "deadbolt-walkthrough-cedar-captioned.mp4" : "deadbolt-showcase-extract-cedar-captioned.mp4");
    video.load();
   }
   overview.setAttribute("aria-pressed", String(kind === "overview"));

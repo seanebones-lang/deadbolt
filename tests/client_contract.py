@@ -1,11 +1,13 @@
 """External consumer tests: python3 tests/client_contract.py (requires Node)."""
 import importlib.util
+import asyncio
 import json
 import os
 from pathlib import Path
 import socket
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -50,13 +52,177 @@ class ClientContract(unittest.TestCase):
 
     def node(self, expression):
         script = f"const d = require({json.dumps(str(ROOT / 'examples/deadbolt_client.js'))}); {expression}"
-        out = subprocess.run(["node", "-e", script], env=self.env, capture_output=True, text=True, timeout=10)
+        out = subprocess.run(["node", "-e", script], env=self.env, capture_output=True, text=True, encoding="utf-8", timeout=10)
         self.assertEqual(out.returncode, 0, out.stderr)
         return json.loads(out.stdout)
 
+    def approve_action(self, action):
+        file = Path(self.temp.name) / "review.json"
+        file.write_text(json.dumps(action, ensure_ascii=False), encoding="utf-8")
+        result = subprocess.run([str(BINARY), "action", "inspect", "--file", str(file)],
+                                env=self.env, check=True, capture_output=True, text=True)
+        fingerprint = result.stdout.splitlines()[0].split("=", 1)[1]
+        subprocess.run([str(BINARY), "action", "approve", "--file", str(file), "--fingerprint", fingerprint],
+                       env=self.env, check=True, capture_output=True, text=True)
+        return file, fingerprint
+
+    def test_exact_action_cross_language_review_replay_and_scoped_auth(self):
+        root = Path(self.temp.name)
+        action = client.prepare_action("agent", "send", {"to":"reviewed@example.com", "body":"allowed"})
+        file, fingerprint = self.approve_action(action)
+        changed = json.loads(json.dumps(action)); changed["arguments"]["to"] = "other@example.com"
+        file.write_text(json.dumps(changed))
+        stale = subprocess.run([str(BINARY), "action", "approve", "--file", str(file), "--fingerprint", fingerprint],
+                               env=self.env, capture_output=True, text=True)
+        self.assertNotEqual(stale.returncode, 0)
+        self.assertEqual(client.admit("agent", "send")["code"], "needs_human")
+        self.assertEqual(client.admit_action(changed)["code"], "needs_human")
+        subprocess.run([str(BINARY), "credential", "issue", "--agent", "agent", "--id", "key",
+                        "--out", str(root / "key")], env=self.env, check=True, capture_output=True)
+        self.env["DEADBOLT_ADMISSION_TOKEN"] = os.environ["DEADBOLT_ADMISSION_TOKEN"] = (root / "key").read_text()
+        result = self.node('d.dispatchAction(' + json.dumps(action) + ', a => {require("fs").writeFileSync('
+                           + json.dumps(str(root / "effect")) + ', a.body); return a.to}).then(x => console.log(JSON.stringify(x)))')
+        self.assertTrue(result["executed"])
+        self.assertEqual(result["result"], "reviewed@example.com")
+        self.assertFalse(client.dispatch_action(action, lambda a: self.fail("replayed body"))["executed"])
+        self.assertEqual((root / "effect").read_text(), "allowed")
+        other = dict(action, agent_id="other")
+        self.assertEqual(client.admit_action(other)["code"], "unauthorized")
+
+    def test_action_dispatch_snapshots_before_waiting_and_refuses_invalid_values(self):
+        action = client.prepare_action("agent", "write", {"body":"reviewed"})
+        self.approve_action(action)
+        result = self.node('const a = ' + json.dumps(action) + '; const p = d.dispatchAction(a, x => x.body); a.arguments.body = "changed"; p.then(x => console.log(JSON.stringify(x)))')
+        self.assertEqual(result["result"], "reviewed")
+        action = client.prepare_action("agent", "write", {"body":"python-reviewed"})
+        self.approve_action(action)
+        async def run():
+            task = asyncio.create_task(client.dispatch_action_async(action, lambda x: x["body"]))
+            await asyncio.sleep(0)  # Dispatch has snapshotted before admission yields.
+            action["arguments"]["body"] = "changed"
+            return await task
+        self.assertEqual(asyncio.run(run())["result"], "python-reviewed")
+        for value in [float("nan"), float("inf"), -0.0, 9007199254740992, object()]:
+            with self.assertRaises((TypeError, ValueError)):
+                client.prepare_action("agent", "write", {"value":value})
+        self.assertEqual(self.node('const a=d.prepareAction("agent","write",{}); a.arguments.value=-0; d.dispatchAction(a,()=>{throw Error("ran")}).then(x=>console.log(JSON.stringify(x)))')["decision"]["code"], "bad_request")
+        self.assertEqual(self.node('try {d.prepareAction("agent","write",{value:undefined}); console.log("bad")} catch {console.log(JSON.stringify({rejected:true}))}')["rejected"], True)
+
+    def test_utf8_review_and_wire_size_match_for_non_ascii_bodies(self):
+        content="é"*10000
+        action=client.prepare_action("agent","write",{"body":content})
+        self.approve_action(action)
+        result=client.dispatch_action(action,lambda args:args["body"])
+        self.assertTrue(result["executed"])
+        self.assertEqual(result["result"],content)
+        action=client.prepare_action("agent","write",{"body":content})
+        file,_=self.approve_action(action)
+        # Keep the fixture out of argv: Windows has a smaller command-line limit.
+        result=self.node('d.dispatchAction(JSON.parse(require("fs").readFileSync('+json.dumps(str(file))+',"utf8")),args=>args.body).then(x=>console.log(JSON.stringify(x)))')
+        self.assertTrue(result["executed"])
+        self.assertEqual(result["result"],content)
+
+    def test_old_endpoint_and_error_responses_cannot_allow_exact_dispatch(self):
+        paths=[]
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                paths.append(self.path)
+                self.send_response(404)
+                self.send_header("Content-Length", "20")
+                self.end_headers()
+                self.wfile.write(b'{"decision":"allow"}')
+            def log_message(self,*args): pass
+        fake=HTTPServer(("127.0.0.1",0),Handler)
+        worker=Thread(target=fake.serve_forever);worker.start()
+        action=client.prepare_action("agent","write",{})
+        try:
+            self.env["DEADBOLT_SOCK"]=os.environ["DEADBOLT_SOCK"]=f"127.0.0.1:{fake.server_port}"
+            self.assertFalse(client.dispatch_action(action,lambda a:self.fail("old endpoint ran body"))["executed"])
+            self.assertFalse(self.node('d.dispatchAction('+json.dumps(action)+',()=>{throw Error("ran")}).then(x=>console.log(JSON.stringify(x)))')["executed"])
+            self.assertEqual(paths,["/admit-action","/admit-action"])
+        finally:
+            fake.shutdown();worker.join();fake.server_close()
+
+    def test_mcp_exact_action_raw_arguments_once_and_unreadable_metadata(self):
+        action = client.prepare_action("agent", "write", {"body":"reviewed"})
+        self.approve_action(action)
+        root = Path(self.temp.name)
+        grants = root / "grants.json"
+        grants.write_text(json.dumps({"write": {k:action[k] for k in ("nonce","expires_at")}}))
+        self.env["DEADBOLT_ACTION_GRANTS"] = str(grants)
+        child = "import sys,json,os; [print(json.dumps({'jsonrpc':'2.0','id':json.loads(line)['id'],'result':{'arguments':json.loads(line)['params']['arguments'],'inherited': 'DEADBOLT_ACTION_GRANTS' in os.environ}}),flush=True) for line in sys.stdin]"
+        frames = [{"jsonrpc":"2.0","id":i,"method":"tools/call","params":{"name":"write","arguments":{"body":body}}}
+                  for i,body in [(1,"changed"),(2,"reviewed"),(3,"reviewed")]]
+        result = subprocess.run([str(BINARY), "mcp-proxy", "--agent", "agent", "--serve-sock", self.env["DEADBOLT_SOCK"], "--", sys.executable, "-c", child],
+                                env=self.env, input="".join(json.dumps(f)+"\n" for f in frames), capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode,0,result.stderr)
+        replies={x["id"]:x for x in map(json.loads,result.stdout.splitlines())}
+        self.assertEqual(replies[1]["error"]["message"],"needs_human")
+        self.assertEqual(replies[2]["result"]["arguments"],{"body":"reviewed"})
+        self.assertFalse(replies[2]["result"]["inherited"])
+        self.assertEqual(replies[3]["error"]["message"],"needs_human")
+        self.env["DEADBOLT_ACTION_GRANTS"] = str(root / "missing")
+        bad = subprocess.run([str(BINARY), "mcp-proxy", "--agent", "agent", "--serve-sock", self.env["DEADBOLT_SOCK"], "--", sys.executable, "-c", "raise Exception('started')"], env=self.env, capture_output=True, text=True, timeout=10)
+        self.assertNotEqual(bad.returncode,0)
+        self.assertNotIn("started",bad.stderr)
+
+    def test_scoped_python_node_and_mcp_keep_control_with_operator(self):
+        root = Path(self.temp.name)
+        self.assertTrue(client.ensure("other")["ok"])
+        self.assertTrue(client.policy("agent", tools=["write_file", "read"])["ok"])
+        issued = subprocess.run([str(BINARY), "credential", "issue", "--agent", "agent", "--id", "key",
+                                 "--out", str(root / "key")], env=self.env, check=True, capture_output=True, text=True)
+        secret = (root / "key").read_text()
+        self.assertNotIn(secret, issued.stdout + issued.stderr)
+        self.env["DEADBOLT_ADMISSION_TOKEN"] = os.environ["DEADBOLT_ADMISSION_TOKEN"] = secret
+        # Operator token remains deliberately present: workload mode must take precedence.
+        self.assertEqual(client.admit("agent", "read")["decision"], "allow")
+        self.assertEqual(self.node('d.admit("agent", "read").then(x => console.log(JSON.stringify(x)))')["decision"], "allow")
+        self.assertEqual(client.admit("other", "read")["decision"], "deny")
+        for result in [client.ensure("agent"), client.policy("agent", tools=["send"]), client.spend("agent", -1),
+                       client.register_child("agent", "child"), client.status("agent")]:
+            self.assertNotEqual(result.get("ok"), True)
+            self.assertNotIn("agents", result)
+        self.assertEqual(self.node('d.policy("agent", {tools:["send"]}).then(x => console.log(JSON.stringify(x)))')["decision"], "deny")
+        effect = root / "effect"
+        self.assertTrue(client.dispatch("agent", "write_file", lambda: effect.write_text("allowed"))["executed"])
+        # Real proxy routes one tools/call to a child that reports its environment.
+        child = "import sys,json,os; [print(json.dumps({'jsonrpc':'2.0','id':json.loads(line)['id'],'result':{'secrets_inherited':any(k in os.environ for k in ['DEADBOLT_TOKEN','DEADBOLT_ADMISSION_TOKEN'])}}),flush=True) for line in sys.stdin]"
+        proxy = subprocess.run([str(BINARY), "mcp-proxy", "--agent", "agent", "--serve-sock", self.env["DEADBOLT_SOCK"],
+                                "--", sys.executable, "-c", child], input=json.dumps({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read","arguments":{}}})+"\n",
+                               env=self.env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(proxy.returncode, 0, proxy.stderr)
+        self.assertFalse(json.loads(proxy.stdout)["result"]["secrets_inherited"])
+        no_remote = subprocess.run([str(BINARY), "mcp-proxy", "--agent", "agent", "--", sys.executable, "-c", "raise Exception('must not start')"], env=self.env, capture_output=True, text=True, timeout=10)
+        self.assertNotEqual(no_remote.returncode, 0)
+        self.assertIn("bad_request", no_remote.stderr)
+        subprocess.run([str(BINARY), "credential", "revoke", "--id", "key"], env=self.env, check=True, capture_output=True)
+        self.assertFalse(client.dispatch("agent", "write_file", lambda: effect.write_text("wrong"))["executed"])
+        self.assertFalse(self.node(f'd.dispatch("agent", "write_file", () => require("fs").writeFileSync({json.dumps(str(effect))}, "wrong")).then(x => console.log(JSON.stringify(x)))')["executed"])
+        self.assertEqual(effect.read_text(), "allowed")
+        # Empty workload credentials must not fall back to the still-valid operator token.
+        self.env["DEADBOLT_ADMISSION_TOKEN"] = os.environ["DEADBOLT_ADMISSION_TOKEN"] = ""
+        self.assertEqual(client.admit("agent", "read")["decision"], "deny")
+        self.assertEqual(self.node('d.admit("agent", "read").then(x => console.log(JSON.stringify(x)))')["decision"], "deny")
+
+    def test_mcp_child_failure_returns_while_host_input_is_open(self):
+        proxy = subprocess.Popen([str(BINARY), "mcp-proxy", "--agent", "failed-child", "--",
+                                  sys.executable, "-c", "import sys; sys.exit(7)"],
+                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE, env=self.env)
+        try:
+            self.assertNotEqual(proxy.wait(timeout=5), 0)
+            self.assertIn("store_unavailable", proxy.stderr.read().decode())
+        finally:
+            if proxy.poll() is None:
+                proxy.kill()
+                proxy.wait(timeout=5)
+            for stream in (proxy.stdin, proxy.stdout, proxy.stderr):
+                stream.close()
+
     def test_import_dest_and_spend(self):
         self.assertEqual(self.node('console.log(JSON.stringify(Object.keys(d).sort()))'),
-                         sorted(["admit", "ensure", "policy", "registerChild", "spend", "status"]))
+                         sorted(["admit", "dispatch", "prepareAction", "admitAction", "dispatchAction", "ensure", "policy", "registerChild", "spend", "status"]))
         self.assertTrue(client.policy("agent", tools=["fetch"], dest=["example.com"], spend_cap=2)["ok"])
         self.assertEqual(client.admit("agent", "fetch", "example.com")["decision"], "allow")
         self.assertEqual(self.node('d.admit("agent", "fetch", "other.com").then(x => console.log(JSON.stringify(x)))')["code"], "purpose_exceeded")
@@ -112,7 +278,8 @@ class ClientContract(unittest.TestCase):
                 self.send_response(self.status)
                 self.send_header("Content-Length", str(len(self.response)))
                 self.end_headers()
-                self.wfile.write(self.response)
+                try: self.wfile.write(self.response)
+                except OSError: pass
             def log_message(self, *args): pass
         fake = HTTPServer(("127.0.0.1", 0), Handler)
         worker = Thread(target=fake.serve_forever)
@@ -120,10 +287,99 @@ class ClientContract(unittest.TestCase):
         try:
             target = f"127.0.0.1:{fake.server_port}"
             self.env["DEADBOLT_SOCK"] = os.environ["DEADBOLT_SOCK"] = target
-            for status, body in [(200, b'null'), (200, b'[]'), (200, b'{"ok":true}'), (500, b'{"decision":"allow"}'), (401, b'{"decision":"allow"}')]:
+            for status, body in [(200, b'null'), (200, b'[]'), (200, b'{"ok":true}'), (500, b'{"decision":"allow"}'), (401, b'{"decision":"allow"}'), (200, b'{"decision":"allow","padding":"' + b'x' * (1024 * 1024) + b'"}')]:
                 Handler.status, Handler.response = status, body
                 self.assertEqual(client.admit("agent", "shell")["decision"], "deny")
                 self.assertEqual(self.node('d.admit("agent", "shell").then(x => console.log(JSON.stringify(x)))')["decision"], "deny")
+        finally:
+            fake.shutdown()
+            worker.join()
+            fake.server_close()
+
+    def test_dispatch_effects_and_one_shot_across_languages(self):
+        root = Path(self.temp.name)
+        self.assertTrue(client.policy("agent", tools=["write_file"], irreversible=["write_file"])["ok"])
+        blocked = root / "blocked.txt"
+        result = client.dispatch("agent", "write_file", lambda: blocked.write_text("wrong"))
+        self.assertFalse(result["executed"])
+        self.assertFalse(blocked.exists())
+        subprocess.run([str(BINARY), "approve", "--agent", "agent", "--tool", "write_file"], env=self.env, check=True, capture_output=True)
+        allowed = root / "allowed.txt"
+        result = self.node(f'd.dispatch("agent", "write_file", async () => {{require("fs").writeFileSync({json.dumps(str(allowed))}, "once"); return 42}}).then(x => console.log(JSON.stringify(x)))')
+        self.assertTrue(result["executed"])
+        self.assertEqual(result["result"], 42)
+        self.assertEqual(allowed.read_text(), "once")
+        self.assertFalse(client.dispatch("agent", "write_file", lambda: blocked.write_text("wrong"))["executed"])
+        self.assertFalse(blocked.exists())
+        subprocess.run([str(BINARY), "kill", "--agent", "agent"], env=self.env, check=True, capture_output=True)
+        denied = self.node(f'd.dispatch("agent", "write_file", () => require("fs").writeFileSync({json.dumps(str(blocked))}, "wrong")).then(x => console.log(JSON.stringify(x)))')
+        self.assertFalse(denied["executed"])
+        self.assertEqual(denied["decision"]["code"], "killed")
+        self.assertFalse(blocked.exists())
+
+    def test_invalid_configuration_and_payload_deny_without_effect(self):
+        def forbidden(): self.fail("invalid configuration ran a body")
+        for target, token in [("127.0.0.1:99999", "test-only-token"), (self.env["DEADBOLT_SOCK"], "invalid\nheader")]:
+            self.env.update({"DEADBOLT_SOCK": target, "DEADBOLT_TOKEN": token})
+            os.environ.update(self.env)
+            self.assertFalse(client.dispatch("agent", "shell", forbidden)["executed"])
+            self.assertFalse(self.node('d.dispatch("agent", "shell", () => {throw new Error("body ran")}).then(x => console.log(JSON.stringify(x)))')["executed"])
+        self.assertEqual(client.admit(object(), "shell")["decision"], "deny")
+        self.assertEqual(self.node('d.admit(1n, "shell").then(x => console.log(JSON.stringify(x)))')["decision"], "deny")
+
+    def test_mcp_eof_terminates_noncooperative_child(self):
+        started = time.monotonic()
+        result = subprocess.run([str(BINARY), "mcp-proxy", "--agent", "eof-probe", "--", sys.executable,
+                                 "-c", "import sys,time; sys.stdin.read(); time.sleep(30)"],
+                                env=self.env, input="", capture_output=True, text=True, timeout=6)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertLess(time.monotonic() - started, 5)
+
+    def test_async_python_dispatch_and_tool_errors(self):
+        file = Path(self.temp.name) / "async-effect"
+        async def body():
+            await asyncio.sleep(0)
+            file.write_text("once")
+            return 42
+        with self.assertRaises(TypeError):
+            client.dispatch("agent", "write_file", body)
+        self.assertFalse(file.exists())
+        result = asyncio.run(client.dispatch_async("agent", "write_file", body))
+        self.assertTrue(result["executed"])
+        self.assertEqual(result["result"], 42)
+        self.assertEqual(file.read_text(), "once")
+        def failure(): raise ValueError("tool_error")
+        with self.assertRaisesRegex(ValueError, "tool_error"):
+            client.dispatch("agent", "write_file", failure)
+        self.assertEqual(self.node('d.dispatch("agent", "write_file", async () => {throw new Error("tool_error")}).then(() => {throw new Error("error swallowed")}).catch(e => console.log(JSON.stringify({error:e.message})))')["error"], "tool_error")
+        subprocess.run([str(BINARY), "kill", "--agent", "agent"], env=self.env, check=True, capture_output=True)
+        file.unlink()
+        result = asyncio.run(client.dispatch_async("agent", "write_file", body))
+        self.assertFalse(result["executed"])
+        self.assertFalse(file.exists())
+
+    def test_partial_response_does_not_renew_node_deadline(self):
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                self.send_response(200)
+                self.send_header("Content-Length", "1000")
+                self.end_headers()
+                try:
+                    for _ in range(100):
+                        self.wfile.write(b" ")
+                        self.wfile.flush()
+                        time.sleep(.1)
+                except OSError: pass
+            def log_message(self, *args): pass
+        fake = HTTPServer(("127.0.0.1", 0), Handler)
+        worker = Thread(target=fake.serve_forever)
+        worker.start()
+        try:
+            self.env["DEADBOLT_SOCK"] = f"127.0.0.1:{fake.server_port}"
+            started = time.monotonic()
+            result = self.node('d.dispatch("agent", "shell", () => {throw new Error("body ran")}).then(x => console.log(JSON.stringify(x)))')
+            self.assertFalse(result["executed"])
+            self.assertLess(time.monotonic() - started, 7)
         finally:
             fake.shutdown()
             worker.join()

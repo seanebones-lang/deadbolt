@@ -1,0 +1,87 @@
+"""Verify an embedded consumer outside the checkout using a Cargo .crate (Python 3.12+)."""
+import argparse
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import tarfile
+import tempfile
+import tomllib
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--crate", type=Path, help="defaults to this source version's Cargo package")
+    args = parser.parse_args()
+    source = Path(__file__).resolve().parents[1]
+    metadata = tomllib.loads((source / "Cargo.toml").read_text(encoding="utf-8"))["package"]
+    crate = args.crate or source / "target/package" / f"{metadata['name']}-{metadata['version']}.crate"
+    with tempfile.TemporaryDirectory(prefix="deadbolt-consumer-") as temporary:
+        root = Path(temporary)
+        with tarfile.open(crate.resolve()) as archive:
+            archive.extractall(root / "package", filter="data")
+        packages = list((root / "package").iterdir())
+        if len(packages) != 1 or not (packages[0] / "Cargo.toml").is_file():
+            raise RuntimeError("expected one packaged Cargo root")
+        package = packages[0]
+        consumer = root / "consumer"
+        (consumer / "src").mkdir(parents=True)
+        (consumer / "Cargo.toml").write_text(
+            '[package]\nname="outside-consumer"\nversion="0.0.0"\nedition="2021"\n'
+            '[dependencies]\ndeadbolt={package="n11-deadbolt",path='
+            + json.dumps(str(package)) + '}\n', encoding="utf-8")
+        shutil.copy2(package / "Cargo.lock", consumer / "Cargo.lock")
+        (consumer / "src/main.rs").write_text('''
+use deadbolt::{ActionRequest, Deadbolt, DeadboltError, AdmitDecision, DenyCode, PolicyPatch};
+fn main() {
+    let root = std::path::PathBuf::from(std::env::args_os().nth(1).unwrap());
+    let gate = Deadbolt::open_at(&root.join("state"), true, 60);
+    gate.ensure_agent("consumer-run").unwrap();
+    gate.set_policy("consumer-run", PolicyPatch {
+        tools_allow: Some(vec!["write_file".into()]), ..Default::default()
+    }).unwrap();
+    let key = root.join("credential");
+    gate.issue_credential("consumer-run", "consumer-key", 60, &key).unwrap();
+    let secret = std::fs::read_to_string(&key).unwrap();
+    assert_eq!(gate.admit_credential(&secret, "consumer-run", "write_file", None), Ok(AdmitDecision::Allow));
+    gate.revoke_credential("consumer-key").unwrap();
+    assert_eq!(gate.admit_credential(&secret, "consumer-run", "write_file", None), Err(DeadboltError::TokenRequired));
+    assert!(gate.credentials().unwrap()[0].revoked_at.is_some());
+    let effect = root.join("effect.txt");
+    let result = gate.dispatch("consumer-run", "write_file", None, || {
+        std::fs::write(&effect, "allowed").unwrap(); 42
+    });
+    assert_eq!(result, Ok(42));
+    let blocked: Result<(), DenyCode> = gate.dispatch("consumer-run", "other_tool", None,
+        || panic!("off-policy body ran"));
+    assert_eq!(blocked, Err(DenyCode::PurposeExceeded));
+    let mut action = ActionRequest::from_json(&format!(r#"{{"version":1,"agent_id":"consumer-run","tool":"write_file","dest":null,"arguments":{{"content":"reviewed"}},"nonce":"consumer-nonce","expires_at":{}}}"#, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()+60)).unwrap();
+    gate.approve_action(&action).unwrap();
+    assert_eq!(gate.admit("consumer-run","write_file"),AdmitDecision::Deny{code:DenyCode::NeedsHuman});
+    action.arguments["content"]="changed".into();
+    assert!(gate.dispatch_action(&action, |_| panic!("changed effect ran")).is_err());
+    action.arguments["content"]="reviewed".into();
+    gate.dispatch_action(&action, |args| std::fs::write(&effect,args["content"].as_str().unwrap()).unwrap()).unwrap();
+    assert!(gate.dispatch_action(&action, |_| panic!("replay ran")).is_err());
+    gate.kill("consumer-run").unwrap();
+    let killed: Result<(), DenyCode> = gate.dispatch("consumer-run", "write_file", None,
+        || std::fs::write(&effect, "wrong").unwrap());
+    assert_eq!(killed, Err(DenyCode::Killed));
+    assert_eq!(std::fs::read_to_string(effect).unwrap(), "reviewed");
+    println!("outside-checkout embedded consumer passed");
+}
+''', encoding="utf-8")
+        # Isolate both the project and output. A clean runner may have fetched
+        # only its native dependencies; metadata also needs other target crates.
+        # Fetch the package's locked closure, then resolve the added root offline.
+        env = {**os.environ, "CARGO_TARGET_DIR": str(root / "build")}
+        subprocess.run(["cargo", "fetch", "--locked"], cwd=package, env=env, check=True)
+        subprocess.run(["cargo", "metadata", "--offline", "--format-version", "1"],
+                       cwd=consumer, env=env, check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(["cargo", "run", "--locked", "--offline", "--", str(root)],
+                       cwd=consumer, env=env, check=True)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,3 @@
+# Optional SDK and developer-build dependency snapshot; the base client has no runtime dependencies.
+# The fully pinned closure lives in one place and is audited by CI.
+-r tests/openai-agents-requirements.txt

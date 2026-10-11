@@ -5,8 +5,8 @@ use std::process::ExitCode;
 
 use clap::{ArgAction, Parser, Subcommand};
 use deadbolt::{
-    bind_refused, default_bind_path, format_export, mcp_proxy, serve, Deadbolt, DeadboltConfig,
-    DeadboltError, PolicyPatch,
+    bind_refused, default_bind_path, format_export, mcp_proxy, serve, ActionRequest, Deadbolt,
+    DeadboltConfig, DeadboltError, PolicyPatch,
 };
 
 #[derive(Parser)]
@@ -22,6 +22,16 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Review, approve and revoke exact actions. Operator-only.
+    Action {
+        #[command(subcommand)]
+        command: ActionCommand,
+    },
+    /// Manage single-agent admission credentials. Operator-only; secrets go to files.
+    Credential {
+        #[command(subcommand)]
+        command: CredentialCommand,
+    },
     /// List leases. Read-only.
     Status {
         /// One agent id. Omit to list every lease.
@@ -135,6 +145,72 @@ enum Command {
     },
 }
 
+#[derive(Subcommand)]
+enum CredentialCommand {
+    /// Issue to a new file. Never prints the secret or replaces an existing file.
+    Issue {
+        #[arg(long)]
+        agent: String,
+        #[arg(long)]
+        id: String,
+        #[arg(long, default_value_t = 3600)]
+        ttl_secs: u64,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Revoke one credential, leaving the lease and other credentials intact.
+    Revoke {
+        #[arg(long)]
+        id: String,
+    },
+    /// List metadata only, without changing leases.
+    List,
+}
+
+#[derive(Subcommand)]
+enum ActionCommand {
+    /// Print the exact envelope and fingerprint for human review. No permission granted.
+    Inspect {
+        #[arg(long)]
+        file: PathBuf,
+    },
+    /// Approve the reviewed envelope once; also require exact admission for its tool.
+    Approve {
+        #[arg(long)]
+        file: PathBuf,
+        /// Fingerprint shown by inspect; refuses a request changed since review.
+        #[arg(long)]
+        fingerprint: String,
+    },
+    /// Revoke a pending action. Keeps exact-only policy in place.
+    Revoke {
+        #[arg(long)]
+        agent: String,
+        #[arg(long)]
+        nonce: String,
+    },
+    /// Require exact approval before any grant exists. Explicitly opt out with --allow-legacy.
+    Require {
+        #[arg(long)]
+        agent: String,
+        #[arg(long)]
+        tool: String,
+        #[arg(long)]
+        allow_legacy: bool,
+    },
+}
+
+fn read_action(path: &std::path::Path) -> Result<ActionRequest, DeadboltError> {
+    use std::io::Read;
+    let mut raw = String::new();
+    std::fs::File::open(path)
+        .map_err(|_| DeadboltError::BadRequest)?
+        .take(32769)
+        .read_to_string(&mut raw)
+        .map_err(|_| DeadboltError::BadRequest)?;
+    ActionRequest::from_json(&raw)
+}
+
 fn cfg() -> DeadboltConfig {
     let mut cfg = DeadboltConfig {
         token_env: Some("DEADBOLT_TOKEN".into()),
@@ -162,6 +238,76 @@ fn run() -> Result<(), DeadboltError> {
     }
     let db = Deadbolt::open(&cfg());
     match cli.command {
+        Command::Action { command } => match command {
+            ActionCommand::Inspect { file } => {
+                let action = read_action(&file)?;
+                println!("fingerprint={}", action.fingerprint()?);
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&action).map_err(|_| DeadboltError::BadRequest)?
+                );
+            }
+            ActionCommand::Approve { file, fingerprint } => {
+                let action = read_action(&file)?;
+                if action.fingerprint()? != fingerprint {
+                    return Err(DeadboltError::BadRequest);
+                }
+                db.approve_action(&action)?;
+                println!(
+                    "deadbolt action approved agent={} tool={} nonce={} fingerprint={}",
+                    action.agent_id,
+                    action.tool,
+                    action.nonce,
+                    action.fingerprint()?
+                );
+            }
+            ActionCommand::Revoke { agent, nonce } => {
+                db.revoke_action(&agent, &nonce)?;
+                println!("deadbolt action revoked agent={agent} nonce={nonce}");
+            }
+            ActionCommand::Require {
+                agent,
+                tool,
+                allow_legacy,
+            } => {
+                db.require_exact_action(&agent, &tool, !allow_legacy)?;
+                println!(
+                    "deadbolt exact requirement agent={agent} tool={tool} required={}",
+                    !allow_legacy
+                );
+            }
+        },
+        Command::Credential { command } => match command {
+            CredentialCommand::Issue {
+                agent,
+                id,
+                ttl_secs,
+                out,
+            } => {
+                let status = db.issue_credential(&agent, &id, ttl_secs, &out)?;
+                println!(
+                    "credential={} agent={} expires_at={}",
+                    status.credential_id, status.agent_id, status.expires_at
+                );
+            }
+            CredentialCommand::Revoke { id } => {
+                db.revoke_credential(&id)?;
+                println!("deadbolt credential revoked {id}");
+            }
+            CredentialCommand::List => {
+                for row in db.credentials()? {
+                    println!(
+                        "credential={} agent={} expires_at={} revoked_at={}",
+                        row.credential_id,
+                        row.agent_id,
+                        row.expires_at,
+                        row.revoked_at
+                            .map(|v| v.to_string())
+                            .unwrap_or_else(|| "-".into())
+                    );
+                }
+            }
+        },
         Command::Status { agent } => {
             let rows = db.status(agent.as_deref())?;
             if rows.is_empty() {

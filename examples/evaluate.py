@@ -68,13 +68,13 @@ def evaluate(binary):
 
         def dispatch(name, agent="worker", tool="write_file", expected="allow"):
             path = root / name
-            decision = client.admit(agent, tool)
-            if decision.get("decision") == "allow":
-                path.write_text(name, encoding="utf-8")
+            outcome = client.dispatch(agent, tool, lambda: path.write_text(name, encoding="utf-8"))
+            decision = outcome["decision"]
             observed = ("allow" if decision.get("decision") == "allow"
                         else decision.get("code"))
             require(observed == expected, f"{name}: expected {expected}, got {decision}")
             require(path.exists() == (expected == "allow"), f"{name}: unexpected body effect")
+            require(outcome["executed"] == path.exists(), f"{name}: wrong execution status")
             if path.exists():
                 require(path.read_text(encoding="utf-8") == name, f"{name}: wrong content")
             checks.append({"case": name, "decision": observed, "body_ran": path.exists()})

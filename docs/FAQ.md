@@ -122,8 +122,10 @@ It does not include or relicense Harness. See [LICENSE](../LICENSE) and
 
 ## Where are the packages and support channels?
 
-Install the binary from source/Git. `n11-deadbolt` is not on crates.io as checked
-on 2026-09-29; Python/Node clients are copied source, not pip/npm packages.
+Use a published native archive or reviewed source/Git installation. The candidate
+Python client can be installed from local source or a built wheel; the Node client
+is bundled source. The Rust and Python package names returned registry 404s on
+2026-10-10. Follow [installation](INSTALL.md) rather than registry commands.
 Use GitHub issues for ordinary bugs and integration requests. Report security
 issues privately as described in [SECURITY.md](../SECURITY.md). There is no
 published support SLA or universal framework compatibility guarantee.

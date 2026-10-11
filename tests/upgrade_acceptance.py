@@ -69,6 +69,16 @@ def main():
             assert db.execute("SELECT spend_usd FROM leases WHERE agent_id='B'").fetchone()[0] == 1.25
         server = start(new)
         try:
+            # New exact-action state can coexist with migrated legacy leases.
+            assert client.ensure("exact-upgrade").get("ok") is True
+            action=client.prepare_action("exact-upgrade","write",{"body":"reviewed"})
+            file=Path(temp)/"review.json"; file.write_text(json.dumps(action))
+            inspected=operator(new,"action","inspect","--file",str(file)).stdout
+            fingerprint=inspected.splitlines()[0].split("=",1)[1]
+            operator(new,"action","approve","--file",str(file),"--fingerprint",fingerprint)
+            assert client.admit("exact-upgrade","write")["code"]=="needs_human"
+            assert client.dispatch_action(action,lambda a:a["body"])["result"]=="reviewed"
+            assert not client.dispatch_action(action,lambda a:(_ for _ in ()).throw(AssertionError("replay")))["executed"]
             assert client.ensure("A").get("ok") is True
             assert client.admit("A", "shell")["code"] == "killed"
             assert client.admit("child", "shell")["code"] == "killed"
@@ -79,6 +89,17 @@ def main():
             assert client.admit("B", "shell")["code"] == "needs_human"
             assert client.spend("B", 3.75)["code"] == "spend_cap"
             assert client.admit("B", "fetch", "example.com")["code"] == "spend_cap"
+            credential = Path(temp) / "credential"
+            operator(new, "credential", "issue", "--agent", "B", "--id", "migrated-key", "--out", str(credential))
+            os.environ["DEADBOLT_ADMISSION_TOKEN"] = credential.read_text()
+            try:
+                assert client.admit("B", "fetch", "example.com")["code"] == "spend_cap"
+                assert client.admit("A", "shell")["code"] == "unauthorized"
+                assert client.ensure("A")["code"] == "forbidden"
+                operator(new, "credential", "revoke", "--id", "migrated-key")
+                assert client.admit("B", "fetch", "example.com")["code"] == "unauthorized"
+            finally:
+                os.environ.pop("DEADBOLT_ADMISSION_TOKEN", None)
         finally:
             server.terminate()
             server.wait(timeout=10)
@@ -90,7 +111,8 @@ def main():
                           "old_binary_sha256": hashlib.sha256(old.read_bytes()).hexdigest(),
                           "new_binary_sha256": hashlib.sha256(new.read_bytes()).hexdigest(),
                           "preserved": ["terminal revocation", "child lineage", "tool policy",
-                                        "destination policy", "one-shot approval", "spend", "evidence"],
+                                        "destination policy", "one-shot approval", "spend", "evidence",
+                                        "credential migration and independent revocation", "new exact-action state and replay refusal"],
                           "result": "passed"}, indent=2))
 
 

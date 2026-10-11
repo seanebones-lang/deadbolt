@@ -48,7 +48,8 @@ def main():
         executable = "deadbolt.exe" if os.name == "nt" else "deadbolt"
         shutil.copy2(binary, staging / executable)
         for file in ("README.md", "LICENSE", "NOTICE", "SECURITY.md", "CHANGELOG.md",
-                     "CONTRIBUTING.md", "Cargo.toml", "Cargo.lock", "Dockerfile"):
+                     "CONTRIBUTING.md", "Cargo.toml", "Cargo.lock", "Dockerfile",
+                     "pyproject.toml", "MANIFEST.in", "requirements.lock"):
             shutil.copy2(ROOT / file, staging / file)
         shutil.copy2(ROOT / "THIRD-PARTY.md", staging / "THIRD-PARTY.md")
         shutil.copytree(ROOT / "third-party", staging / "third-party")
@@ -57,7 +58,7 @@ def main():
         shutil.copytree(ROOT / "docs", staging / "docs",
                         ignore=shutil.ignore_patterns("assets", "index.html", "walkthrough.html"))
         shutil.copytree(ROOT / "examples", staging / "examples",
-                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.egg-info"))
         shutil.copytree(ROOT / "src", staging / "src")
         shutil.copytree(ROOT / "tests", staging / "tests",
                         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))

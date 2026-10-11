@@ -9,16 +9,21 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr, TcpStream};
 #[cfg(unix)]
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{self, RecvTimeoutError, SyncSender};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
-use crate::{bind_refused, AdmitDecision, Deadbolt, DeadboltError};
+use crate::{bind_refused, ActionRequest, AdmitDecision, Deadbolt, DeadboltError};
 
-type AdmitFn = dyn Fn(&str, Option<&str>, Option<f64>) -> Option<String>;
+type AdmitFn = dyn Fn(&str, Option<&str>, Option<f64>, &Value) -> Option<String>;
+const MAX_MCP_FRAME_BYTES: usize = 16 * 1024 * 1024;
+const MAX_RESPONSE_BYTES: u64 = 1024 * 1024;
+const SHUTDOWN_GRACE: Duration = Duration::from_secs(1);
 
 /// Run an MCP server as a child. Admit `tools/call` in-process, or over
 /// `serve_sock` when set. Does not bind `0.0.0.0`.
@@ -31,21 +36,32 @@ pub fn mcp_proxy(
     if argv.is_empty() {
         return Err(DeadboltError::McpSpawn);
     }
+    let grants = action_grants(agent)?;
+    let scoped = std::env::var_os("DEADBOLT_ADMISSION_TOKEN").is_some();
+    if scoped && serve_sock.is_none() {
+        return Err(DeadboltError::BadRequest);
+    }
     if let Some(sock) = serve_sock {
         let sock = normalize_sock(sock)?;
         if bind_refused(&sock) {
             return Err(DeadboltError::BindRefused);
         }
-        if let Err(err) = sock_ensure(&sock, agent) {
-            eprintln!("{err}");
+        if !scoped {
+            if let Err(err) = sock_ensure(&sock, agent) {
+                eprintln!("{err}");
+            }
         }
         let sock = sock.clone();
         let agent = agent.to_string();
-        return spawn_proxy(argv, move |tool, dest, usd| {
+        return spawn_proxy(argv, move |tool, dest, usd, arguments| {
             if let Some(usd) = usd {
                 if sock_spend(&sock, &agent, usd).is_err() {
                     return Some("store_unavailable".into());
                 }
+            }
+            if let Some(grant) = grants.get(tool) {
+                let action = grant.request(&agent, tool, dest, arguments.clone());
+                return sock_action_decision(&sock, &action);
             }
             sock_decision(&sock, &agent, tool, dest)
         });
@@ -55,11 +71,18 @@ pub fn mcp_proxy(
     }
     let gate = gate.clone();
     let agent = agent.to_string();
-    spawn_proxy(argv, move |tool, dest, usd| {
+    spawn_proxy(argv, move |tool, dest, usd, arguments| {
         if let Some(usd) = usd {
             if gate.spend_add(&agent, usd).is_err() {
                 return Some("store_unavailable".into());
             }
+        }
+        if let Some(grant) = grants.get(tool) {
+            return match gate.admit_action(&grant.request(&agent, tool, dest, arguments.clone())) {
+                Ok(AdmitDecision::Allow) => None,
+                Ok(AdmitDecision::Deny { code }) => Some(code.as_str().into()),
+                Err(_) => Some("store_unavailable".into()),
+            };
         }
         match gate.admit_dest(&agent, tool, dest) {
             AdmitDecision::Allow => None,
@@ -68,76 +91,257 @@ pub fn mcp_proxy(
     })
 }
 
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ActionGrant {
+    nonce: String,
+    expires_at: i64,
+}
+impl ActionGrant {
+    fn request(
+        &self,
+        agent: &str,
+        tool: &str,
+        dest: Option<&str>,
+        arguments: Value,
+    ) -> ActionRequest {
+        ActionRequest {
+            version: 1,
+            agent_id: agent.into(),
+            tool: tool.into(),
+            dest: dest.map(str::to_string),
+            arguments,
+            nonce: self.nonce.clone(),
+            expires_at: self.expires_at,
+        }
+    }
+}
+fn action_grants(
+    agent: &str,
+) -> Result<std::collections::BTreeMap<String, ActionGrant>, DeadboltError> {
+    let Some(path) = std::env::var_os("DEADBOLT_ACTION_GRANTS") else {
+        return Ok(Default::default());
+    };
+    let mut raw = String::new();
+    std::fs::File::open(path)
+        .map_err(|_| DeadboltError::BadRequest)?
+        .take(32769)
+        .read_to_string(&mut raw)
+        .map_err(|_| DeadboltError::BadRequest)?;
+    if raw.len() > 32768 {
+        return Err(DeadboltError::BadRequest);
+    }
+    let grants: std::collections::BTreeMap<String, ActionGrant> =
+        serde_json::from_value(crate::actions::strict_json(&raw)?)
+            .map_err(|_| DeadboltError::BadRequest)?;
+    for (tool, grant) in &grants {
+        grant.request(agent, tool, None, json!({})).fingerprint()?;
+    }
+    Ok(grants)
+}
+
+fn sock_action_decision(sock: &Path, action: &ActionRequest) -> Option<String> {
+    if action.fingerprint().is_err() {
+        return Some("bad_request".into());
+    }
+    let Ok(body) = serde_json::to_string(action) else {
+        return Some("bad_request".into());
+    };
+    match http_json(sock, "POST", "/admit-action", Some(&body)) {
+        Ok((200..=299, v)) if v.get("decision").and_then(Value::as_str) == Some("allow") => None,
+        Ok((401, _)) => Some("unauthorized".into()),
+        Ok((403, _)) => Some("forbidden".into()),
+        Ok((200..=299, v)) => Some(
+            v.get("code")
+                .and_then(Value::as_str)
+                .unwrap_or("store_unavailable")
+                .into(),
+        ),
+        _ => Some("store_unavailable".into()),
+    }
+}
+
 fn spawn_proxy(
     argv: &[String],
-    admit: impl Fn(&str, Option<&str>, Option<f64>) -> Option<String> + 'static,
+    admit: impl Fn(&str, Option<&str>, Option<f64>, &Value) -> Option<String> + 'static,
 ) -> Result<(), DeadboltError> {
     let mut cmd = Command::new(&argv[0]);
-    cmd.args(&argv[1..])
+    cmd.env_remove("DEADBOLT_TOKEN")
+        .env_remove("DEADBOLT_ADMISSION_TOKEN")
+        .env_remove("DEADBOLT_ACTION_GRANTS")
+        .args(&argv[1..])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit());
     let mut child = cmd.spawn().map_err(|_| DeadboltError::McpSpawn)?;
     let child_in = child.stdin.take().ok_or(DeadboltError::McpSpawn)?;
     let child_out = child.stdout.take().ok_or(DeadboltError::McpSpawn)?;
-    let stdin = std::io::stdin();
-    let stdout = std::io::stdout();
     let ran = proxy_loop(
-        stdin.lock(),
-        stdout,
+        BufReader::new(std::io::stdin()),
+        std::io::stdout(),
         child_in,
         BufReader::new(child_out),
         &admit,
     );
-    let _ = child.kill();
-    let _ = child.wait();
-    ran.map_err(|_| DeadboltError::StoreUnavailable)
+    // The loop already drained final responses after closing child stdin.
+    // Always reap the immediate child, including after a read/write failure.
+    let stopped = stop_child(&mut child);
+    ran.and(stopped)
+        .map_err(|_| DeadboltError::StoreUnavailable)
+}
+
+fn stop_child(child: &mut Child) -> std::io::Result<()> {
+    // EOF can precede availability of the OS exit status. Do not overwrite a
+    // natural failure with our own kill while the process is still exiting.
+    let started = Instant::now();
+    loop {
+        if let Some(status) = child.try_wait()? {
+            return if status.success() {
+                Ok(())
+            } else {
+                Err(std::io::Error::other("mcp_child_failed"))
+            };
+        }
+        if started.elapsed() >= SHUTDOWN_GRACE {
+            break;
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+    // The child can exit between the last poll and kill.
+    if let Err(error) = child.kill() {
+        match child.try_wait()? {
+            Some(status) if status.success() => return Ok(()),
+            _ => return Err(error),
+        }
+    }
+    child.wait().map(|_| ())
+}
+
+enum ProxyEvent {
+    ClientLine(String),
+    ChildLine(String),
+    ClientEof,
+    ChildEof,
+    Error(std::io::Error),
+}
+
+fn pipe_reader<R: BufRead + Send + 'static>(
+    mut input: R,
+    events: SyncSender<ProxyEvent>,
+    active: Arc<AtomicBool>,
+    client: bool,
+) -> thread::JoinHandle<()> {
+    thread::spawn(move || {
+        while active.load(Ordering::Acquire) {
+            let mut line = String::new();
+            let (event, terminal) = match read_mcp_line(&mut input, &mut line) {
+                Ok(0) => (
+                    if client {
+                        ProxyEvent::ClientEof
+                    } else {
+                        ProxyEvent::ChildEof
+                    },
+                    true,
+                ),
+                Ok(_) => (
+                    if client {
+                        ProxyEvent::ClientLine(line)
+                    } else {
+                        ProxyEvent::ChildLine(line)
+                    },
+                    false,
+                ),
+                Err(error) => (ProxyEvent::Error(error), true),
+            };
+            if !active.load(Ordering::Acquire) || events.send(event).is_err() || terminal {
+                break;
+            }
+        }
+    })
+}
+
+fn read_mcp_line(reader: &mut impl BufRead, line: &mut String) -> std::io::Result<usize> {
+    let bytes = reader
+        .take(MAX_MCP_FRAME_BYTES as u64 + 1)
+        .read_line(line)?;
+    if bytes > MAX_MCP_FRAME_BYTES {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "mcp_frame_too_large",
+        ));
+    }
+    Ok(bytes)
 }
 
 fn proxy_loop<R, W, CW, CR>(
-    mut client_in: R,
+    client_in: R,
     client_out: W,
-    mut child_in: CW,
-    mut child_out: CR,
+    child_in: CW,
+    child_out: CR,
     admit: &AdmitFn,
 ) -> std::io::Result<()>
 where
-    R: BufRead,
-    W: Write + Send + 'static,
+    R: BufRead + Send + 'static,
+    W: Write,
     CW: Write,
     CR: BufRead + Send + 'static,
 {
-    let client_out = Arc::new(Mutex::new(client_out));
-    let out_for_child = Arc::clone(&client_out);
-    let reader = thread::spawn(move || {
-        let mut line = String::new();
+    // Readers only enqueue bounded frames. This thread alone admits calls and
+    // writes output, so neither EOF nor a read failure depends on client input.
+    let (events_tx, events_rx) = mpsc::sync_channel(2);
+    let active = Arc::new(AtomicBool::new(true));
+    let client_reader = pipe_reader(client_in, events_tx.clone(), active.clone(), true);
+    let child_reader = pipe_reader(child_out, events_tx, active.clone(), false);
+    let client_out = Mutex::new(client_out);
+    let mut child_in = Some(child_in);
+    let mut deadline: Option<Instant> = None;
+    let ran = (|| {
         loop {
-            line.clear();
-            match child_out.read_line(&mut line) {
-                Ok(0) | Err(_) => break,
-                Ok(_) => {
-                    let mut w = out_for_child.lock().unwrap_or_else(|e| e.into_inner());
-                    if w.write_all(line.as_bytes()).is_err() {
-                        break;
-                    }
-                    let _ = w.flush();
+            let event = if let Some(end) = deadline {
+                let remaining = end.saturating_duration_since(Instant::now());
+                if remaining.is_zero() {
+                    break;
                 }
+                match events_rx.recv_timeout(remaining) {
+                    Ok(event) => event,
+                    Err(RecvTimeoutError::Timeout | RecvTimeoutError::Disconnected) => break,
+                }
+            } else {
+                match events_rx.recv() {
+                    Ok(event) => event,
+                    Err(_) => break,
+                }
+            };
+            match event {
+                ProxyEvent::ClientLine(line) => {
+                    if let Some(child) = child_in.as_mut() {
+                        dispatch(&line, admit, child, &client_out)?;
+                    }
+                }
+                ProxyEvent::ChildLine(line) => write_client(&client_out, &line)?,
+                ProxyEvent::ClientEof => {
+                    // Closing stdin lets cooperative children finish. Drain
+                    // final responses, bounded even if a descendant holds stdout.
+                    child_in.take();
+                    deadline = Some(Instant::now() + SHUTDOWN_GRACE);
+                }
+                ProxyEvent::ChildEof => break,
+                ProxyEvent::Error(error) => return Err(error),
             }
         }
-    });
-    let mut line = String::new();
-    loop {
-        line.clear();
-        match client_in.read_line(&mut line) {
-            Ok(0) | Err(_) => break,
-            Ok(_) => {
-                let _ = dispatch(&line, admit, &mut child_in, &client_out);
-            }
+        Ok(())
+    })();
+    active.store(false, Ordering::Release);
+    drop(events_rx); // Release readers waiting on the bounded queue.
+    drop(child_in);
+    // A reader blocked in OS input may outlive this call until that pipe closes.
+    // It cannot admit or forward anything. Never join such a reader indefinitely.
+    for reader in [client_reader, child_reader] {
+        if reader.is_finished() && reader.join().is_err() && ran.is_ok() {
+            return Err(std::io::Error::other("mcp_reader_thread_failed"));
         }
     }
-    drop(child_in);
-    let _ = reader.join();
-    Ok(())
+    ran
 }
 
 fn dispatch(
@@ -189,7 +393,18 @@ fn dispatch(
         };
         let dest = dest_of(&msg);
         let usd = spend_of(&msg);
-        if let Some(code) = admit(name, dest.as_deref(), usd) {
+        let arguments = msg
+            .get("params")
+            .and_then(|p| p.get("arguments"))
+            .cloned()
+            .unwrap_or_else(|| json!({}));
+        if !arguments.is_object() {
+            if let Some(id) = request_id(&msg) {
+                write_client(client, &error_line(id, -32602, "bad_request"))?;
+            }
+            return Ok(());
+        }
+        if let Some(code) = admit(name, dest.as_deref(), usd, &arguments) {
             if let Some(id) = request_id(&msg) {
                 write_client(client, &error_line(id, -32000, &code))?;
             }
@@ -382,13 +597,32 @@ fn http_json(
     body: Option<&str>,
 ) -> Result<(u16, Value), DeadboltError> {
     let body = body.unwrap_or("");
-    let token = std::env::var("DEADBOLT_TOKEN")
-        .ok()
-        .filter(|t| !t.is_empty());
-    let token_line = token
-        .as_deref()
-        .map(|t| format!("x-deadbolt-token: {t}\r\n"))
-        .unwrap_or_default();
+    let token_line = if std::env::var_os("DEADBOLT_ADMISSION_TOKEN").is_some() {
+        let secret =
+            std::env::var("DEADBOLT_ADMISSION_TOKEN").map_err(|_| DeadboltError::TokenRequired)?;
+        if secret.is_empty()
+            || !secret
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+        {
+            return Err(DeadboltError::TokenRequired);
+        }
+        format!("x-deadbolt-admission: {secret}\r\n")
+    } else {
+        let token = std::env::var("DEADBOLT_TOKEN")
+            .ok()
+            .filter(|t| !t.is_empty());
+        if token
+            .as_ref()
+            .is_some_and(|t| t.bytes().any(|b| b == b'\r' || b == b'\n'))
+        {
+            return Err(DeadboltError::TokenRequired);
+        }
+        token
+            .as_deref()
+            .map(|t| format!("x-deadbolt-token: {t}\r\n"))
+            .unwrap_or_default()
+    };
     let req = format!(
         "{method} {path} HTTP/1.1\r\nhost: 127.0.0.1\r\n{token_line}content-length: {}\r\nconnection: close\r\n\r\n{body}",
         body.len()
@@ -400,8 +634,11 @@ fn http_json(
     let _ = stream.shutdown_write();
     let mut raw = String::new();
     stream
-        .read_to_string(&mut raw)
+        .read_to_string_limited(&mut raw)
         .map_err(|_| DeadboltError::StoreUnavailable)?;
+    if raw.len() as u64 > MAX_RESPONSE_BYTES {
+        return Err(DeadboltError::StoreUnavailable);
+    }
     let status = raw
         .split_whitespace()
         .nth(1)
@@ -435,11 +672,11 @@ impl Dial {
         }
     }
 
-    fn read_to_string(&mut self, out: &mut String) -> std::io::Result<usize> {
+    fn read_to_string_limited(&mut self, out: &mut String) -> std::io::Result<usize> {
         match self {
             #[cfg(unix)]
-            Self::Unix(s) => s.read_to_string(out),
-            Self::Tcp(s) => s.read_to_string(out),
+            Self::Unix(s) => s.take(MAX_RESPONSE_BYTES + 1).read_to_string(out),
+            Self::Tcp(s) => s.take(MAX_RESPONSE_BYTES + 1).read_to_string(out),
         }
     }
 }
@@ -498,6 +735,97 @@ mod tests {
     use std::io::Cursor;
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::mpsc;
+
+    #[test]
+    fn oversized_frame_never_reaches_admission_or_child() {
+        let frame = json!({"jsonrpc":"2.0", "id":1, "method":"tools/call", "params":{
+            "name":"write_file", "arguments":{"padding":"x".repeat(MAX_MCP_FRAME_BYTES)}
+        }})
+        .to_string();
+        let mut child = Vec::new();
+        let (response_tx, response_rx) = mpsc::channel();
+        let ran = proxy_loop(
+            Cursor::new(frame),
+            Vec::new(),
+            &mut child,
+            BufReader::new(ChanReader {
+                rx: response_rx,
+                pending: Vec::new(),
+                pos: 0,
+            }),
+            &|_, _, _, _| panic!("oversized frame reached admission"),
+        );
+        assert_eq!(ran.unwrap_err().kind(), std::io::ErrorKind::InvalidData);
+        drop(response_tx);
+        assert!(child.is_empty());
+    }
+
+    #[test]
+    fn retained_child_output_does_not_block_shutdown_or_forward_late_data() {
+        let (response_tx, response_rx) = mpsc::channel();
+        let (out_tx, out_rx) = mpsc::channel();
+        let started = Instant::now();
+        let ran = proxy_loop(
+            Cursor::new(Vec::<u8>::new()),
+            ChanWriter::new(out_tx),
+            Vec::new(),
+            BufReader::new(ChanReader {
+                rx: response_rx,
+                pending: Vec::new(),
+                pos: 0,
+            }),
+            &|_, _, _, _| panic!("EOF reached admission"),
+        );
+        ran.unwrap();
+        assert!(started.elapsed() < Duration::from_secs(2));
+        // Release the simulated inherited pipe after the bounded drain. Its late bytes
+        // must not escape into the client after the proxy has returned.
+        let _ = response_tx.send("late output\n".to_string());
+        drop(response_tx);
+        assert!(matches!(
+            out_rx.recv_timeout(SHUTDOWN_GRACE),
+            Err(mpsc::RecvTimeoutError::Disconnected)
+        ));
+    }
+
+    #[test]
+    fn child_eof_and_oversized_output_do_not_wait_for_client_eof() {
+        for oversized in [false, true] {
+            // Keep client input open while the child exits or fails framing.
+            let (input_tx, input_rx) = mpsc::channel();
+            let output = if oversized {
+                format!("{}\n", "x".repeat(MAX_MCP_FRAME_BYTES + 1))
+            } else {
+                String::new()
+            };
+            let (out_tx, out_rx) = mpsc::channel();
+            let started = Instant::now();
+            let ran = proxy_loop(
+                BufReader::new(ChanReader {
+                    rx: input_rx,
+                    pending: Vec::new(),
+                    pos: 0,
+                }),
+                ChanWriter::new(out_tx),
+                Vec::new(),
+                Cursor::new(output),
+                &|_, _, _, _| panic!("idle client reached admission"),
+            );
+            assert!(started.elapsed() < Duration::from_secs(2));
+            if oversized {
+                assert_eq!(ran.unwrap_err().kind(), std::io::ErrorKind::InvalidData);
+            } else {
+                ran.unwrap();
+            }
+            // The detached input reader cannot admit or write after return.
+            let _ = input_tx.send("late input\n".into());
+            drop(input_tx);
+            assert!(matches!(
+                out_rx.try_recv(),
+                Err(mpsc::TryRecvError::Disconnected)
+            ));
+        }
+    }
 
     struct ChanWriter {
         tx: Option<mpsc::Sender<String>>,
@@ -598,7 +926,7 @@ mod tests {
         });
         let (out_tx, out_rx) = mpsc::channel::<String>();
         let gate = gate.clone();
-        proxy_loop(
+        let ran = proxy_loop(
             Cursor::new(input),
             ChanWriter::new(out_tx),
             ChanWriter::new(child_tx),
@@ -607,7 +935,7 @@ mod tests {
                 pending: Vec::new(),
                 pos: 0,
             }),
-            &move |tool, dest, usd| {
+            &move |tool, dest, usd, _| {
                 if let Some(usd) = usd {
                     if gate.spend_add("shop-bot", usd).is_err() {
                         return Some("store_unavailable".into());
@@ -618,8 +946,8 @@ mod tests {
                     AdmitDecision::Deny { code } => Some(code.as_str().to_string()),
                 }
             },
-        )
-        .unwrap();
+        );
+        ran.unwrap();
         let seen = seen.lock().unwrap().clone();
         let mut out = Vec::new();
         while let Ok(line) = out_rx.try_recv() {

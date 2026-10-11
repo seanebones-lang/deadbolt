@@ -23,6 +23,10 @@ use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
+mod actions;
+pub use actions::ActionRequest;
+mod credentials;
+pub use credentials::CredentialStatus;
 mod mcp;
 mod serve;
 mod witness;
@@ -161,7 +165,7 @@ pub enum DeadboltError {
     /// Bind was not loopback. `0.0.0.0` is refused.
     #[error("deadbolt:bind_refused")]
     BindRefused,
-    /// TCP serve started without a token.
+    /// TCP serve needs an operator token, or an admission credential is invalid.
     #[error("deadbolt:token_required")]
     TokenRequired,
     /// Export refused. The string is a code token, not prose.
@@ -332,6 +336,24 @@ impl JsonlSqliteSink {
                clip_cids TEXT NOT NULL,
                swarm_task_id TEXT,
                updated_at INTEGER NOT NULL
+             );
+             CREATE TABLE IF NOT EXISTS exact_action_requirements (
+               agent_id TEXT NOT NULL, tool TEXT NOT NULL,
+               PRIMARY KEY(agent_id,tool)
+             );
+             CREATE TABLE IF NOT EXISTS action_grants (
+               agent_id TEXT NOT NULL, nonce TEXT NOT NULL, tool TEXT NOT NULL,
+               fingerprint TEXT NOT NULL, expires_at INTEGER NOT NULL,
+               consumed_at INTEGER, revoked_at INTEGER, created_at INTEGER NOT NULL,
+               PRIMARY KEY(agent_id,nonce)
+             );
+             CREATE TABLE IF NOT EXISTS admission_credentials (
+               credential_id TEXT PRIMARY KEY,
+               agent_id TEXT NOT NULL,
+               token_hash TEXT NOT NULL UNIQUE,
+               expires_at INTEGER NOT NULL,
+               revoked_at INTEGER,
+               created_at INTEGER NOT NULL
              );
              CREATE TABLE IF NOT EXISTS events (
                seq INTEGER PRIMARY KEY,
@@ -721,6 +743,42 @@ impl Deadbolt {
         self.decide(agent_id, tool, dest, true)
     }
 
+    /// Check admission immediately before invoking a trusted tool body.
+    /// Denial returns its code without calling `body`. The callback's return
+    /// value (including any tool error) is preserved; panics are not caught.
+    /// This does not intercept other dispatch paths or cancel running work.
+    pub fn dispatch<T>(
+        &self,
+        agent_id: &str,
+        tool: &str,
+        dest: Option<&str>,
+        body: impl FnOnce() -> T,
+    ) -> Result<T, DenyCode> {
+        match self.admit_dest(agent_id, tool, dest) {
+            AdmitDecision::Allow => Ok(body()),
+            AdmitDecision::Deny { code } => Err(code),
+        }
+    }
+
+    /// Async callback variant. Admission happens when this future is polled,
+    /// before constructing or awaiting the body. SQLite admission is synchronous;
+    /// hosts should account for its I/O and contention when sizing their runtime.
+    pub async fn dispatch_async<T, Fut>(
+        &self,
+        agent_id: &str,
+        tool: &str,
+        dest: Option<&str>,
+        body: impl FnOnce() -> Fut,
+    ) -> Result<T, DenyCode>
+    where
+        Fut: std::future::Future<Output = T>,
+    {
+        match self.admit_dest(agent_id, tool, dest) {
+            AdmitDecision::Allow => Ok(body().await),
+            AdmitDecision::Deny { code } => Err(code),
+        }
+    }
+
     /// Recheck before the tool body. Records only a new denial.
     pub fn probe(&self, agent_id: &str, tool: &str) -> AdmitDecision {
         self.decide(agent_id, tool, None, false)
@@ -795,7 +853,20 @@ impl Deadbolt {
             &g.conn,
             rusqlite::TransactionBehavior::Immediate,
         )?;
-        let lease = match load_lease(&tx, agent_id) {
+        let decision = self.evaluate_in_transaction(&tx, agent_id, tool, dest, false)?;
+        tx.commit()?;
+        Ok(decision)
+    }
+
+    fn evaluate_in_transaction(
+        &self,
+        tx: &rusqlite::Transaction<'_>,
+        agent_id: &str,
+        tool: &str,
+        dest: Option<&str>,
+        exact: bool,
+    ) -> Result<AdmitDecision, rusqlite::Error> {
+        let lease = match load_lease(tx, agent_id) {
             Ok(v) => v,
             Err(_) => {
                 return Ok(AdmitDecision::Deny {
@@ -829,27 +900,23 @@ impl Deadbolt {
                     "UPDATE leases SET state='paused', updated_at=?1 WHERE agent_id=?2 AND state!='killed'",
                     params![now_secs(), agent_id],
                 )?;
-                tx.commit()?;
                 return Ok(AdmitDecision::Deny {
                     code: DenyCode::SpendCap,
                 });
             }
         }
         if lease.state == "paused" {
-            tx.commit()?;
             return Ok(AdmitDecision::Deny {
                 code: DenyCode::Paused,
             });
         }
         if lease.clips.iter().any(|c| c == tool) {
-            tx.commit()?;
             return Ok(AdmitDecision::Deny {
                 code: DenyCode::PurposeExceeded,
             });
         }
         if let Some(allow) = &lease.tools_allow {
             if !allow.iter().any(|t| t == tool) {
-                tx.commit()?;
                 return Ok(AdmitDecision::Deny {
                     code: DenyCode::PurposeExceeded,
                 });
@@ -859,18 +926,27 @@ impl Deadbolt {
             let foreign = dest.is_some_and(|d| !allow.iter().any(|h| h.eq_ignore_ascii_case(d)));
             let missing_network = dest.is_none() && network_class(tool);
             if foreign || missing_network {
-                tx.commit()?;
                 return Ok(AdmitDecision::Deny {
                     code: DenyCode::PurposeExceeded,
                 });
             }
         }
-        let shot = lease
-            .irreversible
-            .as_ref()
-            .is_some_and(|list| list.iter().any(|t| t == tool));
+        let exact_required: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM exact_action_requirements WHERE agent_id=?1 AND tool=?2)",
+            params![agent_id, tool],
+            |r| r.get(0),
+        )?;
+        if exact_required && !exact {
+            return Ok(AdmitDecision::Deny {
+                code: DenyCode::NeedsHuman,
+            });
+        }
+        let shot = !exact
+            && lease
+                .irreversible
+                .as_ref()
+                .is_some_and(|list| list.iter().any(|t| t == tool));
         if shot && !lease.approvals.iter().any(|t| t == tool) {
-            tx.commit()?;
             return Ok(AdmitDecision::Deny {
                 code: DenyCode::NeedsHuman,
             });
@@ -888,7 +964,6 @@ impl Deadbolt {
                 params![raw, agent_id],
             )?;
         }
-        tx.commit()?;
         Ok(AdmitDecision::Allow)
     }
 
@@ -1139,6 +1214,8 @@ impl Deadbolt {
                 if lease.state == "killed" {
                     return Err(DeadboltError::Killed);
                 }
+                let required:bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM exact_action_requirements WHERE agent_id=?1 AND tool=?2)", params![agent_id,tool], |r|r.get(0)).map_err(|_|DeadboltError::StoreUnavailable)?;
+                if required { return Err(DeadboltError::BadRequest); }
                 if !lease.approvals.iter().any(|t| t == tool) {
                     lease.approvals.push(tool.to_string());
                 }
@@ -1465,7 +1542,7 @@ impl Deadbolt {
     /// In-process scenario. Uses a temp store. Does not touch `~/.deadbolt`.
     pub fn drill() -> Result<(), DeadboltError> {
         let dir = DrillDir::new()?;
-        let db = Self::open_at(&dir.0, true, 60);
+        let db = Self::open_at(dir.0.path(), true, 60);
         db.ensure_agent("drill-a")?;
         db.ensure_agent("drill-b")?;
         match db.admit("drill-a", "read_file") {
@@ -1548,8 +1625,13 @@ impl Deadbolt {
             } => {}
             _ => return Err(DeadboltError::DrillFailed("expire")),
         }
-        let blocked = dir.0.join("not-a-directory");
-        fs::write(&blocked, b"x").map_err(|_| DeadboltError::DrillFailed("fixture"))?;
+        let blocked = dir.0.path().join("not-a-directory");
+        OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&blocked)
+            .and_then(|mut file| file.write_all(b"x"))
+            .map_err(|_| DeadboltError::DrillFailed("fixture"))?;
         let closed = Self::open_paths(
             &blocked.join("deadbolt.db"),
             &blocked.join("events.jsonl"),
@@ -1860,23 +1942,23 @@ impl EvidenceSink for ClosedWitness {
     }
 }
 
-struct DrillDir(PathBuf);
+struct DrillDir(tempfile::TempDir);
 
 impl DrillDir {
     fn new() -> Result<Self, DeadboltError> {
-        let dir = std::env::temp_dir().join(format!(
-            "deadbolt-drill-{}-{}",
-            std::process::id(),
-            now_secs()
-        ));
-        fs::create_dir_all(&dir).map_err(|_| DeadboltError::DrillFailed("tempdir"))?;
+        // Exclusive creation and private permissions are required even when
+        // the system temporary root is shared with other local accounts.
+        let mut builder = tempfile::Builder::new();
+        builder.prefix("deadbolt-drill-");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            builder.permissions(fs::Permissions::from_mode(0o700));
+        }
+        let dir = builder
+            .tempdir()
+            .map_err(|_| DeadboltError::DrillFailed("tempdir"))?;
         Ok(Self(dir))
-    }
-}
-
-impl Drop for DrillDir {
-    fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.0);
     }
 }
 
@@ -2528,6 +2610,44 @@ mod tests {
     #[test]
     fn drill_ok() {
         Deadbolt::drill().unwrap();
+    }
+
+    #[test]
+    fn drill_workspaces_are_private_and_independent() {
+        let first = DrillDir::new().unwrap();
+        let second = DrillDir::new().unwrap();
+        assert_ne!(first.0.path(), second.0.path());
+        let first_path = first.0.path().to_path_buf();
+        let marker = second.0.path().join("keep");
+        fs::write(&marker, b"second workspace").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(first.0.path()).unwrap().permissions().mode() & 0o777,
+                0o700
+            );
+        }
+        drop(first);
+        assert!(!first_path.exists());
+        assert_eq!(fs::read(marker).unwrap(), b"second workspace");
+    }
+
+    #[test]
+    fn concurrent_drills_do_not_share_state() {
+        let barrier = Arc::new(std::sync::Barrier::new(8));
+        let workers: Vec<_> = (0..8)
+            .map(|_| {
+                let barrier = Arc::clone(&barrier);
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    Deadbolt::drill()
+                })
+            })
+            .collect();
+        for worker in workers {
+            worker.join().unwrap().unwrap();
+        }
     }
 
     #[test]

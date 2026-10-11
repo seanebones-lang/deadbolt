@@ -1,7 +1,7 @@
 [package]
 name = "n11-deadbolt"
 description = "Local execution gate for software agents: leases, policy, operator revocation, and structured evidence."
-version = "1.0.3"
+version = "1.1.0-rc.1"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/seanebones-lang/deadbolt"
@@ -39,6 +39,9 @@ include = [
     "dist/collect_licenses.py",
     "Cargo.toml",
     "Cargo.lock",
+    "pyproject.toml",
+    "requirements.lock",
+    "MANIFEST.in",
 ]
 rust-version = "1.85"
 
@@ -47,13 +50,13 @@ clap = { version = "4", features = ["derive"] }
 dirs = "5"
 rusqlite = { version = "0.31", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["float_roundtrip"] }
+serde_jcs = "=0.2.0"
 sha2 = "0.10"
 thiserror = "1"
 tokio = { version = "1", features = ["time"] }
-
-[dev-dependencies]
 tempfile = "3"
+getrandom = "0.4"
 
 [[bin]]
 name = "deadbolt"

@@ -13,6 +13,87 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  python-dependency-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pip-audit==2.10.1
+      - name: Audit the pinned optional SDK and build dependency set
+        run: pip-audit --no-deps --disable-pip --progress-spinner off --format json --output python-dependency-audit.json --requirement tests/openai-agents-requirements.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: python-dependency-audit
+          path: python-dependency-audit.json
+          retention-days: 7
+          if-no-files-found: warn
+  python-integration:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          toolchain: stable
+      - run: cargo build --locked --bin deadbolt
+      - run: python -m pip install build==1.3.0
+      - name: Verify outside-checkout packaging and install the pinned SDK contract
+        run: python tests/python_package_acceptance.py --install-sdk
+      - name: Real SDK Runner and sidecar acceptance without API requests
+        run: python tests/openai_agents_acceptance.py
+        if: runner.os != 'Windows'
+      - name: Real SDK Runner and sidecar acceptance without API requests
+        run: python tests/openai_agents_acceptance.py
+        if: runner.os == 'Windows'
+        env:
+          DEADBOLT_BIN: target/debug/deadbolt.exe
+      - name: Offline one-command SDK integration demo
+        run: python examples/openai_agents_demo.py --binary target/debug/deadbolt
+        if: runner.os != 'Windows'
+      - name: Offline one-command SDK integration demo
+        run: python examples/openai_agents_demo.py --binary target/debug/deadbolt.exe
+        if: runner.os == 'Windows'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: python-client-${{ matrix.os }}
+          path: release-artifacts/python/*
+          retention-days: 7
+          if-no-files-found: error
+  dependency-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          toolchain: stable
+      - run: cargo install cargo-audit --version 0.22.2 --locked
+      - name: Check locked dependencies against the current RustSec database
+        run: cargo audit --json > rustsec-audit.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: rustsec-audit
+          path: rustsec-audit.json
+          retention-days: 7
+          if-no-files-found: warn
   test:
     strategy:
       fail-fast: false
@@ -35,6 +116,8 @@ jobs:
         with:
           node-version: '22'
       - run: cargo fmt --check
+      - name: Verify archive signing preflight without credentials
+        run: python tests/release_contract.py
       - name: Repeat independent-connection concurrency tests
         if: runner.os == 'Windows'
         shell: pwsh
@@ -64,6 +147,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
       - uses: dtolnay/rust-toolchain@3230091d7ef9483f601620abacc570c22cf44d22 # 1.85.0
         with:
           toolchain: 1.85.0
@@ -72,3 +158,5 @@ jobs:
         env:
           RUSTDOCFLAGS: '-D warnings'
       - run: cargo package --locked
+      - name: Verify an outside-checkout embedded consumer
+        run: python tests/packaged_consumer.py

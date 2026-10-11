@@ -1,7 +1,13 @@
-# Adoption roadmap after v1.0.2
+# Developer adoption roadmap
 
 The immediate goal is reproducible use by developers outside NextEleven.
 This roadmap describes intended work, not completed adoption or release promises.
+
+The current candidate adds an installable Python client and a tested OpenAI
+function-tool adapter. Follow [next architecture decisions](ARCHITECTURE-NEXT.md)
+for architectural rationale. Scoped admission credentials and exact-action grants
+are implemented in the 1.1.0-rc.1 prerelease; operator setup inspection
+and outside application acceptance remain open. Publication is a separate gate.
 
 | Order | Milestone | Completion evidence |
 | --- | --- | --- |
