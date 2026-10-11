@@ -103,24 +103,24 @@ returned directory path. There are no real emails, payments or account actions.
 
 1. Call `demo_write_marker({})`. The allow-listed action adds one line.
 2. Call `demo_off_list({})`. The policy blocks it with `purpose_exceeded`; no line
-   is added.
+    is added.
 3. Call `demo_publish_marker({})`. It is deliberately classified as irreversible
-   for the demonstration and returns `needs_human`; no line is added.
+    for the demonstration and returns `needs_human`; no line is added.
 4. In your trusted operator terminal, run:
 
-   ```sh
-   python3 editor_setup.py operator --out "$OUT" --demo "$DEMO" approve
-   ```
+    ```sh
+    python3 editor_setup.py operator --out "$OUT" --demo "$DEMO" approve
+    ```
 
-   Call `demo_publish_marker({})` once. It writes a line. A second attempt needs
-   approval again.
+    Call `demo_publish_marker({})` once. It writes a line. A second attempt needs
+    approval again.
 5. Revoke the run from the operator terminal:
 
-   ```sh
-   python3 editor_setup.py operator --out "$OUT" --demo "$DEMO" kill
-   ```
+    ```sh
+    python3 editor_setup.py operator --out "$OUT" --demo "$DEMO" kill
+    ```
 
-   The next marker call returns `killed` and leaves the file unchanged.
+    The next marker call returns `killed` and leaves the file unchanged.
 
 Inspect the demo's `effects.txt` and `events.jsonl`. A tool's error response is
 useful; evidence that its body did not run is the stronger check. An editor's
