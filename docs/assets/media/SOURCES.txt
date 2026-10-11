@@ -1,0 +1,21 @@
+SOURCE AND CLAIM BOUNDARIES — reviewed 2026-10-10 America/Chicago
+
+DeadBolt runtime candidate: 6bbdf109b4ce5e26d56b466179f98ed9686ddbcf
+DeadBolt documentation: 35a2d0dcb488ad8dffa926c9c61f55fd16b1975e
+Harness integration: 5c7716610905fa1ffc62ca4e94ceec3ce6ed3db2
+Published DeadBolt: v1.0.3. Candidate changes remain unmerged/unreleased.
+
+Primary external guidance:
+https://developers.openai.com/api/docs/guides/agents/guardrails-approvals
+https://genai.owasp.org/llmrisk/llm062025-excessive-agency/
+https://www.rfc-editor.org/info/rfc8785/
+https://developers.openai.com/api/docs/guides/text-to-speech
+
+The engineering need for deterministic execution control is our design judgment informed by the cited guidance. No universal legal requirement or endorsement of DeadBolt is claimed.
+Narration: AI-generated Cedar voice, OpenAI text-to-speech, generated with user-approved existing credential. No secrets are included in this package.
+Harness demo: actual optimized binary and real dispatcher; deterministic synthetic local provider. No model-provider requests made by Harness. Temporary/demo-only local file effects.
+Educational slides and decision visualizations are presentation assets, not a shipped DeadBolt dashboard. Harness screenshot is the actual running product UI.
+Sidecar destination demonstrations check host tokens and local callbacks; they do not prove network enforcement.
+Evidence packages describe tests at pinned source, not arbitrary agent containment, external-effect completion, legal compliance, adoption or certification.
+
+Video accessibility: permanent high-contrast English captions in the website MP4s; script-based caption text aligned to measured word timestamps. Separate SRT and WebVTT available.

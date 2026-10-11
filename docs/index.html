@@ -20,6 +20,7 @@
   <header class="topbar">
     <a class="wordmark" href="#top" aria-label="Deadbolt home"><span class="mark" aria-hidden="true">↯</span> DEADBOLT</a>
     <nav aria-label="Main navigation">
+      <a href="#watch">Watch</a>
       <a href="#how-it-works">How it works</a>
       <a href="#leadership">For leaders</a>
       <a href="https://github.com/seanebones-lang/deadbolt">Source ↗</a>
@@ -36,12 +37,33 @@
           <a class="button button-orange" href="https://github.com/seanebones-lang/deadbolt/blob/v1.0.3/docs/FIRST-EVALUATION.md">I build these systems <span aria-hidden="true">↗</span></a>
           <a class="button button-outline" href="#leadership">I lead a team using them <span aria-hidden="true">↓</span></a>
         </div>
+        <p class="hero-watch"><a href="#watch">Watch DeadBolt and Harness in action ↓</a></p>
         <p class="micro">Designed, built and released under Apache-2.0 by NextEleven LLC. Open source, without a license fee or an intention to profit from Deadbolt itself.</p>
       </div>
       <div class="hero-art">
         <div class="image-frame"><img src="assets/deadbolt-power-mark.png" width="2400" height="1254" alt="Deadbolt lock and lightning mark. Hard stop. Zero negotiation. A NextEleven LLC project." fetchpriority="high"></div>
         <div class="art-caption"><span>01 / THE CONTROL POINT</span><span>INTENT ≠ PERMISSION</span></div>
       </div>
+    </section>
+
+
+    <section class="watch wrap" id="watch" aria-labelledby="watch-title">
+      <div class="section-head"><p class="section-index">WATCH / LEARN / VERIFY</p><h2 id="watch-title">See the boundary hold.</h2></div>
+      <p class="watch-intro">Start with the overview, then follow the complete developer walkthrough—from installation and integration to approval, revocation, recovery and real tool execution inside Harness.</p>
+      <div class="watch-tabs" role="group" aria-label="Choose a video">
+        <button type="button" id="overview-choice" aria-pressed="true">Overview · 4:31</button>
+        <button type="button" id="full-choice" aria-pressed="false">Full walkthrough · 21:17</button>
+      </div>
+      <video id="walkthrough-video" controls playsinline preload="metadata" poster="assets/media/poster.jpg" aria-label="DeadBolt overview, with narration and visible English captions">
+        <source src="assets/media/deadbolt-showcase-extract-cedar-captioned.mp4" type="video/mp4">
+        Your browser does not support embedded video. <a href="assets/media/deadbolt-showcase-extract-cedar-captioned.mp4">Download the captioned overview.</a>
+      </video>
+      <p id="video-description" class="video-description" aria-live="polite">Overview: the execution boundary, exact-action approval preview, actual Harness terminal and web UI, and how to start a bounded pilot.</p>
+      <p class="caption-note"><strong>English captions are always visible.</strong> No sound is needed. Narration uses the AI-generated Cedar voice. Harness runs its actual optimized binary with a deterministic local demo provider; the dispatcher and file-effect checks are real. Slides explain the system; they are presentation assets.</p>
+      <details id="video-chapters"><summary>Jump to a chapter in the full walkthrough</summary><div class="video-chapter-grid" id="chapter-buttons"><button type="button" data-start="0.000"><span>0:00</span> 01. DeadBolt: control at the point of action</button><button type="button" data-start="53.882"><span>0:53</span> 02. Why an agent needs an execution boundary</button><button type="button" data-start="113.483"><span>1:53</span> 03. How the boundary works</button><button type="button" data-start="164.969"><span>2:44</span> 04. Choose the right version and install</button><button type="button" data-start="223.122"><span>3:43</span> 05. Run a first evaluation without an AI account</button><button type="button" data-start="277.665"><span>4:37</span> 06. Build it into a Rust executor</button><button type="button" data-start="328.437"><span>5:28</span> 07. Bolt it on with Python or Node</button><button type="button" data-start="378.433"><span>6:18</span> 08. Protect routed MCP tool calls</button><button type="button" data-start="436.586"><span>7:16</span> 09. OpenAI Agents SDK function tools</button><button type="button" data-start="492.812"><span>8:12</span> 10. Leases and run identity</button><button type="button" data-start="544.351"><span>9:04</span> 11. Pause, clip, resume and kill</button><button type="button" data-start="596.115"><span>9:56</span> 12. Set a useful blast radius</button><button type="button" data-start="652.276"><span>10:52</span> 13. Legacy one-shot approval</button><button type="button" data-start="704.935"><span>11:44</span> 14. Exact-action review: approve the content</button><button type="button" data-start="758.201"><span>12:38</span> 15. Exact-action representation and recovery</button><button type="button" data-start="816.747"><span>13:36</span> 16. Scoped admission credentials</button><button type="button" data-start="874.176"><span>14:34</span> 17. Lineage: revoke one run and its children</button><button type="button" data-start="935.438"><span>15:35</span> 18. Evidence and incident exports</button><button type="button" data-start="995.316"><span>16:35</span> 19. Outages, restart and deployment</button><button type="button" data-start="1059.198"><span>17:39</span> 20. Inside the actual Harness terminal</button><button type="button" data-start="1114.411"><span>18:34</span> 21. Inside the actual Harness web UI</button><button type="button" data-start="1163.172"><span>19:23</span> 22. A failure that improved the integration</button><button type="button" data-start="1217.385"><span>20:17</span> 23. Adopt it with evidence</button></div></details>
+      <div class="video-downloads"><a href="walkthrough.html">Read the complete transcript</a><a href="assets/media/deadbolt-walkthrough-cedar-captioned.mp4" download>Download full video</a><a href="assets/media/deadbolt-walkthrough-cedar.srt" download>Download SRT captions</a><a href="assets/media/SOURCES.txt">Sources & demonstration boundaries</a></div>
+      <div class="release-note"><strong>Released: v1.0.3. Preview: 1.1.0-rc.1.</strong> Exact-action approval, scoped admission credentials, and the updated Harness integration shown here are reviewed source candidates. They are not in the published v1.0.3 binaries. <a href="#preview">Review the candidate work below.</a></div>
+      <noscript><p><a href="assets/media/deadbolt-walkthrough-cedar-captioned.mp4">Open the complete captioned walkthrough</a>. Chapter timestamps and the full transcript are available on the <a href="walkthrough.html">transcript page</a>.</p></noscript>
     </section>
 
     <div class="rule wrap"><span>THE PROBLEM IS THE HANDOFF FROM INTENT TO EFFECT</span><span>↓</span></div>
@@ -66,7 +88,7 @@
           <div class="flow-step"><span class="flow-num">03</span><h3>Executor acts—or stops</h3><p>Only an explicit allow reaches the protected body.</p></div>
         </div>
         <div class="decision-line"><span class="decision-allow">ALLOW → execute now</span><span class="decision-deny">DENY / ERROR → no protected dispatch</span></div>
-        <p class="mechanism-note">This is an integration boundary, not a magic network shield. The trusted executor must route every protected action through it and must not cache an earlier allow.</p>
+        <p class="mechanism-note">This is an integration boundary, not a magic network shield. The trusted executor must route every protected action through it and must not cache an earlier allow. Pause and kill affect subsequent admission; they do not cancel a tool body already running.</p>
       </div>
     </section>
 
@@ -92,6 +114,17 @@
       </div>
     </section>
 
+
+    <section class="install wrap" id="install" aria-labelledby="install-title">
+      <div class="section-head"><p class="section-index">DEVELOPER START / V1.0.3</p><h2 id="install-title">One bounded action. One working gate.</h2></div>
+      <div class="install-grid"><article><h3>Use a native release</h3><p>Download the archive and its checksum for your platform. Verify it, extract it and run <code>deadbolt drill</code>. A prebuilt binary needs no Rust toolchain, model key, cloud account or database server.</p><p>macOS arm64 and Intel archives are signed and notarized. Linux and Windows binaries are unsigned.</p><a class="text-link" href="https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.3">Download v1.0.3 ↗</a><p><a href="https://github.com/seanebones-lang/deadbolt/blob/v1.0.3/docs/RELEASING.md#install-an-archive">Checksum & archive instructions ↗</a></p></article>
+      <article><h3>Build from reviewed source</h3><pre><code>cargo install --git https://github.com/seanebones-lang/deadbolt.git --tag v1.0.3 --locked --bin deadbolt
+deadbolt --version
+deadbolt drill</code></pre><p>Source builds require Rust 1.85 or later plus a native compiler for bundled SQLite. Expected output: <code>deadbolt drill ok</code>.</p><a href="https://github.com/seanebones-lang/deadbolt/blob/v1.0.3/docs/INSTALL.md">Full installation guide ↗</a></article></div>
+      <div class="integration-paths"><p><strong>Build in:</strong> call the Rust library immediately before a protected body.</p><p><strong>Bolt on:</strong> use a trusted Python or Node dispatcher with the local HTTP service, or route protected stdio MCP tool calls through the proxy.</p><p><strong>Prove the effect:</strong> run the first evaluation, confirm allowed work creates its file and denied work does not, then repeat that test inside your application.</p></div>
+      <p class="install-note">The published Python and Node clients are source files. Use the linked source and release instructions; this page does not promise a crates.io, PyPI or npm installation. Set an explicit policy: an unset policy is open. Keep operator authority out of agent-controlled code.</p>
+    </section>
+
     <section class="brief" id="executive-brief" aria-labelledby="brief-title">
       <div class="wrap brief-grid">
         <div><p class="section-index">04 / EXECUTIVE BRIEF</p><h2 id="brief-title">A kill switch is only useful if it is wired to the machinery.</h2></div>
@@ -114,8 +147,16 @@
       <div class="wrap evidence-grid"><div><p class="section-index">06 / WHAT IS VERIFIED</p><h2 id="evidence-title">Evidence before adjectives.</h2></div><div><p>The v1.0.3 release includes source, native archives for four OS/architecture targets, checksums, reproducible evaluation material and an Apache-2.0 license. Its published Apple Silicon archive passed eleven local file-effect checks from the extracted ZIP. Linux, macOS and Windows CI plus the selected Hermes MCP route passed on the reviewed source.</p><p>That is a tested release and a reproducible demonstration. It is not an independent security certification, a universal containment guarantee, or proof of adoption in someone else’s production system.</p><a class="text-link light" href="https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.3">Inspect the release and evidence <span aria-hidden="true">↗</span></a></div></div>
     </section>
 
-    <section class="origin wrap" aria-labelledby="origin-title"><p class="section-index">07 / WHY WE RELEASED IT</p><div><h2 id="origin-title">Built in the open for the people carrying the risk.</h2><p>NextEleven LLC designed, developed and built Deadbolt, then released it under Apache-2.0 so teams can inspect it, adapt it and use it without a license fee. We do not intend to profit from Deadbolt itself. The aim is a practical contribution to safer AI in business and more confidence for the engineers asked to put agents into real systems.</p><p>Open source is a starting point for scrutiny, not a substitute for it. We welcome careful evaluation, issues, improvements and honest reports from the field.</p><div class="origin-links"><a class="button button-orange" href="https://github.com/seanebones-lang/deadbolt">Review the source <span aria-hidden="true">↗</span></a><a class="button button-outline dark-outline" href="https://github.com/seanebones-lang/deadbolt/issues/new/choose">Report an issue <span aria-hidden="true">↗</span></a></div></div></section>
+
+    <section class="preview wrap" id="preview" aria-labelledby="preview-title"><div class="section-head"><p class="section-index">REVIEWED CANDIDATE / NOT YET RELEASED</p><h2 id="preview-title">What we are improving next.</h2></div>
+      <div class="preview-grid"><article><h3>Approve the exact action</h3><p>Review the proposed content and context, consume a grant once, and refuse changed or replayed requests. Scope workload admission credentials separately from operator controls.</p><a href="https://github.com/seanebones-lang/deadbolt/pull/21">Exact-action candidate & verification ↗</a></article><article><h3>Make integration easier</h3><p>Clearer installation and integration guides, complete examples, and explicit distinctions between the stable binary, source candidates and the Python SDK packaging path.</p><a href="https://github.com/seanebones-lang/deadbolt/pull/22">Developer onboarding review ↗</a></article><article><h3>Admit after human review</h3><p>The Harness update rechecks immediately before the protected effect. Declined review does not consume a one-shot grant. Changes to policy or leases during review are covered by regressions.</p><a href="https://github.com/seanebones-lang/harness/pull/8">Harness integration & tests ↗</a></article></div>
+      <p class="install-note">Local verification at the pinned revisions: 96 DeadBolt Rust tests, 19 installed-SDK checks, and 825 Harness workspace tests. The walkthrough contains 14 candidate checks, the 11-case file-effect evaluation, and actual Harness allow/deny effects. Passing tests support these specific checks; they do not establish universal containment or certification. <a href="assets/media/SOURCES.txt">Pinned revisions and boundaries</a>.</p>
+    </section>
+
+    <section class="origin wrap" aria-labelledby="origin-title"><p class="section-index">07 / WHY WE RELEASED IT</p><div><h2 id="origin-title">Built in the open for the people carrying the risk.</h2><p>NextEleven LLC designed, developed and built Deadbolt, then released it under Apache-2.0 so teams can inspect it, adapt it and use it without a license fee. We do not intend to profit from Deadbolt itself. The aim is a practical contribution to safer AI in business and more confidence for the engineers asked to put agents into real systems.</p><p>Page and walkthrough reviewed October 10, 2026. Open source is a starting point for scrutiny, not a substitute for it. We welcome careful evaluation, issues, improvements and honest reports from the field.</p><div class="origin-links"><a class="button button-orange" href="https://github.com/seanebones-lang/deadbolt">Review the source <span aria-hidden="true">↗</span></a><a class="button button-outline dark-outline" href="https://github.com/seanebones-lang/deadbolt/issues/new/choose">Report an issue <span aria-hidden="true">↗</span></a></div></div></section>
   </main>
   <footer class="footer"><div class="wrap footer-inner"><span>DEADBOLT <small>© 2026 NextEleven LLC</small></span><div><a href="https://github.com/seanebones-lang/deadbolt/blob/main/LICENSE">Apache-2.0</a><a href="https://github.com/seanebones-lang/deadbolt/blob/main/SECURITY.md">Security</a><a href="https://github.com/seanebones-lang/deadbolt">GitHub</a></div></div></footer>
+
+<script src="assets/walkthrough.js" defer></script>
 </body>
 </html>

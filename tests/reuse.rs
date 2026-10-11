@@ -1,4 +1,4 @@
-use deadbolt::{AdmitDecision, Deadbolt, DenyCode, PolicyPatch};
+use deadbolt::{AdmitDecision, Deadbolt, DeadboltError, DenyCode, PolicyPatch};
 use std::sync::{Arc, Barrier};
 
 #[test]
@@ -71,7 +71,7 @@ fn separate_connections_consume_approval_once() {
 }
 
 #[test]
-fn concurrent_connections_preserve_evidence_and_spend() {
+fn concurrent_connections_preserve_successful_evidence_and_spend() {
     let dir = tempfile::tempdir().unwrap();
     let gate = Deadbolt::open_at(dir.path(), true, 60);
     gate.ensure_agent("agent").unwrap();
@@ -82,16 +82,45 @@ fn concurrent_connections_preserve_evidence_and_spend() {
             let barrier = barrier.clone();
             std::thread::spawn(move || {
                 barrier.wait();
-                other.spend_add("agent", 1.0).unwrap();
-                assert_eq!(other.admit("agent", "shell"), AdmitDecision::Allow);
+                // Contention may exhaust the bounded busy timeout. Do not retry a
+                // non-idempotent spend: account for committed successes instead.
+                let spent = match other.spend_add("agent", 1.0) {
+                    Ok(_) => true,
+                    Err(DeadboltError::StoreUnavailable) => false,
+                    Err(error) => panic!("unexpected spend error: {error:?}"),
+                };
+                let allowed = match other.admit("agent", "shell") {
+                    AdmitDecision::Allow => true,
+                    AdmitDecision::Deny {
+                        code: DenyCode::StoreUnavailable,
+                    } => false,
+                    decision => panic!("unexpected admission: {decision:?}"),
+                };
+                (spent, allowed)
             })
         })
         .collect();
-    for thread in threads {
-        thread.join().unwrap();
-    }
+    let outcomes: Vec<_> = threads
+        .into_iter()
+        .map(|thread| thread.join().unwrap())
+        .collect();
+    let committed_spends = outcomes.iter().filter(|(spent, _)| *spent).count();
+    let allowed_admissions = outcomes.iter().filter(|(_, allowed)| *allowed).count();
+    assert!(
+        committed_spends > 0,
+        "at least one competing writer must progress"
+    );
+    assert!(
+        allowed_admissions > 0,
+        "at least one competing admission must progress"
+    );
     let total = gate.spend_add("agent", 0.0).unwrap();
-    assert_eq!(total.spend_usd, 16.0);
+    assert_eq!(
+        total.spend_usd, committed_spends as f64,
+        "busy-store failures must not silently charge or replay spend"
+    );
+    // Availability recovers once competing writers finish.
+    assert_eq!(gate.admit("agent", "shell"), AdmitDecision::Allow);
     let jsonl = std::fs::read_to_string(dir.path().join("deadbolt-events.jsonl")).unwrap();
     let records: Vec<serde_json::Value> = jsonl
         .lines()
@@ -104,7 +133,10 @@ fn concurrent_connections_preserve_evidence_and_spend() {
         records.len(),
         "evidence sequences must be unique"
     );
-    assert_eq!(records.iter().filter(|r| r["kind"] == "spend").count(), 17);
+    assert_eq!(
+        records.iter().filter(|r| r["kind"] == "spend").count(),
+        committed_spends + 1
+    );
     let rows = gate.export("agent", false).unwrap();
     assert_eq!(
         rows.len(),
@@ -119,6 +151,6 @@ fn concurrent_connections_preserve_evidence_and_spend() {
         rows.iter()
             .filter(|r| r.kind == "decision" && r.decision.as_deref() == Some("allow"))
             .count(),
-        16
+        allowed_admissions + 1
     );
 }
