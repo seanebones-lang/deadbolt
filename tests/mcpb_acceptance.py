@@ -78,14 +78,36 @@ const base = {manifest, extensionPath:process.argv[3], systemDirs:{}, pathSepara
         # Inherited proxy settings must not choose the real store or use tokens.
         env = {**os.environ, 'DEADBOLT_DB': str(w / 'wrong.db'), 'DEADBOLT_EVENTS': str(w / 'wrong-events'),
                'DEADBOLT_TOKEN': 'disposable-never-forwarded', 'DEADBOLT_ADMISSION_TOKEN': 'disposable-bad-token'}
-        def launch(file=config):
-            process = subprocess.Popen([node, resolved['args'][0], str(file)], env=env, stdin=subprocess.PIPE,
+        # Mirror hosted Node: import the entry point, bridge JS stdout writes,
+        # and expose an execPath that cannot launch an ordinary Node subprocess.
+        hosted = r'''
+const {pathToFileURL} = require('node:url');
+const entry = process.argv[1], config = process.argv[2];
+process.argv = ['node', entry, config];
+Object.defineProperty(process, 'execPath', {value:require('node:path').join(require('node:path').dirname(config),'not-a-node-executable')});
+const write = process.stdout.write.bind(process.stdout);
+let pending = '';
+process.stdout.write = (chunk, encoding, callback) => {
+ pending += chunk.toString();
+ let end;
+ while ((end = pending.indexOf('\n')) >= 0) {
+  write('HOST:' + pending.slice(0,end+1)); pending = pending.slice(end+1);
+ }
+ if (typeof encoding === 'function') encoding(); else if (callback) callback();
+ return true;
+};
+import(pathToFileURL(entry).href).catch(()=>process.exit(1));
+'''
+        def launch(file=config, embedded=False):
+            command = [node, '-e', hosted, resolved['args'][0], str(file)] if embedded else [node, resolved['args'][0], str(file)]
+            process = subprocess.Popen(command, env=env, stdin=subprocess.PIPE,
                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
             process.responses = queue.Queue()
             def read():
                 for line in process.stdout:
                     process.responses.put(line)
             threading.Thread(target=read, daemon=True).start()
+            process.embedded = embedded
             return process
         def operator(*cmd):
             op_env = {k:v for k,v in os.environ.items() if not k.startswith('DEADBOLT_')}
@@ -98,7 +120,11 @@ const base = {manifest, extensionPath:process.argv[3], systemDirs:{}, pathSepara
             seq += 1
             proc.stdin.write(json.dumps({'jsonrpc':'2.0','id':seq,'method':method,'params': params or {}})+'\n')
             proc.stdin.flush()
-            response = json.loads(proc.responses.get(timeout=10))
+            line = proc.responses.get(timeout=10)
+            if proc.embedded:
+                assert line.startswith('HOST:'), 'native output bypassed the host bridge'
+                line = line[5:]
+            response = json.loads(line)
             assert response['id'] == seq
             return response
         def call(tool, deny=None):
@@ -165,6 +191,26 @@ const base = {manifest, extensionPath:process.argv[3], systemDirs:{}, pathSepara
             proc.stdin.close()
             proc.wait(timeout=10)
         checks.append({'case': 'expiry_forced_by_disposable_operator_store', 'passed': True})
+        c['agent'] = 'embedded-host-test'
+        config.write_text(json.dumps(c))
+        proc = launch(embedded=True)
+        try:
+            assert 'result' in rpc('initialize')
+            assert len(rpc('tools/list')['result']['tools']) == 3
+            call('echo')
+            call('off_list', 'purpose_exceeded')
+            call('write_marker', 'needs_human')
+            operator('kill', '--agent', c['agent'])
+            call('echo', 'killed')
+        finally:
+            proc.stdin.close()
+            proc.wait(timeout=10)
+            assert proc.returncode == 0, proc.stderr.read()
+        count = starts.read_text()
+        dead = launch(embedded=True)
+        dead.communicate(timeout=10)
+        assert dead.returncode != 0 and starts.read_text() == count
+        checks.append({'case': 'embedded_import_host_stream_bridge_no_self_exec_and_killed_restart', 'passed': True})
         # A broken existing store must not start the configured child.
         c['database'] = str(w/'invalid-store.db')
         Path(c['database']).write_text('not sqlite')

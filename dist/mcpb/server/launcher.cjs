@@ -63,14 +63,19 @@ function runOperator(exe, c, args) {
 }
 function start(root, file) {
   const c = readConfig(file), exe = binary(root), env = environment(c);
-  // Create a missing lease using a no-op child, never the configured server.
+  // Create a missing lease using the verified engine's version command, never
+  // the configured server or process.execPath (an Electron helper in some hosts).
   // ensure_agent preserves terminal kill and does not renew an expired lease.
-  runOperator(exe, c, ['mcp-proxy', '--agent', c.agent, '--', process.execPath, '-e', '']);
+  runOperator(exe, c, ['mcp-proxy', '--agent', c.agent, '--', exe, '--version']);
   runOperator(exe, c, ['policy', '--agent', c.agent, '--tools', c.tools.join(','),
     '--dest', c.destinations.join(','), '--irreversible', c.irreversible_tools.join(','),
     '--spend-cap', String(c.spend_cap_usd)]);
   const child = spawn(exe, ['mcp-proxy', '--agent', c.agent, '--', c.command, ...c.args],
-    { env, stdio: ['pipe', 'inherit', 'inherit'], windowsHide: true, shell: false });
+    { env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, shell: false });
+  // Embedded hosts bridge JS writes to MCP; inherited native descriptors bypass
+  // that bridge. Forward all streams explicitly in both ordinary and hosted Node.
+  child.stdout.pipe(process.stdout);
+  child.stderr.pipe(process.stderr);
   process.stdin.pipe(child.stdin);
   child.stdin.on('error', () => {}); // Native failure may close the pipe first.
   let timer;
@@ -88,14 +93,13 @@ function start(root, file) {
     process.exitCode = Number.isInteger(code) ? code : 1;
   });
 }
-if (require.main === module) {
-  try {
-    if (process.argv.length !== 3) fail('config_file_required');
-    start(path.resolve(__dirname, '..'), process.argv[2]);
-  } catch {
-    // Do not echo configuration, paths, downstream arguments or credentials.
-    process.stderr.write('deadbolt-bundle:setup_failed (check README and operator configuration)\n');
-    process.exitCode = 1;
-  }
+// This is an executable entry point, including when an MCP host imports it.
+// A require.main guard silently skips startup in embedded Node runtimes.
+try {
+  if (process.argv.length !== 3) fail('config_file_required');
+  start(path.resolve(__dirname, '..'), process.argv[2]);
+} catch {
+  // Do not echo configuration, paths, downstream arguments or credentials.
+  process.stderr.write('deadbolt-bundle:setup_failed (check README and operator configuration)\n');
+  process.exitCode = 1;
 }
-module.exports = { readConfig, binary, environment, TARGETS };
