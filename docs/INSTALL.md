@@ -68,6 +68,10 @@ Linux arm64, Windows arm64 and Alpine/musl are outside the native asset matrix.
 
 ## Local MCP bundle (MCPB)
 
+For VS Code and Cursor, use [the editor installation kit](EDITORS.md): verify and
+unpack the published bundle, export configuration without changing profiles,
+and test disposable effects before connecting a real server.
+
 [Download bundle 1.1.0 directly from GitHub](https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v1.1.0/deadbolt-1.1.0.mcpb)
 without signing in. [Release notes and SHA256SUMS](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v1.1.0)
 are published alongside the bundle. It is also available through

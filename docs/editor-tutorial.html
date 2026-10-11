@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Put a permission gate between your agent and its tools · DeadBolt</title>
+<meta name="description" content="Install DeadBolt in VS Code and Cursor and verify denial, approval and revocation with disposable local MCP tools.">
+<link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="assets/site.css">
+<style>.guide{max-width:860px;padding-block:54px 80px}.guide h1{font-size:clamp(2.1rem,5vw,3.8rem);line-height:1.1;letter-spacing:-.045em}.guide h2{font-size:1.65rem;margin-top:2.8rem;letter-spacing:-.02em}.guide p,.guide li{font-size:1.06rem;line-height:1.8}.guide a{overflow-wrap:anywhere;text-underline-offset:3px}.guide pre{padding:22px;background:#151719;color:#f6f2ec;overflow-x:auto;line-height:1.7;border-radius:4px}.guide pre code{font-size:.9rem;white-space:pre}.guide code{font-family:var(--mono);font-size:.88em;overflow-wrap:anywhere}.guide-table-wrap{overflow-x:auto}.guide table{border-collapse:collapse;width:100%}.guide th,.guide td{border:1px solid var(--line);padding:14px;text-align:left;line-height:1.5}.guide-nav{display:flex;flex-wrap:wrap;gap:18px;font-weight:700;margin-bottom:28px}.download-callout{padding:22px;border:1px solid var(--line);margin-bottom:30px;line-height:1.7}.guide footer{border-top:1px solid var(--line);padding-top:25px;margin-top:50px}@media(max-width:760px){.guide{width:calc(100% - 36px)}.guide pre{padding:14px}.topbar nav{gap:1rem}.topbar nav a{font-size:.75rem}}</style>
+</head><body><a class="skip" href="#content">Skip to content</a>
+<header class="topbar"><a class="wordmark" href="index.html">DEADBOLT</a><nav aria-label="Main navigation"><a href="index.html#install">Downloads</a><a href="index.html#watch">Watch</a><a href="https://github.com/seanebones-lang/deadbolt">Source</a></nav></header>
+<main class="guide wrap" id="content"><nav class="guide-nav" aria-label="Editor guides"><a href="editors.html">Editor installation</a><a href="editor-tutorial.html">Practical tutorial</a><a href="assets/editor_setup.py" download="editor_setup.py">Download configuration helper</a></nav>
+<div class="download-callout"><strong>Start locally.</strong> Python 3.9+, Node.js 20+ and a checksum-verified bundle. No model account is needed for the disposable protocol test. Read-only setup provides no active protection.</div>
+<h1>Put a permission gate between your agent and its tools</h1>
+<p>An agent can understand a task and still attempt an action you did not authorize.
+The useful place to decide whether that action may run is the dispatcher that
+actually performs it. A prompt can explain the rules; a dispatcher can enforce
+them before a connected tool body starts.</p>
+<p>I built DeadBolt at NextEleven to provide that local admission point. It is free,
+open source under Apache-2.0, and usable as an embedded Rust library, local HTTP
+sidecar, or proxy in front of a trusted stdio MCP server. This walkthrough uses
+the MCP route, with disposable marker tools instead of real accounts.</p>
+<p><strong>Authorship disclosure:</strong> this article was drafted by an AI coding assistant.
+The implementation and instructions were checked against the real published
+bundle and disposable tool effects. Those checks do not establish that every
+agent, client or deployment is protected.</p>
+<h2>Choose one route to protect</h2>
+<p>For this example, the path is:</p>
+<pre><code class="language-text">Editor / MCP client
+        ↓ tools/call
+DeadBolt admission check ← trusted operator approval / kill
+        ↓ only after admission
+Trusted disposable MCP server
+        ↓
+Local marker file
+</code></pre>
+<p>The editor can request an action. The operator owns policy and approval. DeadBolt
+checks the routed request before forwarding it. The marker file makes it possible
+to distinguish a denied response from a tool that ran anyway.</p>
+<p>This is a specific integration boundary. The proxy does not intercept built-in
+terminal commands, file editing, other MCP connections or arbitrary network
+traffic. The child server retains its operating-system permissions and must be
+trusted. Initialization and non-tool MCP methods are outside the admission gate.</p>
+<h2>Start without a model account</h2>
+<p>Download <a href="https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v1.1.0/deadbolt-1.1.0.mcpb">DeadBolt MCP bundle 1.1.0</a>
+and <a href="https://seanebones-lang.github.io/deadbolt/assets/editor_setup.py">the configuration helper</a>.
+Review the helper, save both in Downloads, and use Python 3.9+ with Node.js 20+.
+The bundle supports Apple Silicon/Intel Macs, Linux x64 with glibc and Windows x64.</p>
+<p>From Downloads on macOS/Linux:</p>
+<pre><code class="language-sh">OUT=&quot;$HOME/.local/share/deadbolt/editor-1.1.0&quot;
+python3 editor_setup.py prepare --bundle deadbolt-1.1.0.mcpb --out &quot;$OUT&quot;
+python3 editor_setup.py verify --out &quot;$OUT&quot;
+</code></pre>
+<p>Windows users can follow the PowerShell equivalents in
+<a href="https://seanebones-lang.github.io/deadbolt/editors.html">the editor installation guide</a>.
+Use a new private directory outside any agent-editable workspace.</p>
+<p>The helper verifies the full bundle's published checksum, refuses to overwrite
+an installation, and exports configuration without modifying existing profiles.
+The verification starts a disposable server, tests real calls and removes its
+temporary state. It needs no model key, hosted operator endpoint or connected
+account. The bundle is version 1.1.0; its engine is stable 1.0.3.</p>
+<p>Expected results include:</p>
+<pre><code class="language-json">{&quot;case&quot;:&quot;allowed_marker&quot;,&quot;passed&quot;:true,&quot;body_ran&quot;:true}
+{&quot;case&quot;:&quot;purpose_exceeded&quot;,&quot;passed&quot;:true,&quot;body_ran&quot;:false}
+{&quot;case&quot;:&quot;needs_human&quot;,&quot;passed&quot;:true,&quot;body_ran&quot;:false}
+{&quot;case&quot;:&quot;killed&quot;,&quot;passed&quot;:true,&quot;body_ran&quot;:false}
+</code></pre>
+<p>The complete report also verifies one approved execution and that its approval
+is consumed. This is a protocol test with local effects, not a benchmark of a
+model's judgment or proof of enforcement in your application.</p>
+<h2>Add it to an editor</h2>
+<p>For Cursor, open the generated <code>install.html</code> and review the local command in its
+installation prompt. For VS Code, merge the exported <code>vscode-mcp.json</code> server
+entry into the configuration opened by <strong>MCP: Open User Configuration</strong>. Preserve
+existing servers. A new portable workspace configuration is also exported.</p>
+<p>Initially, only two read-only setup tools are available: an integration guide and
+a checksum check. <strong>Connected setup is not active protection.</strong> It starts no
+downstream server. Use this mode to check the runtime before wiring an action.
+An editor's AI chat may need its own account even though the local protocol test
+does not.</p>
+<h2>See denial, approval and revocation</h2>
+<p>Create a fresh disposable demo with:</p>
+<pre><code class="language-sh">python3 editor_setup.py demo --out &quot;$OUT&quot;
+</code></pre>
+<p>Use the returned directory's install link or configuration to add <strong>deadbolt-demo</strong>.
+Its three tools append their names to a fixed local file. Set <code>DEMO</code> to the
+returned directory path. There are no real emails, payments or account actions.</p>
+<ol>
+<li>
+<p>Call <code>demo_write_marker({})</code>. The allow-listed action adds one line.</p>
+</li>
+<li>
+<p>Call <code>demo_off_list({})</code>. The policy blocks it with <code>purpose_exceeded</code>; no line
+is added.</p>
+</li>
+<li>
+<p>Call <code>demo_publish_marker({})</code>. It is deliberately classified as irreversible
+for the demonstration and returns <code>needs_human</code>; no line is added.</p>
+</li>
+<li>
+<p>In your trusted operator terminal, run:</p>
+<pre><code class="language-sh">python3 editor_setup.py operator --out &quot;$OUT&quot; --demo &quot;$DEMO&quot; approve
+</code></pre>
+<p>Call <code>demo_publish_marker({})</code> once. It writes a line. A second attempt needs
+approval again.</p>
+</li>
+<li>
+<p>Revoke the run from the operator terminal:</p>
+<pre><code class="language-sh">python3 editor_setup.py operator --out &quot;$OUT&quot; --demo &quot;$DEMO&quot; kill
+</code></pre>
+<p>The next marker call returns <code>killed</code> and leaves the file unchanged.</p>
+</li>
+</ol>
+<p>Inspect the demo's <code>effects.txt</code> and <code>events.jsonl</code>. A tool's error response is
+useful; evidence that its body did not run is the stronger check. An editor's
+Allow/Run button permits an attempted call and does not grant operator approval.</p>
+<p>The default lease expires after 60 seconds without admission. If your setup or
+conversation takes longer, remove/stop the old demo connection and create a fresh
+one. Admission renews a live lease; reconnecting cannot revive an expired or
+killed ID. The automated verification handles this demonstration without a manual
+conversation delay.</p>
+<h2>Carry the boundary into your own application</h2>
+<p>Replace a trusted downstream server's direct launch with the DeadBolt proxy.
+Keep policy, approval and revocation in a separate trusted operator path. Remove
+the ungated direct connection, configure actual tool/destination conventions,
+and repeat the effect checks against one bounded action in your executor.</p>
+<p>Stable 1.0.3 approvals apply once to an agent/tool pair; they are not bound to
+exact arguments or recipients. A separately published 1.1.0 prerelease adds
+exact-action APIs for evaluation. Do not assume those features are in this bundle.</p>
+<p>DeadBolt does not cancel an action already running, make an external action atomic
+with admission, or protect routes you have not connected. Same-user malicious code
+can also reach same-user state: private folders are useful hygiene, not an OS
+sandbox. A deployment's executor and operator separation must be trustworthy.</p>
+<p>The next useful test is small: one real route, an allowed action, a denied action
+whose body stays untouched, and a revoked run that cannot perform the next effect.
+Measure installation time and what confused the developer before widening scope.</p>
+<p><a href="https://github.com/seanebones-lang/deadbolt">Source and installation guide</a>
+· <a href="https://seanebones-lang.github.io/deadbolt/#watch">Captioned overview and full walkthrough</a>
+· <a href="https://github.com/seanebones-lang/deadbolt/blob/main/docs/INTEGRATION.md">Integration boundaries</a></p>
+<p>If you try it, which step took the most work: installation, choosing the routed
+tools, or keeping operator authority separate from the agent?</p>
+<footer>Free and open source · Apache-2.0 · <a href="https://www.nexteleven.dev/deadbolt">Built by NextEleven</a></footer></main></body></html>

@@ -1,0 +1,34 @@
+{
+  "checked_at": "2026-10-11T22:25:27.048594+00:00",
+  "host": "macOS ARM64",
+  "bundle": "1.1.0",
+  "engine": "1.0.3",
+  "clients": [
+    {
+      "client": "Cursor",
+      "version": "3.21.16",
+      "checked": [
+        "Generated install URI opened review prompt with the expected command/arguments",
+        "Setup connected: two enabled tools",
+        "Private disposable configuration connected: three enabled tools"
+      ],
+      "isolation": "Separate user-data/extensions directory; MCP entries still shared through ~/.cursor/mcp.json; only test entries removed after testing"
+    },
+    {
+      "client": "VS Code",
+      "version": "1.141.0",
+      "checked": [
+        "Generated entry accepted by code --add-mcp in separate user-data directory",
+        "Started setup server; both setup tool definitions discovered",
+        "Started disposable server; all three demo tool definitions discovered"
+      ],
+      "isolation": "Separate user-data/extensions directory and empty workspace"
+    }
+  ],
+  "limitations": [
+    "No model-mediated tool invocation in GUI clients",
+    "Effect assertions exercised the real published bundle through exported commands and stdio in independent-consumer tests",
+    "Other GUI clients/platforms not tested here",
+    "Discovery and setup connection do not prove protection of unrelated routes"
+  ]
+}
