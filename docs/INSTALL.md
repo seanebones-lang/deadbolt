@@ -130,9 +130,12 @@ extension access notice describes the host's OS access, not a DeadBolt sandbox.
 State and configuration ownership are part of your trusted integration.
 
 Four-platform installed-bundle acceptance is recorded in the bundle's
-`VALIDATION.json` and `validation/` reports. These exercise real stdio against
+`VALIDATION.md` and `validation/` reports. These exercise real stdio against
 disposable tool effects; they do not establish a particular graphical client's
-installation or your application's routes. Bundle 1.0.1 was also installed and
+installation or your application's routes. Bundle 1.1.0 graphical testing on
+macOS ARM64 checked both read-only setup tools, checksum verification and
+switching to a disposable operator configuration. The same runtime files were
+tested before adding the final evidence reports. Bundle 1.0.1 was also installed and
 exercised in Claude Desktop 2.19675.1 on macOS ARM64 with built-in Node 24.21.0:
 an allowed dummy call ran, while off-list and approval-required calls left their
 bodies untouched. Other graphical clients have not been tested. Claude may show

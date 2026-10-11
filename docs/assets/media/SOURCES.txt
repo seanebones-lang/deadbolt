@@ -10,8 +10,11 @@ DeadBolt v1.1.0-rc.1 is now a published prerelease from
 52a2085155b658f3d1dda5a73a8d95a7a1d88fad:
 https://github.com/seanebones-lang/deadbolt/releases/tag/v1.1.0-rc.1
 It integrates the DeadBolt candidate functionality discussed in the videos.
-Stable v1.0.3 remains available. The separately reviewed Harness integration
-remains unmerged in https://github.com/seanebones-lang/harness/pull/8.
+Stable v1.0.3 remains available. The Harness execution-after-review correction was subsequently merged on
+2026-10-10 America/Chicago (2026-10-11T03:48:12Z), merge commit
+e0aa3c047120ced527ffa935bfa3288f00e4371f:
+https://github.com/seanebones-lang/harness/pull/8
+A merged source change does not establish availability in an installed release.
 The original source pins and narrated recording status above remain historical
 provenance; the video is not a new recording of the published release artifacts.
 
@@ -29,3 +32,12 @@ Sidecar destination demonstrations check host tokens and local callbacks; they d
 Evidence packages describe tests at pinned source, not arbitrary agent containment, external-effect completion, legal compliance, adoption or certification.
 
 Video accessibility: permanent high-contrast English captions in the website MP4s; script-based caption text aligned to measured word timestamps. Separate SRT and WebVTT available.
+
+LANDING PAGE UPDATE — 2026-10-11 America/Chicago
+MCP bundle 1.1.0 packages stable engine v1.0.3 with read-only setup tools and an
+operator-configured stdio proxy. It does not include prerelease exact-action or
+scoped admission-credential APIs. Four-platform installed acceptance reports
+and macOS ARM64 graphical setup evidence are included in VALIDATION.md and
+validation/ inside the bundle. Catalog listings are discovery surfaces, not
+independent security certification or proof of adoption.
+https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v1.1.0
