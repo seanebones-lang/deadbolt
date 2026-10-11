@@ -7,6 +7,7 @@ executable**; installing the client does not start a sidecar.
 | Path | You need | What you get |
 | --- | --- | --- |
 | Native archive | Matching OS/CPU; Python 3.9+ only for the evaluation | Stable v1.0.3 or prerelease 1.1.0-rc.1 executable, source clients, examples and docs |
+| Local MCP bundle (MCPB) | Compatible local MCP client, Node.js 20+ and a trusted downstream stdio server | Bundle 1.0.0 with stable v1.0.3 binaries and a configuration-file launcher |
 | Source binary / embedded Rust | Git, Rust 1.85+, native C compiler/linker for bundled SQLite | APIs at your selected tag or exact commit |
 | Python source installation | Python 3.10+, pip and a reviewed checkout | Base client with no third-party runtime dependencies |
 | Python wheel | Python 3.9+, pip and a reviewed `.whl` | Same base client; no Rust needed for the wheel |
@@ -64,6 +65,76 @@ Linux/Windows binaries are unsigned. Read the selected release's notes and your
 OS download policy. CI artifacts are unsigned candidates, not those published
 Mac downloads. See [release verification](RELEASING.md#install-an-archive).
 Linux arm64, Windows arm64 and Alpine/musl are outside the native asset matrix.
+
+## Local MCP bundle (MCPB)
+
+[Smithery's DeadBolt listing](https://smithery.ai/servers/seanebones/deadbolt)
+distributes the local bundle. Clients download it and run it on their own computer;
+the listing is not a public DeadBolt operator API. Your selected client or download
+route may require its own account. DeadBolt itself requires no model key or hosted
+service for local operation.
+
+Bundle **1.0.1** contains **engine v1.0.3**. It does not include the prerelease's
+exact-action approvals or admission credentials. Supported binaries are macOS
+ARM64/Intel, Linux x64 with glibc and Windows x64. Node.js 20+ is required; clients
+such as Claude Desktop can supply a built-in Node runtime. Other clients may need
+an installed runtime. Linux/Windows executables and the outer bundle are unsigned;
+the macOS executables retain the published release's signatures.
+
+1. Obtain the bundle from the listing using your client's supported local-bundle
+   installation route. If saving the file yourself, name it `deadbolt-1.0.1.mcpb`
+   and verify it before installation. The published bundle 1.0.1 SHA-256 is:
+
+   ```text
+   6149a0371706bc3bbf25e317a0d5431d542dce221c36c6349631642db976e4ef
+   ```
+
+   On macOS use `shasum -a 256 deadbolt-1.0.1.mcpb`; Linux uses `sha256sum`;
+   PowerShell uses `Get-FileHash .\deadbolt-1.0.1.mcpb -Algorithm SHA256`.
+   A future bundle version needs its own verified checksum.
+2. Create a private state directory outside the agent's editable workspace.
+   Copy [the example configuration](../dist/mcpb/operator-config.example.json)
+   into a private JSON file and replace every placeholder with an absolute path.
+   Select an MCP server you trust, its executable and arguments, actual tool names,
+   destination tokens, irreversible-tool classifications and reported-spend cap.
+   Read [configuration and operator controls](../dist/mcpb/README.md) before connecting
+   a real account. No downstream server or example tools are bundled.
+3. Install the `.mcpb` in your client. For Claude Desktop, use **Settings →
+   Extensions → Advanced settings → Install extension**, then select the file
+   and review the access notice. See
+   [Claude's official installation guide](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop)
+   for client-specific controls and organization policies.
+4. Select the private JSON file for **Operator configuration** when configuring
+   the extension, save, and enable it. In Claude Desktop, check **Settings →
+   Developer** for **Running** and the extension settings for your downstream tools.
+   Setup failures exit before your configured server starts.
+   First test with disposable tools and state: confirm an allowed call runs and
+   a denied call leaves the tool body untouched.
+
+The default lease expires after 60 seconds without admission. Admission renews a
+live lease; initialization and listing tools do not. An idle or killed run ID
+cannot be revived by restarting the extension. Stop the old session and choose a
+fresh operator-assigned ID for a new run. Do not reuse one ID for concurrent sessions.
+Keep operator controls outside the agent; v1.0.3 approvals are broad one-shot
+approvals for a classified tool, not exact-argument approvals.
+
+The bundle gates routed `tools/call` requests. The child remains trusted and retains
+its OS permissions; startup and non-tool MCP methods are outside the gate. An
+extension access notice describes the host's OS access, not a DeadBolt sandbox.
+State and configuration ownership are part of your trusted integration.
+
+Four-platform installed-bundle acceptance is recorded in the bundle's
+`VALIDATION.json` and `validation/` reports. These exercise real stdio against
+disposable tool effects; they do not establish a particular graphical client's
+installation or your application's routes. Bundle 1.0.1 was also installed and
+exercised in Claude Desktop 2.19675.1 on macOS ARM64 with built-in Node 24.21.0:
+an allowed dummy call ran, while off-list and approval-required calls left their
+bodies untouched. Other graphical clients have not been tested. Claude may show
+a generic connector error for a denial; use local evidence or the operator's
+`incident` command to inspect the reason. Host approval does not grant DeadBolt
+operator approval. `PROVENANCE.json` records release
+binary checksums and the packaging revision. Hashes identify the artifact; the
+outer bundle has no publisher signature.
 
 ## Published source
 

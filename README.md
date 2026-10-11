@@ -5,7 +5,7 @@ an action, then let policy and operator controls decide whether that action runs
 Embed it in Rust, call its local sidecar from another language, or wrap a trusted
 stdio MCP server. Free under [Apache-2.0](LICENSE).
 
-[Try it](docs/QUICKSTART.md) · [Install](docs/INSTALL.md) · [Integrate](docs/INTEGRATION.md) · [Project site](https://seanebones-lang.github.io/deadbolt/)
+[Try it](docs/QUICKSTART.md) · [Install](docs/INSTALL.md) · [Integrate](docs/INTEGRATION.md) · [Smithery](https://smithery.ai/servers/seanebones/deadbolt) · [Project site](https://seanebones-lang.github.io/deadbolt/)
 
 [![CI](https://github.com/seanebones-lang/deadbolt/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/seanebones-lang/deadbolt/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/seanebones-lang/deadbolt)](https://github.com/seanebones-lang/deadbolt/releases/latest)
@@ -32,6 +32,21 @@ The evaluation starts a private sidecar, writes harmless temporary files, checks
 that policy, approval, kill and outage block effects, and cleans up afterward.
 Python 3.9+ is the only additional runtime needed. [Understand the report](docs/FIRST-EVALUATION.md).
 
+## Install in a desktop MCP client
+
+[DeadBolt on Smithery](https://smithery.ai/servers/seanebones/deadbolt) distributes
+a local **MCPB bundle** containing the published v1.0.3 executable and a Node.js
+launcher. Install it in a compatible client and select one private operator
+configuration file defining your trusted downstream server, tool allow-list and
+state paths. Node.js 20+ is required; a compatible client can supply that runtime.
+No Rust build is needed.
+
+Bundle **1.0.1** is a packaging version, not engine 1.1.0. Its tools come from
+the server you configure. Operator approval, pause and kill remain local CLI
+actions. The trusted child retains OS access; this is not a sandbox.
+[Installation and verification](docs/INSTALL.md#local-mcp-bundle-mcpb) ·
+[Configuration and operator controls](dist/mcpb/README.md).
+
 ## Pick your integration
 
 | Your executor | Smallest integration | Start here |
@@ -41,6 +56,7 @@ Python 3.9+ is the only additional runtime needed. [Understand the report](docs/
 | OpenAI Agents SDK function tools | Local sidecar and `@protected_tool` on each protected function | [SDK adapter](docs/PYTHON.md#add-the-decorator-to-the-actual-body) |
 | Node or another language | Local sidecar; bundled Node client or the HTTP protocol | [Sidecar](docs/INTEGRATION.md#bolt-on-python-node-or-any-http-client) |
 | Trusted stdio MCP server | Replace its launch command with `deadbolt mcp-proxy … -- SERVER` | [MCP](docs/INTEGRATION.md#bolt-on-stdio-mcp-proxy) |
+| Desktop client supporting MCPB | Install the local bundle and select a private operator configuration | [Local bundle](docs/INSTALL.md#local-mcp-bundle-mcpb) |
 
 Choose the version before copying examples:
 

@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "deadbolt",
   "display_name": "DeadBolt — local tool-call gate",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Checks policy before forwarding tool calls to a trusted local stdio MCP server.",
   "long_description": "Bundles the published DeadBolt v1.0.3 engine with a host-side launcher. Configure your trusted downstream server, tool allow-list, irreversible-tool classification, destination tokens, reported-spend cap and local state paths in an operator-owned JSON file. Policy is applied before the downstream server starts. Operator approvals, pause and kill remain local CLI actions; they are not agent tools. DeadBolt gates routed tools/call requests. Startup, other MCP methods and arbitrary OS access are outside this boundary. The child server remains trusted. This bundle does not provide a sandbox or compliance certification. Mac ARM64/Intel, Linux x64 and Windows x64 binaries are included; Node.js 20+ is required. See README for setup and platform validation coverage.",
   "author": { "name": "NextEleven", "url": "https://www.nexteleven.dev" },
