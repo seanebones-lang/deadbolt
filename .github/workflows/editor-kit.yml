@@ -5,7 +5,7 @@ on:
     paths: ['docs/assets/editor_setup.py', 'docs/EDITORS.md', 'docs/EDITOR-TUTORIAL.md', 'docs/editors.html', 'docs/editor-tutorial.html', 'dist/build_editor_guides.py', 'tests/editor_acceptance.py', '.github/workflows/editor-kit.yml']
   push:
     branches: [main]
-    paths: ['docs/assets/editor_setup.py', 'tests/editor_acceptance.py', '.github/workflows/editor-kit.yml']
+    paths: ['docs/assets/editor_setup.py', 'docs/EDITORS.md', 'docs/EDITOR-TUTORIAL.md', 'docs/editors.html', 'docs/editor-tutorial.html', 'dist/build_editor_guides.py', 'tests/editor_acceptance.py', '.github/workflows/editor-kit.yml']
   workflow_dispatch:
 
 permissions:

@@ -10,9 +10,10 @@ open source under Apache-2.0, and usable as an embedded Rust library, local HTTP
 sidecar, or proxy in front of a trusted stdio MCP server. This walkthrough uses
 the MCP route, with disposable marker tools instead of real accounts.
 
-**Authorship disclosure:** this article and its implementation were prepared with
-AI assistance. The local demonstration checks actual tool effects; it does not
-establish that every agent, client or deployment is protected.
+**Authorship disclosure:** this article was drafted by an AI coding assistant.
+The implementation and instructions were checked against the real published
+bundle and disposable tool effects. Those checks do not establish that every
+agent, client or deployment is protected.
 
 ## Choose one route to protect
 
