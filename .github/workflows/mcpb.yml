@@ -1,0 +1,41 @@
+name: MCP bundle
+
+on:
+  pull_request:
+    paths: ['dist/mcpb/**', 'dist/build_mcpb.py', 'tests/mcpb_acceptance.py', '.github/workflows/mcpb.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  installed-bundle:
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-15, macos-15-intel, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Download pinned published engine
+        run: gh release download v1.0.3 --repo seanebones-lang/deadbolt --pattern '*.zip' --dir build/downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - run: python dist/build_mcpb.py --downloads build/downloads --out build/mcpb
+      - run: npm install --prefix build/tools --ignore-scripts --no-audit --no-fund @anthropic-ai/mcpb@2.1.2
+      - run: node build/tools/node_modules/@anthropic-ai/mcpb/dist/cli/cli.js pack build/mcpb/bundle build/deadbolt.mcpb
+      - run: node build/tools/node_modules/@anthropic-ai/mcpb/dist/cli/cli.js unpack build/deadbolt.mcpb build/installed
+      - run: python tests/mcpb_acceptance.py --bundle build/installed --mcpb-module build/tools/node_modules/@anthropic-ai/mcpb --out build/acceptance.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: mcpb-${{ matrix.os }}
+          path: build/acceptance.json
+          if-no-files-found: warn
