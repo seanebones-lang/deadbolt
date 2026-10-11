@@ -30,7 +30,8 @@ release archives contain Developer ID signed binaries, and Apple accepted those
 exact archives for notarization. Check the chosen release's notes for its status.
 The Rust library and CLI are available on [crates.io](https://crates.io/crates/n11-deadbolt).
 Python/Node clients are included source files; the candidate also has a Python
-release wheel. Those clients are not on PyPI or npm.
+release wheel, also published unchanged on [PyPI](https://pypi.org/project/n11-deadbolt-client/1.1.0rc1/).
+The Python client remains a prerelease and does not bundle its engine. Node is not on npm.
 
 ## Evidence an evaluator can reproduce
 

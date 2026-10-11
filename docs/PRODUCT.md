@@ -16,7 +16,9 @@ Embed the Rust library, use the local HTTP sidecar from Python/Node or another
 language, or route a trusted stdio MCP server through the proxy. The Cargo package
 is [`n11-deadbolt`](https://crates.io/crates/n11-deadbolt); the library and executable
 are `deadbolt`. The stable CLI and embedded library can be installed from crates.io.
-Python and Node clients are not on PyPI or npm. Linux and Windows binaries are
+The prerelease Python client is on [PyPI](https://pypi.org/project/n11-deadbolt-client/1.1.0rc1/),
+with its engine installed separately. The stable Python client and Node
+client remain source files; Node is not on npm. Linux and Windows binaries are
 unsigned. The v1.0.3 macOS release archives contain Developer ID signed binaries,
 and Apple accepted those exact archives for notarization. Check each selected
 release's notes for its signing and notarization status.

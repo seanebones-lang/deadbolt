@@ -11,7 +11,7 @@ version may be shared by several unreleased commits.
 | --- | --- | --- |
 | `deadbolt` command not found | Cargo bin directory is on PATH; `command -v deadbolt` on Unix or `Get-Command deadbolt` in PowerShell | Reopen the terminal or call the Cargo bin executable directly |
 | Cargo cannot find the selected release | Registry is crates.io; package name is `n11-deadbolt`; prerelease is explicitly selected | Use the pinned [Cargo installation](INSTALL.md#cargo-registry-cli-and-embedded-rust); check registry/network configuration |
-| `pip install n11-deadbolt-client` cannot find the package | The Python client is not on PyPI | Install the reviewed release wheel or source via [installation](INSTALL.md#python-and-node) |
+| Python package/version cannot be resolved | Check the index, version spelling and Python requirement | Use `python -m pip install 'n11-deadbolt-client==1.1.0rc1'` from PyPI; the base wheel needs Python 3.9+, the SDK extra needs 3.10+. See [installation](INSTALL.md#python-and-node) |
 | SQLite/compiler/linker build error | Native compiler and Rust version | Install the OS C/C++ toolchain; on Windows use MSVC Build Tools and SDK |
 | `token_required` | TCP server has a nonempty `DEADBOLT_TOKEN` | Configure a private token before starting TCP; provide the same token to clients |
 | `bind_refused` | Bind is loopback or a Unix path; port/socket already in use; token file mode | Use `127.0.0.1:PORT` or `[::1]:PORT`; stop the existing service deliberately; token files must be 0600 on Unix |
