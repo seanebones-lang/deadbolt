@@ -175,6 +175,46 @@ publication still needs separate ownership, exact-package and registry-consumer
 review. Node remains a bundled source client. Do not imply either is published
 before verifying it.
 
+## Python registry publication
+
+`publish-python.yml` is a manually dispatched, single-release workflow for the
+existing `v1.1.0-rc.1` Python wheel and source archive. It does not rebuild them
+from current `main` or run on pushes, tags or pull requests. With `publish=false`
+(the default), it verifies hashes, package identity, installed base-client
+behavior and the real optional SDK Runner against the released Linux engine.
+It has no PyPI publishing permission in that mode.
+
+Before a first publication:
+
+1. Confirm PyPI ownership, verified email and two-factor authentication. Configure
+   a [pending Trusted Publisher](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/)
+   for project `n11-deadbolt-client`, GitHub owner `seanebones-lang`, repository
+   `deadbolt`, workflow `publish-python.yml` and environment `pypi`.
+2. Restrict the GitHub `pypi` environment to `main` and require a maintainer
+   reviewer. Review that environment and the exact workflow before authorizing
+   it. Trusted Publishing grants this workflow project publishing authority;
+   protect future changes to the workflow and repository access accordingly.
+3. Run `publish=false` on `main` and inspect the completed verification job.
+   Independently inspect the wheel and sdist, rebuild the sdist outside the
+   checkout and compare package payloads. Never repackage files under an
+   existing version to update documentation.
+4. After release approval, dispatch with `publish=true` on `main` and approve the
+   protected environment. The isolated publication job only retrieves the
+   verified artifacts and invokes the pinned official PyPA publication action
+   with short-lived OIDC credentials and attestations. No persistent PyPI token
+   is stored locally or in GitHub secrets.
+5. Verify both files on the public PyPI JSON API, including SHA-256 and version.
+   Install the exact version from PyPI in a fresh environment outside the
+   checkout. Repeat fail-closed and real SDK/sidecar acceptance before updating
+   installation documentation or declaring registry distribution complete.
+
+This workflow deliberately permits only `1.1.0rc1` with the reviewed release
+asset hashes. A future version needs a reviewed workflow update and its own
+acceptance evidence. `skip-existing=false` exposes retries/collisions; do not
+silently skip a file or treat a partial upload as complete. Once public, a PyPI
+version's files cannot be replaced. The engine remains separately installed;
+the Python distribution is a client and optional adapter, not a sandbox.
+
 ## HOL listing update
 
 After publication, follow [HOL submission and existing-listing updates](HOL-SUBMISSION.md).

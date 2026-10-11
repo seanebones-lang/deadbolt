@@ -126,8 +126,15 @@ jobs:
             Write-Output "Concurrency attempt $attempt"
             cargo test --locked --test reuse -- --nocapture
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            cargo test --locked --lib credentials::tests::scoped_independent_connections_consume_only_one_approval -- --exact --nocapture
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
+      # These tests retain their internal simultaneous threads/connections.
+      # Avoid unrelated SQLite fixtures exhausting the bounded busy timeout on Windows.
       - run: cargo test --locked
+        if: runner.os != 'Windows'
+      - run: cargo test --locked -- --test-threads=1
+        if: runner.os == 'Windows'
       - run: cargo clippy --all-targets --locked -- -D warnings
       - run: cargo build --locked --bin deadbolt
       - run: cargo run --locked --bin deadbolt -- drill
