@@ -40,6 +40,7 @@ include = [
     "Cargo.toml",
     "Cargo.lock",
     "pyproject.toml",
+    "requirements.lock",
     "MANIFEST.in",
 ]
 rust-version = "1.85"

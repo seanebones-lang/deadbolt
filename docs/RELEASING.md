@@ -127,3 +127,7 @@ after publication. Do not claim `cargo install n11-deadbolt` until the uploaded
 crate is visible and installable. The candidate Python client already builds an installable wheel/sdist; registry
 publication still needs API, ownership and exact-package review. Node remains a
 bundled source client. Do not imply either is published before verifying it.
+
+## HOL listing update
+
+After publication, follow [HOL submission and existing-listing updates](HOL-SUBMISSION.md).

@@ -49,7 +49,7 @@ def main():
         shutil.copy2(binary, staging / executable)
         for file in ("README.md", "LICENSE", "NOTICE", "SECURITY.md", "CHANGELOG.md",
                      "CONTRIBUTING.md", "Cargo.toml", "Cargo.lock", "Dockerfile",
-                     "pyproject.toml", "MANIFEST.in"):
+                     "pyproject.toml", "MANIFEST.in", "requirements.lock"):
             shutil.copy2(ROOT / file, staging / file)
         shutil.copy2(ROOT / "THIRD-PARTY.md", staging / "THIRD-PARTY.md")
         shutil.copytree(ROOT / "third-party", staging / "third-party")
