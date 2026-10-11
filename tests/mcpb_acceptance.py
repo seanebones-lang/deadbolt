@@ -1,5 +1,6 @@
 """Exercise an unpacked MCPB through real stdio and disposable tool effects."""
 import argparse
+from contextlib import closing
 import hashlib
 import json
 import os
@@ -156,8 +157,9 @@ const base = {manifest, extensionPath:process.argv[3], systemDirs:{}, pathSepara
         try:
             assert 'result' in rpc('initialize')
             call('echo')
-            with sqlite3.connect(c['database']) as db:
-                db.execute('UPDATE leases SET expires_at=0 WHERE agent_id=?', (c['agent'],))
+            with closing(sqlite3.connect(c['database'])) as db:
+                with db:
+                    db.execute('UPDATE leases SET expires_at=0 WHERE agent_id=?', (c['agent'],))
             call('echo', 'lease_expired')
         finally:
             proc.stdin.close()
