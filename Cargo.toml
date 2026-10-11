@@ -16,6 +16,7 @@ include = [
     "examples/*.py",
     "examples/*.js",
     "docs/**/*",
+    "!docs/assets/media/**",
     "tests/*.rs",
     "tests/*.py",
     "tests/*.Dockerfile",

@@ -1,0 +1,23 @@
+00:00:00  01. DeadBolt: control at the point of action
+00:00:53  02. Why an agent needs an execution boundary
+00:01:53  03. How the boundary works
+00:02:44  04. Choose the right version and install
+00:03:43  05. Run a first evaluation without an AI account
+00:04:37  06. Build it into a Rust executor
+00:05:28  07. Bolt it on with Python or Node
+00:06:18  08. Protect routed MCP tool calls
+00:07:16  09. OpenAI Agents SDK function tools
+00:08:12  10. Leases and run identity
+00:09:04  11. Pause, clip, resume and kill
+00:09:56  12. Set a useful blast radius
+00:10:52  13. Legacy one-shot approval
+00:11:44  14. Exact-action review: approve the content
+00:12:38  15. Exact-action representation and recovery
+00:13:36  16. Scoped admission credentials
+00:14:34  17. Lineage: revoke one run and its children
+00:15:35  18. Evidence and incident exports
+00:16:35  19. Outages, restart and deployment
+00:17:39  20. Inside the actual Harness terminal
+00:18:34  21. Inside the actual Harness web UI
+00:19:23  22. A failure that improved the integration
+00:20:17  23. Adopt it with evidence
