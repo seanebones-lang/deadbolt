@@ -1,0 +1,1274 @@
+1
+00:00:00,000 --> 00:00:05,420
+Welcome to DeadBolt, a free, open
+source execution gate from NextEleven.
+
+2
+00:00:05,560 --> 00:00:11,000
+This walkthrough starts with the problem,
+shows the integration choices, and then
+
+3
+00:00:11,320 --> 00:00:15,940
+demonstrates real allowed and blocked
+effects. DeadBolt gives an operator control
+
+4
+00:00:15,940 --> 00:00:20,720
+over a particular agent's next protected
+action. It works with a trusted
+
+5
+00:00:20,720 --> 00:00:26,460
+dispatcher, whether your application uses
+Rust, a local sidecar, an MCP server,
+
+6
+00:00:26,580 --> 00:00:31,960
+or supported Python function tools. We'll
+finish inside the actual Harness executable
+
+7
+00:00:32,250 --> 00:00:36,840
+and its web interface. The model
+responses in those examples come from
+
+8
+00:00:36,840 --> 00:00:42,600
+a deterministic local fixture. The files,
+operator commands, admission decisions,
+
+9
+00:00:43,000 --> 00:00:48,500
+and tool execution are real. Cedar
+provides the AI generated narration. The
+
+10
+00:00:48,500 --> 00:00:53,080
+visual presentation is an educational
+demo, separate from the shipping product
+
+11
+00:00:53,080 --> 00:00:53,520
+interface.
+
+12
+00:00:53,882 --> 00:00:59,662
+Once an agent can write files,
+call services, or send messages, a
+
+13
+00:00:59,662 --> 00:01:05,002
+bad decision can become a real change.
+Untrusted material can influence what
+
+14
+00:01:05,002 --> 00:01:10,482
+the model proposes. OpenAI's current
+agent documentation recommends putting
+
+15
+00:01:10,482 --> 00:01:15,722
+validation next to the tool that creates
+the side effect. OWASP's excessive
+
+16
+00:01:15,722 --> 00:01:21,522
+agency guidance recommends minimum permissions,
+approval for high impact actions, and
+
+17
+00:01:21,522 --> 00:01:26,902
+authorization of every downstream request.
+Those are engineering reasons to establish
+
+18
+00:01:26,902 --> 00:01:32,042
+an execution boundary. They do not
+establish a universal legal requirement to
+
+19
+00:01:32,042 --> 00:01:37,662
+install DeadBolt. Your application,
+contracts, and jurisdiction determine
+
+20
+00:01:37,662 --> 00:01:43,462
+any specific obligation. DeadBolt supplies
+one deterministic control in a larger
+
+21
+00:01:43,462 --> 00:01:49,162
+design. Combine it with narrow tools, real
+service permissions, schema validation,
+
+22
+00:01:49,702 --> 00:01:53,022
+and operating system isolation
+appropriate to your environment.
+
+23
+00:01:53,483 --> 00:01:59,363
+The model proposes work. Your trusted
+application validates the arguments and assigns
+
+24
+00:01:59,363 --> 00:02:04,023
+the run identity and routed tool name.
+DeadBolt checks the current lease
+
+25
+00:02:04,023 --> 00:02:08,803
+and policy. Your dispatcher starts
+the body only after an explicit allow.
+
+26
+00:02:09,683 --> 00:02:15,003
+Every other result blocks the protected
+action. Operators manage policy, approval,
+
+27
+00:02:15,303 --> 00:02:19,843
+and revocation through a separate control
+path. These controls should never be
+
+28
+00:02:19,843 --> 00:02:25,823
+model tools. The dispatcher, database,
+operator credentials, and routing
+
+29
+00:02:25,823 --> 00:02:30,083
+remain trusted. A caller that
+can skip the gate or change its
+
+30
+00:02:30,083 --> 00:02:35,003
+store is outside this boundary. DeadBolt
+is not an operating system sandbox,
+
+31
+00:02:35,403 --> 00:02:39,903
+and it does not shut down a frontier
+model. It refuses subsequent
+
+32
+00:02:39,903 --> 00:02:44,403
+protected admissions. It also cannot
+cancel a tool body that is already
+
+33
+00:02:44,403 --> 00:02:44,653
+running.
+
+34
+00:02:44,969 --> 00:02:50,677
+Choose the version before choosing an
+integration example. The published version, one
+
+35
+00:02:50,677 --> 00:02:55,829
+point zero point three, supports the
+established lease gate, native CLI, sidecar,
+
+36
+00:02:56,249 --> 00:03:01,989
+and MCP proxy. Candidate examples
+add callback helpers, an installable
+
+37
+00:03:01,989 --> 00:03:07,749
+Python client, the optional SDK adapter,
+scoped credentials, and exact action
+
+38
+00:03:07,749 --> 00:03:12,929
+approval. Those additions are not yet in
+the published archives. Native downloads
+
+39
+00:03:12,929 --> 00:03:18,909
+avoid a Rust compiler requirement. Select
+your operating system and processor, verify
+
+40
+00:03:18,909 --> 00:03:24,609
+the checksum, unpack the archive,
+and run version and drill. A source
+
+41
+00:03:24,609 --> 00:03:29,589
+install needs Rust and the platform's
+C compiler or build tools. The
+
+42
+00:03:29,589 --> 00:03:34,009
+candidate should be pinned to its
+full reviewed commit. At this review,
+
+43
+00:03:34,229 --> 00:03:39,269
+no crates dot io or PyPI package
+release was available. Use the
+
+44
+00:03:39,269 --> 00:03:42,049
+installation guide instead of
+assuming registry commands work.
+
+45
+00:03:43,122 --> 00:03:48,802
+The fastest evaluation uses a local
+sidecar and a temporary file dispatcher.
+
+46
+00:03:49,042 --> 00:03:53,442
+It needs Python's standard library and
+the native executable, with no model
+
+47
+00:03:53,442 --> 00:03:59,022
+account. Run the evaluation script
+with the executable path. The script
+
+48
+00:03:59,022 --> 00:04:04,902
+provisions isolated state, configures policy,
+tries actions, and checks whether each
+
+49
+00:04:04,902 --> 00:04:10,342
+file actually exists. Here the permitted
+write succeeds. An off policy tool
+
+50
+00:04:10,342 --> 00:04:15,822
+is refused. An irreversible action requires
+approval, uses it once, and refuses
+
+51
+00:04:15,822 --> 00:04:21,082
+a replay. Parent revocation also blocks
+the registered child, while an unrelated
+
+52
+00:04:21,082 --> 00:04:26,502
+run continues. Stopping the sidecar
+blocks the next action, and restarting it
+
+53
+00:04:26,502 --> 00:04:30,602
+preserves revocation. These eleven checks
+passed with the published archive and the
+
+54
+00:04:30,602 --> 00:04:35,502
+candidate binary. They verify this
+dispatcher and these effects; they are not
+
+55
+00:04:35,502 --> 00:04:37,262
+proof of arbitrary agent containment.
+
+56
+00:04:37,665 --> 00:04:42,125
+In Rust, add the DeadBolt
+crate from a released tag or a
+
+57
+00:04:42,125 --> 00:04:47,365
+reviewed full revision. The package
+name is n eleven deadbolt, and the
+
+58
+00:04:47,365 --> 00:04:52,225
+library name is deadbolt. Create a
+gate with enforcement enabled and fail
+
+59
+00:04:52,225 --> 00:04:57,485
+closed, using a private state directory.
+In trusted setup, create the run
+
+60
+00:04:57,485 --> 00:05:02,925
+lease and configure the actual tool policy.
+Candidate dispatch helpers accept the
+
+61
+00:05:02,925 --> 00:05:07,905
+real callback. They check immediately before
+invoking it, preserve its return value,
+
+62
+00:05:07,905 --> 00:05:12,525
+and never invoke it on a denial.
+Async dispatch checks when the
+
+63
+00:05:12,525 --> 00:05:17,485
+future is polled, rather than when it
+is constructed. Existing published APIs
+
+64
+00:05:17,485 --> 00:05:22,305
+can use a manual admit followed
+immediately by the body. Protect every
+
+65
+00:05:22,305 --> 00:05:26,485
+effect route. Do not cache an
+allow for a session, or spend
+
+66
+00:05:26,485 --> 00:05:28,205
+a one shot on a separate precheck.
+
+67
+00:05:28,437 --> 00:05:33,457
+The local sidecar exposes admission over
+a Unix socket or authenticated loopback
+
+68
+00:05:33,457 --> 00:05:39,037
+TCP. The Python client uses only the
+standard library; the Node client
+
+69
+00:05:39,037 --> 00:05:44,277
+uses built in modules. Configure matching
+database and evidence paths for server
+
+70
+00:05:44,277 --> 00:05:49,317
+and operator, and the endpoint for
+the dispatcher. Start the sidecar and
+
+71
+00:05:49,317 --> 00:05:54,117
+create the lease through trusted setup
+before dispatch. The candidate helper returns
+
+72
+00:05:54,117 --> 00:05:59,437
+an execution flag, the decision, and
+the callback result. A blocked action
+
+73
+00:05:59,437 --> 00:06:04,177
+has no callback effect. The Python
+wheel does not bundle or start
+
+74
+00:06:04,177 --> 00:06:08,497
+the executable. Build from source
+with Python three point ten or later;
+
+75
+00:06:09,257 --> 00:06:13,217
+the base wheel runs on three point
+nine or later. Async applications
+
+76
+00:06:13,217 --> 00:06:18,017
+use the async helper. Every protected
+application route still needs its own
+
+77
+00:06:18,017 --> 00:06:18,267
+wrapper.
+
+78
+00:06:18,433 --> 00:06:24,153
+For a stdio MCP integration, launch
+the server through DeadBolt's MCP
+
+79
+00:06:24,153 --> 00:06:29,633
+proxy with an executor assigned agent
+identity. The proxy checks each routed
+
+80
+00:06:29,633 --> 00:06:35,333
+tools call before forwarding it. Operator
+control stays outside the MCP tool
+
+81
+00:06:35,333 --> 00:06:40,733
+list. You can use embedded state or
+the sidecar route. Scoped admission
+
+82
+00:06:40,733 --> 00:06:45,773
+credentials require the sidecar mode. The
+child does not inherit either DeadBolt
+
+83
+00:06:45,773 --> 00:06:51,233
+bearer token. The candidate bounds frames
+and responses and handles child termination
+
+84
+00:06:51,233 --> 00:06:56,473
+and client disconnects. These checks
+do not cover arbitrary server startup,
+
+85
+00:06:57,273 --> 00:07:02,773
+every other MCP method, or background
+work inside the server. Protect and
+
+86
+00:07:02,773 --> 00:07:08,153
+validate the server implementation itself.
+The acceptance suite exercises a real MCP
+
+87
+00:07:08,153 --> 00:07:13,053
+child. For an existing host, begin
+with one narrow tool route and
+
+88
+00:07:13,053 --> 00:07:16,233
+prove allowed and denied effects
+before expanding coverage.
+
+89
+00:07:16,586 --> 00:07:21,986
+The optional Python adapter protects
+actual function tools in the tested
+
+90
+00:07:21,986 --> 00:07:27,926
+OpenAI Agents SDK. Replace the function
+tool decorator with the protected
+
+91
+00:07:27,926 --> 00:07:33,266
+tool decorator on each effect function.
+The SDK still builds its schema,
+
+92
+00:07:33,986 --> 00:07:37,786
+validates arguments, and runs its own
+guardrails and human approval lifecycle.
+
+93
+00:07:39,146 --> 00:07:43,626
+DeadBolt performs admission when the protected
+body runs, including after a reviewed
+
+94
+00:07:43,626 --> 00:07:48,506
+run resumes. The adapter does not
+create a lease, grant operator approval,
+
+95
+00:07:48,786 --> 00:07:53,286
+or protect hosted tools automatically.
+It reports a denial as a typed
+
+96
+00:07:53,286 --> 00:07:58,146
+cause through the SDK runner, so
+applications can display the decision without
+
+97
+00:07:58,146 --> 00:08:03,846
+parsing prose. Installed wheel acceptance
+exercised nineteen cases using the real
+
+98
+00:08:03,846 --> 00:08:09,406
+runner and sidecar without provider
+requests. The tested SDK revision
+
+99
+00:08:09,406 --> 00:08:12,646
+is pinned; review compatibility
+before changing it.
+
+100
+00:08:12,812 --> 00:08:16,812
+A lease belongs to an agent
+identity, not a vendor API key.
+
+101
+00:08:17,772 --> 00:08:22,272
+Give each run an identity in trusted
+infrastructure. The default lease lifetime
+
+102
+00:08:22,272 --> 00:08:28,232
+is sixty seconds. A live admission, including
+ordinary denials, refreshes the sliding
+
+103
+00:08:28,232 --> 00:08:33,892
+lease. Silence allows it to expire.
+Killed or expired leases do not
+
+104
+00:08:33,892 --> 00:08:38,292
+slide, and a protected tool wrapper
+must not silently renew an expired
+
+105
+00:08:38,292 --> 00:08:43,952
+identity. Explicit ensure belongs in
+trusted setup, not in model control or
+
+106
+00:08:43,952 --> 00:08:48,872
+a retry loop. Action deadlines and
+admission credential deadlines are fixed and
+
+107
+00:08:48,872 --> 00:08:53,592
+do not slide. A fresh run needs
+deliberate trusted setup and policy.
+
+108
+00:08:54,732 --> 00:08:58,912
+Track these three lifetimes separately.
+This makes it possible to stop a
+
+109
+00:08:58,912 --> 00:09:03,172
+particular workflow without revoking a
+shared model key or interrupting unrelated
+
+110
+00:09:03,172 --> 00:09:03,812
+applications.
+
+111
+00:09:04,351 --> 00:09:10,291
+Pause temporarily blocks all protected
+admissions for one agent. Clip blocks
+
+112
+00:09:10,291 --> 00:09:15,531
+a particular tool for that agent.
+Resume clears pause and clips, while
+
+113
+00:09:15,531 --> 00:09:20,651
+preserving the configured policy. Kill
+revokes the agent and its registered
+
+114
+00:09:20,651 --> 00:09:25,931
+descendants. Resume does not resurrect
+a kill. Choose pause when you need
+
+115
+00:09:25,931 --> 00:09:31,131
+to investigate, clip when a single
+capability should stop, and kill when
+
+116
+00:09:31,131 --> 00:09:35,131
+the run must remain revoked. Here
+a paused file callback does not
+
+117
+00:09:35,131 --> 00:09:40,271
+run. After resume, a permitted callback
+writes a file. Clipping the write
+
+118
+00:09:40,271 --> 00:09:45,431
+tool refuses another attempt. These are
+fresh sidecar decisions and observed callback
+
+119
+00:09:45,431 --> 00:09:50,011
+effects. A control issued after an
+action has already been admitted cannot
+
+120
+00:09:50,011 --> 00:09:55,271
+undo that action. Operators still need
+cancellation and recovery mechanisms in their
+
+121
+00:09:55,271 --> 00:09:55,751
+application.
+
+122
+00:09:56,115 --> 00:10:00,835
+Policy limits the tool names an agent
+can use, the declared destination
+
+123
+00:10:00,835 --> 00:10:06,315
+tokens it can reach, and caller
+reported spend. Unset lists remain open,
+
+124
+00:10:06,795 --> 00:10:11,535
+so set narrow policies intentionally.
+A tool outside the list is refused
+
+125
+00:10:11,535 --> 00:10:16,875
+with purpose exceeded. A foreign host
+is also refused. With a destination
+
+126
+00:10:16,875 --> 00:10:21,915
+list, a network class tool missing
+its host is refused. Local tools
+
+127
+00:10:21,915 --> 00:10:26,855
+without a destination are treated differently.
+Destination tokens must be derived
+
+128
+00:10:26,855 --> 00:10:31,215
+from the route the body really
+uses. DeadBolt does not enforce DNS,
+
+129
+00:10:31,735 --> 00:10:37,335
+redirects, network sockets, or a filesystem
+path jail. Spending is reported by
+
+130
+00:10:37,335 --> 00:10:41,735
+trusted infrastructure; this is not
+a billing meter or an atomic purchase
+
+131
+00:10:41,735 --> 00:10:47,475
+reservation. Crossing a configured cap
+stops further protected admissions. Each
+
+132
+00:10:47,475 --> 00:10:52,015
+child requires its own policy, configured
+in trusted setup before dispatch.
+
+133
+00:10:52,276 --> 00:10:57,996
+The existing irreversible tool policy
+requires an operator one shot. An
+
+134
+00:10:57,996 --> 00:11:03,616
+unapproved attempt returns needs human. The
+operator approves the specific agent and
+
+135
+00:11:03,616 --> 00:11:08,696
+tool. The next admitted call consumes
+that approval, and another attempt needs
+
+136
+00:11:08,696 --> 00:11:14,136
+review again. This simple mechanism is
+useful when the trusted application controls
+
+137
+00:11:14,136 --> 00:11:18,736
+the effect. Its scope is the
+agent and tool pair. It does
+
+138
+00:11:18,736 --> 00:11:24,136
+not bind the recipient, message text,
+amount, or other arguments. Do not
+
+139
+00:11:24,136 --> 00:11:28,876
+describe this broad permission as
+approval of an exact message. For effects
+
+140
+00:11:28,876 --> 00:11:33,876
+where those values matter, use the
+candidate exact action path. Keep review
+
+141
+00:11:33,876 --> 00:11:39,776
+outside model control, and consume the
+approval only at execution. Declining a
+
+142
+00:11:39,776 --> 00:11:43,756
+separate application review should not
+burn a permission before the body is
+
+143
+00:11:43,756 --> 00:11:44,536
+eligible to run.
+
+144
+00:11:44,935 --> 00:11:50,475
+Exact action approval binds the
+executor's run, routed tool, destination,
+
+145
+00:11:51,235 --> 00:11:56,655
+validated JSON arguments, a unique
+nonce, and a fixed deadline. Prepare the
+
+146
+00:11:56,655 --> 00:12:01,655
+review request in trusted code, and
+protect the private review file. Inspect
+
+147
+00:12:01,655 --> 00:12:06,355
+the actual content and its fingerprint.
+The operator approves that reviewed
+
+148
+00:12:06,355 --> 00:12:11,275
+fingerprint. The dispatch helper later
+uses a copied argument snapshot for the
+
+149
+00:12:11,275 --> 00:12:16,135
+body. It must not read different
+recipients or amounts from mutable state.
+
+150
+00:12:17,155 --> 00:12:21,535
+Changing reviewed content does not
+match the grant and is refused. The
+
+151
+00:12:21,535 --> 00:12:27,235
+original reviewed write succeeds once; its
+replay is refused. This demonstration uses
+
+152
+00:12:27,235 --> 00:12:32,395
+a temporary file transport, not email.
+Rebuild a request with every effect
+
+153
+00:12:32,395 --> 00:12:37,415
+affecting value resolved, and version
+your tool identity when its schema or
+
+154
+00:12:37,415 --> 00:12:37,935
+behavior changes.
+
+155
+00:12:38,201 --> 00:12:42,781
+The version one fingerprint uses
+SHA two fifty six over a domain
+
+156
+00:12:42,781 --> 00:12:48,541
+separated RFC eight seven eight five
+canonical JSON envelope. Objects,
+
+157
+00:12:49,121 --> 00:12:54,901
+numbers, Unicode, and request limits have
+explicit rules. Duplicate keys, unknown
+
+158
+00:12:54,901 --> 00:13:00,581
+fields, invalid numbers, and oversized
+envelopes are refused. Use the
+
+159
+00:13:00,581 --> 00:13:06,201
+dedicated action parser at raw JSON
+boundaries. For money, use safe integer
+
+160
+00:13:06,201 --> 00:13:11,601
+minor units or decimal strings rather
+than ambiguous precision. The grant is
+
+161
+00:13:11,601 --> 00:13:16,821
+consumed atomically with primary SQLite
+evidence. That does not make an external
+
+162
+00:13:16,821 --> 00:13:21,661
+effect exactly once. A crash or tool
+error can leave completion unknown
+
+163
+00:13:21,661 --> 00:13:27,261
+after consumption. Reconcile the application
+outcome and use downstream idempotency
+
+164
+00:13:27,261 --> 00:13:33,061
+before seeking a new approval. Grant
+revocation cannot cancel running work. These
+
+165
+00:13:33,061 --> 00:13:36,461
+limits are part of the action approval
+guide and the upgrade procedure.
+
+166
+00:13:36,747 --> 00:13:40,967
+The candidate separates a workload's
+admission credential from the operator token.
+
+167
+00:13:41,947 --> 00:13:46,247
+Trusted setup provisions the lease and
+policy, then issues a private credential
+
+168
+00:13:46,247 --> 00:13:50,807
+file for one agent with a fixed
+expiry. The workload can request
+
+169
+00:13:50,807 --> 00:13:56,287
+legacy or exact admission for that
+identity. It cannot create agents, change
+
+170
+00:13:56,287 --> 00:14:01,847
+policy, inspect other agents, grant approvals,
+or report spend. Remove the operator
+
+171
+00:14:01,847 --> 00:14:06,827
+token from workload environments. Here a
+matching credential admits the reviewed
+
+172
+00:14:06,827 --> 00:14:12,527
+write, while another identity is refused.
+A control request is forbidden, and
+
+173
+00:14:12,527 --> 00:14:18,107
+credential revocation blocks another callback.
+SQLite stores a credential hash, while
+
+174
+00:14:18,107 --> 00:14:23,247
+the bearer stays private. Socket access
+alone no longer grants anonymous authority
+
+175
+00:14:23,247 --> 00:14:28,187
+after the first credential is issued.
+Protect the database and CLI with
+
+176
+00:14:28,187 --> 00:14:32,887
+operating system ownership; a same
+user process is not isolated by these
+
+177
+00:14:32,887 --> 00:14:33,137
+headers.
+
+178
+00:14:34,176 --> 00:14:39,816
+Register a child under its parent
+before starting its protected work. Then
+
+179
+00:14:39,816 --> 00:14:45,556
+explicitly configure the child's policy.
+Registration creates lineage; it does not
+
+180
+00:14:45,556 --> 00:14:51,536
+copy the parent's tool or destination
+restrictions. Killing a parent revokes its
+
+181
+00:14:51,536 --> 00:14:56,136
+registered descendants. It does not revoke
+an independent identity elsewhere in the
+
+182
+00:14:56,136 --> 00:15:01,136
+same store. The file evaluation shows
+the killed parent's callback blocked,
+
+183
+00:15:01,936 --> 00:15:07,656
+the child's callback blocked, and an
+unrelated agent still writing. Harness
+
+184
+00:15:07,656 --> 00:15:12,296
+also binds its spawned agents and
+swarm tasks to this lineage, with
+
+185
+00:15:12,296 --> 00:15:17,876
+cancellation behavior owned by Harness.
+DeadBolt alone controls subsequent
+
+186
+00:15:17,876 --> 00:15:23,716
+admission, rather than proving universal
+process tree termination. Keep the trusted
+
+187
+00:15:23,716 --> 00:15:28,656
+executor responsible for identities,
+child registration, and complete dispatch
+
+188
+00:15:28,656 --> 00:15:33,936
+coverage. A model that chooses fresh
+identities can undermine a poorly designed
+
+189
+00:15:33,936 --> 00:15:34,376
+integration.
+
+190
+00:15:35,438 --> 00:15:41,108
+DeadBolt records admission attempts
+and operator changes in SQLite and JSON
+
+191
+00:15:41,108 --> 00:15:46,038
+Lines evidence. Observed facts and
+inferred conclusions remain distinct.
+
+192
+00:15:47,258 --> 00:15:52,918
+Content identifiers hash the recorded payload;
+inferred rows cite their premises. The
+
+193
+00:15:52,918 --> 00:15:57,698
+incident command exports an agent's
+decision history, current policy, revocation
+
+194
+00:15:57,698 --> 00:16:03,038
+time, and registered children. These
+records do not identify the human who
+
+195
+00:16:03,038 --> 00:16:07,678
+held a token, prove that an external
+operation completed, or certify legal
+
+196
+00:16:07,678 --> 00:16:12,918
+compliance. Generated narratives are not
+evidence rows. The candidate's action
+
+197
+00:16:12,918 --> 00:16:17,558
+records contain metadata and fingerprints
+rather than raw arguments, but private
+
+198
+00:16:17,558 --> 00:16:22,438
+review files still contain the actual
+content. Protect exports and retention
+
+199
+00:16:22,438 --> 00:16:27,418
+appropriately. Optional Witness integration
+is a separate sink with its own failure
+
+200
+00:16:27,418 --> 00:16:32,998
+boundary. Use these records to investigate,
+then reconcile against application and
+
+201
+00:16:32,998 --> 00:16:33,818
+provider evidence.
+
+202
+00:16:35,316 --> 00:16:40,276
+A dispatcher should run the body
+only on a fresh explicit allow.
+
+203
+00:16:41,416 --> 00:16:47,376
+An unavailable sidecar, malformed response,
+timeout, or authentication failure must
+
+204
+00:16:47,376 --> 00:16:53,136
+not become permission. Enable enforcement
+and fail closed. Here stopping the
+
+205
+00:16:53,136 --> 00:16:58,836
+sidecar prevents a file effect. Restarting
+it preserves the killed identity, while
+
+206
+00:16:58,836 --> 00:17:04,616
+the unrelated lease remains active. Keep
+database and evidence paths consistent, use
+
+207
+00:17:04,616 --> 00:17:10,396
+private state directories, and bind locally.
+The repository includes container and
+
+208
+00:17:10,396 --> 00:17:15,956
+systemd guidance, but your target
+deployment still needs acceptance. Back up
+
+209
+00:17:15,956 --> 00:17:21,616
+SQLite consistently and test restoration
+with dispatch stopped. Candidate migration
+
+210
+00:17:21,616 --> 00:17:26,616
+adds tables. Older binaries do not
+enforce the new credential or exact
+
+211
+00:17:26,616 --> 00:17:31,976
+action boundaries, so rollback needs
+a reviewed recovery plan. Primary
+
+212
+00:17:31,976 --> 00:17:37,816
+SQLite transactions do not make JSON
+Lines, Witness, and external effects one
+
+213
+00:17:37,816 --> 00:17:38,636
+global transaction.
+
+214
+00:17:39,198 --> 00:17:44,698
+Now we're using the optimized Harness
+executable copied outside its source checkout.
+
+215
+00:17:45,578 --> 00:17:50,678
+Its explicit demo configuration enables
+DeadBolt and fail closed, with isolated
+
+216
+00:17:50,678 --> 00:17:55,618
+state. A synthetic loopback provider
+proposes a normal file write.
+
+217
+00:17:56,798 --> 00:18:00,998
+Harness runs the protected tool, and
+the file appears. Before the next
+
+218
+00:18:00,998 --> 00:18:05,918
+proposed write, the operator kills that
+run. Harness reports a killed denial,
+
+219
+00:18:06,198 --> 00:18:11,198
+and the second file does not exist.
+A different Harness agent then
+
+220
+00:18:11,198 --> 00:18:15,498
+writes its own file successfully.
+The output on screen is captured from
+
+221
+00:18:15,498 --> 00:18:21,438
+actual commands and tool results, with
+demo paths shortened for readability. This
+
+222
+00:18:21,438 --> 00:18:25,538
+is a deterministic integration test,
+not a claim about a particular model's
+
+223
+00:18:25,538 --> 00:18:30,998
+behavior. Harness currently uses legacy
+admission and correctly refuses exact only
+
+224
+00:18:30,998 --> 00:18:34,218
+tools until a dedicated exact
+action adapter is added.
+
+225
+00:18:34,411 --> 00:18:39,471
+Developers can also work through Harness's
+actual web interface. This screenshot
+
+226
+00:18:39,471 --> 00:18:44,291
+comes from the running application, not
+a proposed DeadBolt dashboard. We asked
+
+227
+00:18:44,291 --> 00:18:47,831
+the local fixture to read a
+harmless document and then attempt a
+
+228
+00:18:47,831 --> 00:18:51,791
+write. The read went through the
+permitted tool. The write was refused
+
+229
+00:18:51,791 --> 00:18:56,351
+with purpose exceeded, and the output
+file was independently checked to be
+
+230
+00:18:56,351 --> 00:19:01,531
+absent. Sessions, the conversation,
+and activity events remain visible.
+
+231
+00:19:01,531 --> 00:19:06,111
+A done event means the tool
+call returned; it does not by
+
+232
+00:19:06,111 --> 00:19:10,611
+itself mean the requested effect succeeded.
+The application should expose the
+
+233
+00:19:10,611 --> 00:19:16,271
+decision clearly. DeadBolt's operator
+control is still separate from the chat. This
+
+234
+00:19:16,271 --> 00:19:20,831
+demo interface uses the same protected
+execution boundary, with a deterministic
+
+235
+00:19:20,831 --> 00:19:22,951
+provider and dedicated demo data.
+
+236
+00:19:23,172 --> 00:19:28,032
+The review found a meaningful integration
+bug. Harness admitted a tool before
+
+237
+00:19:28,032 --> 00:19:32,552
+waiting for human review. After
+review, it checked only stored kill or
+
+238
+00:19:32,552 --> 00:19:37,212
+pause state. A changed policy or
+expired lease could therefore be missed,
+
+239
+00:19:37,712 --> 00:19:42,132
+and declining review could consume
+a one shot too early. Four new
+
+240
+00:19:42,132 --> 00:19:46,792
+regressions failed against that behavior.
+The correction performs the admission once,
+
+241
+00:19:46,792 --> 00:19:52,472
+after review, immediately before the registered
+body or reviewed content write. Seven
+
+242
+00:19:52,472 --> 00:19:57,872
+new regression cases now cover these paths,
+including operator kill, clipped writes,
+
+243
+00:19:58,412 --> 00:20:03,717
+approval preservation, and exact only
+refusal. The full workspace passed eight
+
+244
+00:20:03,717 --> 00:20:09,172
+hundred twenty five tests; the focused
+optimized suites passed two hundred. All
+
+245
+00:20:09,172 --> 00:20:13,672
+fifteen remote checks passed. These are
+review results for the pinned candidate,
+
+246
+00:20:13,672 --> 00:20:17,132
+with unmerged pull requests
+and no new release yet.
+
+247
+00:20:17,385 --> 00:20:22,165
+Start with one narrow tool route in
+your application. Choose the released
+
+248
+00:20:22,165 --> 00:20:27,405
+or reviewed candidate API, configure a
+private store, assign a stable identity,
+
+249
+00:20:27,885 --> 00:20:33,125
+and set a useful policy. Wrap the
+actual effect function and test
+
+250
+00:20:33,125 --> 00:20:38,165
+its allowed behavior. Then verify
+policy denial, operator revocation,
+
+251
+00:20:39,145 --> 00:20:44,605
+expiry, approval replay, and gate outage
+without accepting a hidden fallback. Add
+
+252
+00:20:44,605 --> 00:20:49,645
+exact content review when arguments
+determine a sensitive outcome. Add scoped
+
+253
+00:20:49,645 --> 00:20:55,045
+credentials when workloads should lack
+operator authority. Record which routes are
+
+254
+00:20:55,045 --> 00:20:59,745
+covered, and expand only after their
+effects are checked. DeadBolt is free
+
+255
+00:20:59,745 --> 00:21:04,225
+under Apache two point zero, with no
+model subscription required for the
+
+256
+00:21:04,225 --> 00:21:09,985
+gate. The guide, reproducible fixtures,
+source revisions, captions, and
+
+257
+00:21:09,985 --> 00:21:15,645
+evidence accompany this walkthrough. Your
+next step is a small independently verified
+
+258
+00:21:15,645 --> 00:21:16,105
+integration.

@@ -1,0 +1,275 @@
+1
+00:00:00,000 --> 00:00:05,420
+Welcome to DeadBolt, a free, open
+source execution gate from NextEleven.
+
+2
+00:00:05,560 --> 00:00:11,000
+This walkthrough starts with the problem,
+shows the integration choices, and then
+
+3
+00:00:11,320 --> 00:00:15,940
+demonstrates real allowed and blocked
+effects. DeadBolt gives an operator control
+
+4
+00:00:15,940 --> 00:00:20,720
+over a particular agent's next protected
+action. It works with a trusted
+
+5
+00:00:20,720 --> 00:00:26,460
+dispatcher, whether your application uses
+Rust, a local sidecar, an MCP server,
+
+6
+00:00:26,580 --> 00:00:31,960
+or supported Python function tools. We'll
+finish inside the actual Harness executable
+
+7
+00:00:32,250 --> 00:00:36,840
+and its web interface. The model
+responses in those examples come from
+
+8
+00:00:36,840 --> 00:00:42,600
+a deterministic local fixture. The files,
+operator commands, admission decisions,
+
+9
+00:00:43,000 --> 00:00:48,500
+and tool execution are real. Cedar
+provides the AI generated narration. The
+
+10
+00:00:48,500 --> 00:00:53,080
+visual presentation is an educational
+demo, separate from the shipping product
+
+11
+00:00:53,080 --> 00:00:53,520
+interface.
+
+12
+00:00:53,882 --> 00:00:59,422
+Exact action approval binds the
+executor's run, routed tool, destination,
+
+13
+00:01:00,182 --> 00:01:05,602
+validated JSON arguments, a unique
+nonce, and a fixed deadline. Prepare the
+
+14
+00:01:05,602 --> 00:01:10,602
+review request in trusted code, and
+protect the private review file. Inspect
+
+15
+00:01:10,602 --> 00:01:15,302
+the actual content and its fingerprint.
+The operator approves that reviewed
+
+16
+00:01:15,302 --> 00:01:20,222
+fingerprint. The dispatch helper later
+uses a copied argument snapshot for the
+
+17
+00:01:20,222 --> 00:01:25,082
+body. It must not read different
+recipients or amounts from mutable state.
+
+18
+00:01:26,102 --> 00:01:30,482
+Changing reviewed content does not
+match the grant and is refused. The
+
+19
+00:01:30,482 --> 00:01:36,182
+original reviewed write succeeds once; its
+replay is refused. This demonstration uses
+
+20
+00:01:36,182 --> 00:01:41,342
+a temporary file transport, not email.
+Rebuild a request with every effect
+
+21
+00:01:41,342 --> 00:01:46,362
+affecting value resolved, and version
+your tool identity when its schema or
+
+22
+00:01:46,362 --> 00:01:46,882
+behavior changes.
+
+23
+00:01:47,148 --> 00:01:52,648
+Now we're using the optimized Harness
+executable copied outside its source checkout.
+
+24
+00:01:53,528 --> 00:01:58,628
+Its explicit demo configuration enables
+DeadBolt and fail closed, with isolated
+
+25
+00:01:58,628 --> 00:02:03,568
+state. A synthetic loopback provider
+proposes a normal file write.
+
+26
+00:02:04,748 --> 00:02:08,948
+Harness runs the protected tool, and
+the file appears. Before the next
+
+27
+00:02:08,948 --> 00:02:13,868
+proposed write, the operator kills that
+run. Harness reports a killed denial,
+
+28
+00:02:14,148 --> 00:02:19,148
+and the second file does not exist.
+A different Harness agent then
+
+29
+00:02:19,148 --> 00:02:23,448
+writes its own file successfully.
+The output on screen is captured from
+
+30
+00:02:23,448 --> 00:02:29,388
+actual commands and tool results, with
+demo paths shortened for readability. This
+
+31
+00:02:29,388 --> 00:02:33,488
+is a deterministic integration test,
+not a claim about a particular model's
+
+32
+00:02:33,488 --> 00:02:38,948
+behavior. Harness currently uses legacy
+admission and correctly refuses exact only
+
+33
+00:02:38,948 --> 00:02:42,168
+tools until a dedicated exact
+action adapter is added.
+
+34
+00:02:42,362 --> 00:02:47,422
+Developers can also work through Harness's
+actual web interface. This screenshot
+
+35
+00:02:47,422 --> 00:02:52,242
+comes from the running application, not
+a proposed DeadBolt dashboard. We asked
+
+36
+00:02:52,242 --> 00:02:55,782
+the local fixture to read a
+harmless document and then attempt a
+
+37
+00:02:55,782 --> 00:02:59,742
+write. The read went through the
+permitted tool. The write was refused
+
+38
+00:02:59,742 --> 00:03:04,302
+with purpose exceeded, and the output
+file was independently checked to be
+
+39
+00:03:04,302 --> 00:03:09,482
+absent. Sessions, the conversation,
+and activity events remain visible.
+
+40
+00:03:09,482 --> 00:03:14,062
+A done event means the tool
+call returned; it does not by
+
+41
+00:03:14,062 --> 00:03:18,562
+itself mean the requested effect succeeded.
+The application should expose the
+
+42
+00:03:18,562 --> 00:03:24,222
+decision clearly. DeadBolt's operator
+control is still separate from the chat. This
+
+43
+00:03:24,222 --> 00:03:28,782
+demo interface uses the same protected
+execution boundary, with a deterministic
+
+44
+00:03:28,782 --> 00:03:30,902
+provider and dedicated demo data.
+
+45
+00:03:31,123 --> 00:03:35,903
+Start with one narrow tool route in
+your application. Choose the released
+
+46
+00:03:35,903 --> 00:03:41,143
+or reviewed candidate API, configure a
+private store, assign a stable identity,
+
+47
+00:03:41,623 --> 00:03:46,863
+and set a useful policy. Wrap the
+actual effect function and test
+
+48
+00:03:46,863 --> 00:03:51,903
+its allowed behavior. Then verify
+policy denial, operator revocation,
+
+49
+00:03:52,883 --> 00:03:58,343
+expiry, approval replay, and gate outage
+without accepting a hidden fallback. Add
+
+50
+00:03:58,343 --> 00:04:03,383
+exact content review when arguments
+determine a sensitive outcome. Add scoped
+
+51
+00:04:03,383 --> 00:04:08,783
+credentials when workloads should lack
+operator authority. Record which routes are
+
+52
+00:04:08,783 --> 00:04:13,483
+covered, and expand only after their
+effects are checked. DeadBolt is free
+
+53
+00:04:13,483 --> 00:04:17,963
+under Apache two point zero, with no
+model subscription required for the
+
+54
+00:04:17,963 --> 00:04:23,723
+gate. The guide, reproducible fixtures,
+source revisions, captions, and
+
+55
+00:04:23,723 --> 00:04:29,383
+evidence accompany this walkthrough. Your
+next step is a small independently verified
+
+56
+00:04:29,383 --> 00:04:29,843
+integration.
