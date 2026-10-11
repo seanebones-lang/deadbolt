@@ -628,6 +628,7 @@ fn err_token(err: &DeadboltError) -> &'static str {
 #[cfg(test)]
 mod credential_tests {
     use super::*;
+    use std::fs;
 
     fn request(method: &str, path: &str, headers: &str, body: &str) -> String {
         format!("{method} {path} HTTP/1.1\r\nhost: localhost\r\n{headers}content-length: {}\r\n\r\n{body}", body.len())
