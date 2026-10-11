@@ -3,7 +3,17 @@ SOURCE AND CLAIM BOUNDARIES — reviewed 2026-10-10 America/Chicago
 DeadBolt runtime candidate: 6bbdf109b4ce5e26d56b466179f98ed9686ddbcf
 DeadBolt documentation: 35a2d0dcb488ad8dffa926c9c61f55fd16b1975e
 Harness integration: 5c7716610905fa1ffc62ca4e94ceec3ce6ed3db2
-Published DeadBolt: v1.0.3. Candidate changes remain unmerged/unreleased.
+At recording: published DeadBolt v1.0.3; candidate changes were unmerged/unreleased.
+
+POST-RECORDING RELEASE UPDATE — 2026-10-10
+DeadBolt v1.1.0-rc.1 is now a published prerelease from
+52a2085155b658f3d1dda5a73a8d95a7a1d88fad:
+https://github.com/seanebones-lang/deadbolt/releases/tag/v1.1.0-rc.1
+It integrates the DeadBolt candidate functionality discussed in the videos.
+Stable v1.0.3 remains available. The separately reviewed Harness integration
+remains unmerged in https://github.com/seanebones-lang/harness/pull/8.
+The original source pins and narrated recording status above remain historical
+provenance; the video is not a new recording of the published release artifacts.
 
 Primary external guidance:
 https://developers.openai.com/api/docs/guides/agents/guardrails-approvals
