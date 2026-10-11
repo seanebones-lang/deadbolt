@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
+const crypto = require("crypto");
 const http = require("http");
 const net = require("net");
 const os = require("os");
@@ -137,6 +138,71 @@ function admit(agentId, tool, dest) {
   });
 }
 
+
+function jsonSnapshot(value, depth = 0, budget = { left: 4096 }) {
+  if (depth > 32 || budget.left-- <= 0) throw new TypeError("action limits");
+  if (value === null || typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    // UTF-8 encoding would otherwise silently replace lone surrogates.
+    if (!value.isWellFormed()) throw new TypeError("invalid Unicode");
+    return value;
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value) || Math.abs(value) > Number.MAX_SAFE_INTEGER || Object.is(value, -0)) throw new TypeError("invalid action number");
+    return value;
+  }
+  if (typeof value !== "object" || !value) throw new TypeError("JSON-native values required");
+  const array = Array.isArray(value);
+  if (!array && Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) throw new TypeError("plain JSON objects required");
+  const result = array ? [] : Object.create(null);
+  for (const key of Reflect.ownKeys(value)) {
+    if (array && key === "length") continue;
+    const property = Object.getOwnPropertyDescriptor(value, key);
+    if (typeof key !== "string" || !property.enumerable || !("value" in property)) throw new TypeError("plain JSON properties required");
+    jsonSnapshot(key);
+    if (array && !/^(0|[1-9][0-9]*)$/.test(key)) throw new TypeError("plain JSON arrays required");
+    result[key] = jsonSnapshot(property.value, depth + 1, budget);
+  }
+  if (array && Object.keys(result).length !== value.length) throw new TypeError("sparse arrays refused");
+  return result;
+}
+
+function actionSnapshot(action) {
+  const copy = jsonSnapshot(action);
+  const fields = ["agent_id", "arguments", "dest", "expires_at", "nonce", "tool", "version"];
+  if (!copy || Array.isArray(copy) || Object.keys(copy).sort().join() !== fields.join() || copy.version !== 1) throw new TypeError("invalid action envelope");
+  for (const key of ["agent_id", "tool", "nonce", "dest"]) {
+    if (key === "dest" && copy[key] === null) continue;
+    if (typeof copy[key] !== "string" || !/^[A-Za-z0-9_.:/-]{1,128}$/.test(copy[key])) throw new TypeError("invalid action token");
+  }
+  if (!copy.arguments || Array.isArray(copy.arguments) || typeof copy.arguments !== "object" || !Number.isSafeInteger(copy.expires_at) || copy.expires_at <= 0 || Buffer.byteLength(JSON.stringify(copy)) > 32768) throw new TypeError("invalid action arguments/deadline");
+  return copy;
+}
+
+function prepareAction(agentId, tool, argumentsValue, dest = null, ttlSecs = 300) {
+  if (!Number.isInteger(ttlSecs) || ttlSecs < 1 || ttlSecs > 86400) throw new TypeError("invalid action lifetime");
+  return actionSnapshot({ version: 1, agent_id: agentId, tool, dest, arguments: argumentsValue,
+    nonce: crypto.randomBytes(32).toString("hex"), expires_at: Math.floor(Date.now() / 1000) + ttlSecs });
+}
+
+function admitAction(action) {
+  let snapshot;
+  try { snapshot = actionSnapshot(action); } catch { return Promise.resolve(down("/admit-action", "bad_request")); }
+  return call("POST", "/admit-action", snapshot).then(result => {
+    if (!result || (result.decision !== "allow" && result.decision !== "deny")) return down("/admit-action");
+    return result;
+  });
+}
+
+async function dispatchAction(action, body) {
+  if (typeof body !== "function") throw new TypeError("action body must be callable");
+  let snapshot;
+  try { snapshot = actionSnapshot(action); } catch { return { executed: false, decision: down("/admit-action", "bad_request") }; }
+  const decision = await admitAction(snapshot);
+  if (decision.decision !== "allow") return { executed: false, decision };
+  return { executed: true, decision, result: await body(snapshot.arguments) };
+}
+
 function policy(agentId, fields) {
   return call("POST", "/policy", { ...fields, agent_id: agentId });
 }
@@ -185,7 +251,7 @@ async function main() {
   process.stdout.write(JSON.stringify(out) + "\n");
 }
 
-module.exports = { ensure, admit, dispatch, registerChild, status, policy, spend };
+module.exports = { ensure, admit, dispatch, prepareAction, admitAction, dispatchAction, registerChild, status, policy, spend };
 
 if (require.main === module) main().catch((err) => {
   console.error(String(err && err.message ? err.message : err));

@@ -85,6 +85,62 @@ class OpenAIAcceptance(unittest.IsolatedAsyncioTestCase):
     async def run_tool(self, tool, arguments=None, **kwargs):
         return await Runner.run(self.make_agent(tool, arguments), "synthetic test", **kwargs)
 
+    def exact_grant(self, arguments):
+        action = client.prepare_action("worker", "write_file", arguments)
+        file = Path(self.temp.name) / "review.json"
+        file.write_text(json.dumps(action), encoding="utf-8")
+        output = subprocess.check_output([str(BINARY), "action", "inspect", "--file", str(file)], text=True)
+        fingerprint = output.splitlines()[0].split("=",1)[1]
+        self.operator("action","approve","--file",str(file),"--fingerprint",fingerprint)
+        return {k:action[k] for k in ("nonce","expires_at")}
+
+    async def test_exact_sdk_arguments_defaults_resume_and_replay(self):
+        grant = self.exact_grant({"content":"reviewed"})
+        async def write_file(content: str = "reviewed") -> str:
+            self.file.write_text(content)
+            return content
+        tool = protected_tool(agent_id="worker", action_grant=grant, needs_approval=True)(write_file)
+        agent = self.make_agent(tool,"{}")
+        pending = await Runner.run(agent,"synthetic")
+        self.assertEqual(len(pending.interruptions),1)
+        self.assertFalse(self.file.exists())
+        # SDK approval does not consume the DeadBolt action until body invocation.
+        state=pending.to_state(); state.approve(pending.interruptions[0])
+        await Runner.run(agent,state)
+        self.assertEqual(self.file.read_text(),"reviewed")
+        with self.assertRaises(UserError) as replay:
+            await self.run_tool(protected_tool(agent_id="worker",action_grant=grant)(write_file),{"content":"reviewed"})
+        self.assertEqual(denial_code(replay.exception),"needs_human")
+
+    async def test_changed_exact_sdk_arguments_do_not_consume_reviewed_action(self):
+        grant = self.exact_grant({"content":"reviewed"})
+        tool = self.make_tool(action_grant=grant)
+        with self.assertRaises(UserError) as changed:
+            await self.run_tool(tool,{"content":"changed"})
+        self.assertEqual(denial_code(changed.exception),"needs_human")
+        self.assertFalse(self.file.exists())
+        await self.run_tool(tool,{"content":"reviewed"})
+        self.assertEqual(self.file.read_text(),"reviewed")
+
+    async def test_exact_sdk_resolver_mutation_cannot_change_effect(self):
+        grant=self.exact_grant({"content":"reviewed"})
+        def resolver(args):
+            args["content"]="changed"
+            return grant
+        tool=self.make_tool(action_grant=resolver)
+        await self.run_tool(tool,{"content":"reviewed"})
+        self.assertEqual(self.file.read_text(),"reviewed")
+
+    async def test_exact_sdk_context_is_refused_instead_of_omitted(self):
+        grant=self.exact_grant({"content":"reviewed"})
+        async def write_file(ctx: RunContextWrapper[dict], content: str) -> str:
+            self.file.write_text(ctx.context["prefix"]+content)
+            return content
+        tool=protected_tool(agent_id="worker",action_grant=grant)(write_file)
+        with self.assertRaises(UserError):
+            await self.run_tool(tool,{"content":"reviewed"},context={"prefix":"changed"})
+        self.assertFalse(self.file.exists())
+
     async def test_scoped_credential_runner_allow_revoke_and_control_denial(self):
         key = Path(self.temp.name) / "key"
         self.operator("credential", "issue", "--agent", "worker", "--id", "sdk-key", "--out", str(key))

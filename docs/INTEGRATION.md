@@ -283,3 +283,12 @@ one ID leaves unrelated IDs operational. macOS and Linux-container behavior is l
 [the standalone review](STANDALONE-REVIEW.md). Remote Linux/macOS/Windows and Rust 1.85 CI passed on 2026-09-29.
 The systemd template passed bounded service acceptance in a disposable Ubuntu
 container. Native host installation and actual application acceptance remain open.
+
+## Exact-action source candidate
+
+The opt-in [exact-action protocol](ACTION-APPROVALS.md) binds reviewed arguments,
+run, tool, destination, nonce and deadline. Its new endpoint cannot fall back to
+legacy admission. Approval enables exact-only policy for that run/tool;
+nonces persist after use/revocation. Existing unconfigured integrations retain
+their behavior. This is unreleased. Older binaries cannot enforce these new
+requirements; quiesce protected dispatch before any rollback.

@@ -427,8 +427,11 @@ fn dispatch_http(gate: &Deadbolt, raw: &str, token: Option<&str>) -> (u16, Strin
         if operator.is_some() {
             return (401, json!({"code":"unauthorized"}).to_string());
         }
-        if (method, path) != ("POST", "/admit") {
+        if method != "POST" || !matches!(path, "/admit" | "/admit-action") {
             return (403, json!({"code":"forbidden"}).to_string());
+        }
+        if path == "/admit-action" {
+            return admit_action(gate, body, Some(&secret));
         }
         return admit_scoped(gate, body, &secret);
     }
@@ -447,6 +450,7 @@ fn dispatch_http(gate: &Deadbolt, raw: &str, token: Option<&str>) -> (u16, Strin
     }
     match (method, path) {
         ("POST", "/admit") => admit(gate, body),
+        ("POST", "/admit-action") => admit_action(gate, body, None),
         ("POST", "/ensure") => ensure(gate, body),
         ("POST", "/register_child") => register_child(gate, body),
         ("POST", "/policy") => policy(gate, body),
@@ -492,6 +496,27 @@ fn admit_scoped(gate: &Deadbolt, body: &str, secret: &str) -> (u16, String) {
         _ => return (400, json!({"code":"bad_request"}).to_string()),
     };
     match gate.admit_credential(secret, agent, tool, dest) {
+        Ok(AdmitDecision::Allow) => (200, json!({"decision":"allow"}).to_string()),
+        Ok(AdmitDecision::Deny { code }) => (
+            200,
+            json!({"decision":"deny","code":code.as_str()}).to_string(),
+        ),
+        Err(DeadboltError::TokenRequired) => (401, json!({"code":"unauthorized"}).to_string()),
+        Err(DeadboltError::BadRequest) => (400, json!({"code":"bad_request"}).to_string()),
+        Err(_) => (503, json!({"code":"store_unavailable"}).to_string()),
+    }
+}
+
+fn admit_action(gate: &Deadbolt, body: &str, secret: Option<&str>) -> (u16, String) {
+    let action = match crate::ActionRequest::from_json(body) {
+        Ok(a) => a,
+        Err(_) => return (400, json!({"code":"bad_request"}).to_string()),
+    };
+    let decision = match secret {
+        Some(secret) => gate.admit_action_credential(secret, &action),
+        None => gate.admit_action(&action),
+    };
+    match decision {
         Ok(AdmitDecision::Allow) => (200, json!({"decision":"allow"}).to_string()),
         Ok(AdmitDecision::Deny { code }) => (
             200,
@@ -632,6 +657,67 @@ mod credential_tests {
 
     fn request(method: &str, path: &str, headers: &str, body: &str) -> String {
         format!("{method} {path} HTTP/1.1\r\nhost: localhost\r\n{headers}content-length: {}\r\n\r\n{body}", body.len())
+    }
+
+    #[test]
+    fn exact_route_rejects_malformed_and_mixed_auth_without_consumption() {
+        let dir = tempfile::tempdir().unwrap();
+        let gate = Deadbolt::open_at(dir.path(), true, 60);
+        gate.ensure_agent("A").unwrap();
+        let action = crate::ActionRequest::new(
+            "A",
+            "send",
+            None,
+            serde_json::json!({"body":"reviewed"}),
+            60,
+        )
+        .unwrap();
+        gate.approve_action(&action).unwrap();
+        let raw = serde_json::to_string(&action).unwrap();
+        let duplicate = raw.replace("\"version\":1", "\"version\":1,\"version\":1");
+        assert_eq!(
+            dispatch_http(
+                &gate,
+                &request(
+                    "POST",
+                    "/admit-action",
+                    "X-Deadbolt-Token: operator\r\n",
+                    &duplicate
+                ),
+                Some("operator")
+            )
+            .0,
+            400
+        );
+        gate.issue_credential("A", "key", 60, &dir.path().join("key"))
+            .unwrap();
+        let secret = fs::read_to_string(dir.path().join("key")).unwrap();
+        let mixed = format!("X-Deadbolt-Admission: {secret}\r\nX-Deadbolt-Token: operator\r\n");
+        assert_eq!(
+            dispatch_http(
+                &gate,
+                &request("POST", "/admit-action", &mixed, &raw),
+                Some("operator")
+            )
+            .0,
+            401
+        );
+        let header = format!("X-Deadbolt-Admission: {secret}\r\n");
+        assert_eq!(
+            dispatch_http(
+                &gate,
+                &request("POST", "/admit-action", &header, &raw),
+                Some("operator")
+            ),
+            (200, r#"{"decision":"allow"}"#.into())
+        );
+        assert!(dispatch_http(
+            &gate,
+            &request("POST", "/admit-action", &header, &raw),
+            Some("operator")
+        )
+        .1
+        .contains("needs_human"));
     }
 
     #[test]

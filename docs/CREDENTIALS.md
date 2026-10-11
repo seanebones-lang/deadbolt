@@ -7,7 +7,7 @@ does not support it.
 | Identity | HTTP access | Who holds it |
 | --- | --- | --- |
 | Operator (`DEADBOLT_TOKEN` / `X-Deadbolt-Token`) | All exposed routes, including setup, policy, spend and status | Trusted setup/administration |
-| Admission (`DEADBOLT_ADMISSION_TOKEN` / `X-Deadbolt-Admission`) | Only `POST /admit`, for one stored agent ID | Trusted dispatcher for that run |
+| Admission (`DEADBOLT_ADMISSION_TOKEN` / `X-Deadbolt-Admission`) | Only `POST /admit` and `POST /admit-action`, for one stored agent ID | Trusted dispatcher for that run |
 | Socket possession without credentials | Legacy operator access only before any admission credential has ever been issued | Existing Unix integrations only |
 
 An admission credential cannot ensure/register agents, alter policy, report spend,
@@ -114,3 +114,7 @@ Python/Node effects and a real MCP child. Installed-wheel SDK acceptance checks
 that revocation prevents another effect through the real OpenAI SDK runner,
 without provider requests. Run the existing CI and packaging acceptance suites
 before deploying this candidate.
+
+For sensitive effects, use [exact-action approval](ACTION-APPROVALS.md). Its
+operator-owned grant binds arguments and consumes once through the new endpoint;
+issuing an admission credential alone never approves an action.

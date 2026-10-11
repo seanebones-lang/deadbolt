@@ -7,13 +7,20 @@ The older `v0.1.1-product` tag is not the standalone hardening release.
 
 Source candidate version: `1.1.0-rc.1`. No release/tag is published by this change.
 
+- Add opt-in operator-reviewed exact-action grants, RFC 8785 fingerprints, fixed
+  deadlines, atomic single-use admission and a separate `/admit-action` route.
+  Exact-only tool policy closes normal admit/probe/broad approval paths under
+  enabled fail-closed enforcement. Add private-review CLI with expected digest,
+  snapshotting Rust/Python/Node dispatch, optional SDK integration and MCP metadata.
+  See `docs/ACTION-APPROVALS.md` for trust boundaries, migration and retry limits.
+
 - Add operator-issued single-agent admission credentials with OS-generated 256-bit
   bearer secrets, stored hashes, fixed expiry and independent revocation. Credential
   authentication and policy/approval evaluation share a SQLite writer transaction.
   Add CLI issue/revoke/list controls; issuance writes an exclusive output file
   (0600 on Unix) and primary-evidence failure rolls back activation.
 - Keep operator HTTP authority separate: workload credentials authorize only
-  `POST /admit`, mixed/duplicate auth headers fail closed, and the first credential
+  `POST /admit` and `POST /admit-action`, mixed/duplicate auth headers fail closed, and the first credential
   permanently disables anonymous Unix operator access in that store. Existing
   stores migrate without changing lease/policy/approval state.
 - Add workload-mode Python/Node/MCP requests without operator fallback. Scoped

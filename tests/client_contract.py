@@ -56,6 +56,102 @@ class ClientContract(unittest.TestCase):
         self.assertEqual(out.returncode, 0, out.stderr)
         return json.loads(out.stdout)
 
+    def approve_action(self, action):
+        file = Path(self.temp.name) / "review.json"
+        file.write_text(json.dumps(action), encoding="utf-8")
+        result = subprocess.run([str(BINARY), "action", "inspect", "--file", str(file)],
+                                env=self.env, check=True, capture_output=True, text=True)
+        fingerprint = result.stdout.splitlines()[0].split("=", 1)[1]
+        subprocess.run([str(BINARY), "action", "approve", "--file", str(file), "--fingerprint", fingerprint],
+                       env=self.env, check=True, capture_output=True, text=True)
+        return file, fingerprint
+
+    def test_exact_action_cross_language_review_replay_and_scoped_auth(self):
+        root = Path(self.temp.name)
+        action = client.prepare_action("agent", "send", {"to":"reviewed@example.com", "body":"allowed"})
+        file, fingerprint = self.approve_action(action)
+        changed = json.loads(json.dumps(action)); changed["arguments"]["to"] = "other@example.com"
+        file.write_text(json.dumps(changed))
+        stale = subprocess.run([str(BINARY), "action", "approve", "--file", str(file), "--fingerprint", fingerprint],
+                               env=self.env, capture_output=True, text=True)
+        self.assertNotEqual(stale.returncode, 0)
+        self.assertEqual(client.admit("agent", "send")["code"], "needs_human")
+        self.assertEqual(client.admit_action(changed)["code"], "needs_human")
+        subprocess.run([str(BINARY), "credential", "issue", "--agent", "agent", "--id", "key",
+                        "--out", str(root / "key")], env=self.env, check=True, capture_output=True)
+        self.env["DEADBOLT_ADMISSION_TOKEN"] = os.environ["DEADBOLT_ADMISSION_TOKEN"] = (root / "key").read_text()
+        result = self.node('d.dispatchAction(' + json.dumps(action) + ', a => {require("fs").writeFileSync('
+                           + json.dumps(str(root / "effect")) + ', a.body); return a.to}).then(x => console.log(JSON.stringify(x)))')
+        self.assertTrue(result["executed"])
+        self.assertEqual(result["result"], "reviewed@example.com")
+        self.assertFalse(client.dispatch_action(action, lambda a: self.fail("replayed body"))["executed"])
+        self.assertEqual((root / "effect").read_text(), "allowed")
+        other = dict(action, agent_id="other")
+        self.assertEqual(client.admit_action(other)["code"], "unauthorized")
+
+    def test_action_dispatch_snapshots_before_waiting_and_refuses_invalid_values(self):
+        action = client.prepare_action("agent", "write", {"body":"reviewed"})
+        self.approve_action(action)
+        result = self.node('const a = ' + json.dumps(action) + '; const p = d.dispatchAction(a, x => x.body); a.arguments.body = "changed"; p.then(x => console.log(JSON.stringify(x)))')
+        self.assertEqual(result["result"], "reviewed")
+        action = client.prepare_action("agent", "write", {"body":"python-reviewed"})
+        self.approve_action(action)
+        async def run():
+            task = asyncio.create_task(client.dispatch_action_async(action, lambda x: x["body"]))
+            await asyncio.sleep(0)  # Dispatch has snapshotted before admission yields.
+            action["arguments"]["body"] = "changed"
+            return await task
+        self.assertEqual(asyncio.run(run())["result"], "python-reviewed")
+        for value in [float("nan"), float("inf"), -0.0, 9007199254740992, object()]:
+            with self.assertRaises((TypeError, ValueError)):
+                client.prepare_action("agent", "write", {"value":value})
+        self.assertEqual(self.node('const a=d.prepareAction("agent","write",{}); a.arguments.value=-0; d.dispatchAction(a,()=>{throw Error("ran")}).then(x=>console.log(JSON.stringify(x)))')["decision"]["code"], "bad_request")
+        self.assertEqual(self.node('try {d.prepareAction("agent","write",{value:undefined}); console.log("bad")} catch {console.log(JSON.stringify({rejected:true}))}')["rejected"], True)
+
+    def test_old_endpoint_and_error_responses_cannot_allow_exact_dispatch(self):
+        paths=[]
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                paths.append(self.path)
+                self.send_response(404)
+                self.send_header("Content-Length", "20")
+                self.end_headers()
+                self.wfile.write(b'{"decision":"allow"}')
+            def log_message(self,*args): pass
+        fake=HTTPServer(("127.0.0.1",0),Handler)
+        worker=Thread(target=fake.serve_forever);worker.start()
+        action=client.prepare_action("agent","write",{})
+        try:
+            self.env["DEADBOLT_SOCK"]=os.environ["DEADBOLT_SOCK"]=f"127.0.0.1:{fake.server_port}"
+            self.assertFalse(client.dispatch_action(action,lambda a:self.fail("old endpoint ran body"))["executed"])
+            self.assertFalse(self.node('d.dispatchAction('+json.dumps(action)+',()=>{throw Error("ran")}).then(x=>console.log(JSON.stringify(x)))')["executed"])
+            self.assertEqual(paths,["/admit-action","/admit-action"])
+        finally:
+            fake.shutdown();worker.join();fake.server_close()
+
+    def test_mcp_exact_action_raw_arguments_once_and_unreadable_metadata(self):
+        action = client.prepare_action("agent", "write", {"body":"reviewed"})
+        self.approve_action(action)
+        root = Path(self.temp.name)
+        grants = root / "grants.json"
+        grants.write_text(json.dumps({"write": {k:action[k] for k in ("nonce","expires_at")}}))
+        self.env["DEADBOLT_ACTION_GRANTS"] = str(grants)
+        child = "import sys,json,os; [print(json.dumps({'jsonrpc':'2.0','id':json.loads(line)['id'],'result':{'arguments':json.loads(line)['params']['arguments'],'inherited': 'DEADBOLT_ACTION_GRANTS' in os.environ}}),flush=True) for line in sys.stdin]"
+        frames = [{"jsonrpc":"2.0","id":i,"method":"tools/call","params":{"name":"write","arguments":{"body":body}}}
+                  for i,body in [(1,"changed"),(2,"reviewed"),(3,"reviewed")]]
+        result = subprocess.run([str(BINARY), "mcp-proxy", "--agent", "agent", "--serve-sock", self.env["DEADBOLT_SOCK"], "--", sys.executable, "-c", child],
+                                env=self.env, input="".join(json.dumps(f)+"\n" for f in frames), capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode,0,result.stderr)
+        replies={x["id"]:x for x in map(json.loads,result.stdout.splitlines())}
+        self.assertEqual(replies[1]["error"]["message"],"needs_human")
+        self.assertEqual(replies[2]["result"]["arguments"],{"body":"reviewed"})
+        self.assertFalse(replies[2]["result"]["inherited"])
+        self.assertEqual(replies[3]["error"]["message"],"needs_human")
+        self.env["DEADBOLT_ACTION_GRANTS"] = str(root / "missing")
+        bad = subprocess.run([str(BINARY), "mcp-proxy", "--agent", "agent", "--serve-sock", self.env["DEADBOLT_SOCK"], "--", sys.executable, "-c", "raise Exception('started')"], env=self.env, capture_output=True, text=True, timeout=10)
+        self.assertNotEqual(bad.returncode,0)
+        self.assertNotIn("started",bad.stderr)
+
     def test_scoped_python_node_and_mcp_keep_control_with_operator(self):
         root = Path(self.temp.name)
         self.assertTrue(client.ensure("other")["ok"])
@@ -112,7 +208,7 @@ class ClientContract(unittest.TestCase):
 
     def test_import_dest_and_spend(self):
         self.assertEqual(self.node('console.log(JSON.stringify(Object.keys(d).sort()))'),
-                         sorted(["admit", "dispatch", "ensure", "policy", "registerChild", "spend", "status"]))
+                         sorted(["admit", "dispatch", "prepareAction", "admitAction", "dispatchAction", "ensure", "policy", "registerChild", "spend", "status"]))
         self.assertTrue(client.policy("agent", tools=["fetch"], dest=["example.com"], spend_cap=2)["ok"])
         self.assertEqual(client.admit("agent", "fetch", "example.com")["decision"], "allow")
         self.assertEqual(self.node('d.admit("agent", "fetch", "other.com").then(x => console.log(JSON.stringify(x)))')["code"], "purpose_exceeded")

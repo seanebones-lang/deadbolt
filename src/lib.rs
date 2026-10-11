@@ -23,6 +23,8 @@ use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
+mod actions;
+pub use actions::ActionRequest;
 mod credentials;
 pub use credentials::CredentialStatus;
 mod mcp;
@@ -334,6 +336,16 @@ impl JsonlSqliteSink {
                clip_cids TEXT NOT NULL,
                swarm_task_id TEXT,
                updated_at INTEGER NOT NULL
+             );
+             CREATE TABLE IF NOT EXISTS exact_action_requirements (
+               agent_id TEXT NOT NULL, tool TEXT NOT NULL,
+               PRIMARY KEY(agent_id,tool)
+             );
+             CREATE TABLE IF NOT EXISTS action_grants (
+               agent_id TEXT NOT NULL, nonce TEXT NOT NULL, tool TEXT NOT NULL,
+               fingerprint TEXT NOT NULL, expires_at INTEGER NOT NULL,
+               consumed_at INTEGER, revoked_at INTEGER, created_at INTEGER NOT NULL,
+               PRIMARY KEY(agent_id,nonce)
              );
              CREATE TABLE IF NOT EXISTS admission_credentials (
                credential_id TEXT PRIMARY KEY,
@@ -841,7 +853,7 @@ impl Deadbolt {
             &g.conn,
             rusqlite::TransactionBehavior::Immediate,
         )?;
-        let decision = self.evaluate_in_transaction(&tx, agent_id, tool, dest)?;
+        let decision = self.evaluate_in_transaction(&tx, agent_id, tool, dest, false)?;
         tx.commit()?;
         Ok(decision)
     }
@@ -852,6 +864,7 @@ impl Deadbolt {
         agent_id: &str,
         tool: &str,
         dest: Option<&str>,
+        exact: bool,
     ) -> Result<AdmitDecision, rusqlite::Error> {
         let lease = match load_lease(tx, agent_id) {
             Ok(v) => v,
@@ -918,10 +931,21 @@ impl Deadbolt {
                 });
             }
         }
-        let shot = lease
-            .irreversible
-            .as_ref()
-            .is_some_and(|list| list.iter().any(|t| t == tool));
+        let exact_required: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM exact_action_requirements WHERE agent_id=?1 AND tool=?2)",
+            params![agent_id, tool],
+            |r| r.get(0),
+        )?;
+        if exact_required && !exact {
+            return Ok(AdmitDecision::Deny {
+                code: DenyCode::NeedsHuman,
+            });
+        }
+        let shot = !exact
+            && lease
+                .irreversible
+                .as_ref()
+                .is_some_and(|list| list.iter().any(|t| t == tool));
         if shot && !lease.approvals.iter().any(|t| t == tool) {
             return Ok(AdmitDecision::Deny {
                 code: DenyCode::NeedsHuman,
@@ -1190,6 +1214,8 @@ impl Deadbolt {
                 if lease.state == "killed" {
                     return Err(DeadboltError::Killed);
                 }
+                let required:bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM exact_action_requirements WHERE agent_id=?1 AND tool=?2)", params![agent_id,tool], |r|r.get(0)).map_err(|_|DeadboltError::StoreUnavailable)?;
+                if required { return Err(DeadboltError::BadRequest); }
                 if !lease.approvals.iter().any(|t| t == tool) {
                     lease.approvals.push(tool.to_string());
                 }

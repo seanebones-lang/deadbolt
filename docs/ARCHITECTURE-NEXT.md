@@ -46,12 +46,14 @@ change; adapter acceptance pins the released package `openai-agents==0.23.1`.
    endpoint is exposed. Authentication and lease evaluation share a SQLite writer
    transaction. [Credential setup](CREDENTIALS.md) documents legacy Unix migration
    and tests cover role enforcement at every route and installed client effects.
-3. **Bind sensitive grants to exact actions.** Define a versioned canonical
+3. **Implemented in this candidate: bind sensitive grants to exact actions.** Define a versioned canonical
    representation of trusted tool identity, validated arguments, destination,
    nonce, expiry and run ID. Store the reviewed fingerprint and consume it
    atomically. A changed body, recipient, destination, amount, stale grant or
    replay must fail. Do not hash arbitrary JSON and call that authorization;
    authenticating the reviewer and owning execution arguments are necessary.
+   [Exact-action setup](ACTION-APPROVALS.md) covers CLI review, canonicalization,
+   snapshotting dispatch, SDK defaults/resume, MCP arguments and downgrade limits.
 4. **Read-only setup inspection.** Show effective policy, lease, credential role
    and configured coverage without renewing a lease or consuming approvals.
    Keep “ready” distinct from evidence that every application route is gated.

@@ -84,3 +84,12 @@ HTTP authentication and a separate single-agent admission header. See
 disables anonymous Unix HTTP authority. This persists after revocation/expiry.
 Older binaries do not enforce this boundary; quiesce workload access before
 rollback and do not expose an anonymous old Unix listener to scoped clients.
+
+## Exact-action source candidate
+
+The opt-in [exact-action protocol](ACTION-APPROVALS.md) binds reviewed arguments,
+run, tool, destination, nonce and deadline. Its new endpoint cannot fall back to
+legacy admission. Approval enables exact-only policy for that run/tool;
+nonces persist after use/revocation. Existing unconfigured integrations retain
+their behavior. This is unreleased. Older binaries cannot enforce these new
+requirements; quiesce protected dispatch before any rollback.

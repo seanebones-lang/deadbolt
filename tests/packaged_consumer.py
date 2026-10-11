@@ -33,7 +33,7 @@ def main():
             + json.dumps(str(package)) + '}\n', encoding="utf-8")
         shutil.copy2(package / "Cargo.lock", consumer / "Cargo.lock")
         (consumer / "src/main.rs").write_text('''
-use deadbolt::{Deadbolt, DeadboltError, AdmitDecision, DenyCode, PolicyPatch};
+use deadbolt::{ActionRequest, Deadbolt, DeadboltError, AdmitDecision, DenyCode, PolicyPatch};
 fn main() {
     let root = std::path::PathBuf::from(std::env::args_os().nth(1).unwrap());
     let gate = Deadbolt::open_at(&root.join("state"), true, 60);
@@ -56,11 +56,19 @@ fn main() {
     let blocked: Result<(), DenyCode> = gate.dispatch("consumer-run", "other_tool", None,
         || panic!("off-policy body ran"));
     assert_eq!(blocked, Err(DenyCode::PurposeExceeded));
+    let mut action = ActionRequest::from_json(&format!(r#"{{"version":1,"agent_id":"consumer-run","tool":"write_file","dest":null,"arguments":{{"content":"reviewed"}},"nonce":"consumer-nonce","expires_at":{}}}"#, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()+60)).unwrap();
+    gate.approve_action(&action).unwrap();
+    assert_eq!(gate.admit("consumer-run","write_file"),AdmitDecision::Deny{code:DenyCode::NeedsHuman});
+    action.arguments["content"]="changed".into();
+    assert!(gate.dispatch_action(&action, |_| panic!("changed effect ran")).is_err());
+    action.arguments["content"]="reviewed".into();
+    gate.dispatch_action(&action, |args| std::fs::write(&effect,args["content"].as_str().unwrap()).unwrap()).unwrap();
+    assert!(gate.dispatch_action(&action, |_| panic!("replay ran")).is_err());
     gate.kill("consumer-run").unwrap();
     let killed: Result<(), DenyCode> = gate.dispatch("consumer-run", "write_file", None,
         || std::fs::write(&effect, "wrong").unwrap());
     assert_eq!(killed, Err(DenyCode::Killed));
-    assert_eq!(std::fs::read_to_string(effect).unwrap(), "allowed");
+    assert_eq!(std::fs::read_to_string(effect).unwrap(), "reviewed");
     println!("outside-checkout embedded consumer passed");
 }
 ''', encoding="utf-8")

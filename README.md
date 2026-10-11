@@ -62,6 +62,12 @@ source; pin a reviewed Git commit for reproducible use.
 
 ## Choose an integration
 
+The candidate supports [exact-action approvals](docs/ACTION-APPROVALS.md): review
+one recipient/body/amount, then consume its approval once. Rust, Python, Node,
+MCP and the optional Python SDK adapter support this opt-in path. It is
+unreleased and requires a trusted executor that owns the actual effect.
+
+
 The current source includes [callback dispatch helpers](docs/INTEGRATION.md#current-source-dispatch-helpers-unreleased)
 for Rust, Python and Node, including async variants. Pass the actual tool body
 to the helper; it checks admission before calling it and leaves it untouched on

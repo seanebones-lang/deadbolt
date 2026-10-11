@@ -53,7 +53,7 @@ The operator token `DEADBOLT_TOKEN` authenticates full HTTP authority and can
 assert any agent ID. The current candidate also accepts single-agent admission
 credentials: their stored hash, agent binding, fixed expiry and revocation are
 checked in the same writer transaction as lease/policy evaluation. These
-credentials authorize only `POST /admit`, not setup or control routes. See
+credentials authorize only `POST /admit` and `POST /admit-action`, not setup or control routes. See
 [credential setup](CREDENTIALS.md), including migration from anonymous Unix
 access. In either mode the trusted executor assigns the ID and tool identity;
 the model does not. Scoped admission always fails closed, even when the trusted
@@ -72,3 +72,12 @@ No frontier shutdown. No shadow-agent discovery. No fleet halt. No proof that a 
 Unset policy is open. A set `tools_allow` denies `purpose_exceeded`. `dest_allow` denies `purpose_exceeded` when dest is present and not on the list, or when the tool is network-class (`http`, `fetch`, `browser`, `web_search`) and dest is missing. A local tool with no host is not denied for `dest_allow` alone. The deny is inferred, with the attempt cid in premises. Crossing `spend_cap_usd` pauses the lease. The next admit is `spend_cap`, not a generic pause. An irreversible tool is `needs_human` until `deadbolt approve --agent ID --tool TOOL` grants one shot. `deadbolt resume --agent ID --approve TOOL` is the same shot after a pause. There is no model-facing approve tool. A live admit, allow or deny, renews the TTL in `evaluate`. Silence does not. An expired lease is not slid.
 
 Harness is one consumer of this crate. This repository does not include it.
+
+## Exact-action source candidate
+
+The opt-in [exact-action protocol](ACTION-APPROVALS.md) binds reviewed arguments,
+run, tool, destination, nonce and deadline. Its new endpoint cannot fall back to
+legacy admission. Approval enables exact-only policy for that run/tool;
+nonces persist after use/revocation. Existing unconfigured integrations retain
+their behavior. This is unreleased. Older binaries cannot enforce these new
+requirements; quiesce protected dispatch before any rollback.

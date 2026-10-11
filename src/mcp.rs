@@ -18,9 +18,9 @@ use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
-use crate::{bind_refused, AdmitDecision, Deadbolt, DeadboltError};
+use crate::{bind_refused, ActionRequest, AdmitDecision, Deadbolt, DeadboltError};
 
-type AdmitFn = dyn Fn(&str, Option<&str>, Option<f64>) -> Option<String>;
+type AdmitFn = dyn Fn(&str, Option<&str>, Option<f64>, &Value) -> Option<String>;
 const MAX_MCP_FRAME_BYTES: usize = 16 * 1024 * 1024;
 const MAX_RESPONSE_BYTES: u64 = 1024 * 1024;
 const SHUTDOWN_GRACE: Duration = Duration::from_secs(1);
@@ -36,6 +36,7 @@ pub fn mcp_proxy(
     if argv.is_empty() {
         return Err(DeadboltError::McpSpawn);
     }
+    let grants = action_grants(agent)?;
     let scoped = std::env::var_os("DEADBOLT_ADMISSION_TOKEN").is_some();
     if scoped && serve_sock.is_none() {
         return Err(DeadboltError::BadRequest);
@@ -52,11 +53,15 @@ pub fn mcp_proxy(
         }
         let sock = sock.clone();
         let agent = agent.to_string();
-        return spawn_proxy(argv, move |tool, dest, usd| {
+        return spawn_proxy(argv, move |tool, dest, usd, arguments| {
             if let Some(usd) = usd {
                 if sock_spend(&sock, &agent, usd).is_err() {
                     return Some("store_unavailable".into());
                 }
+            }
+            if let Some(grant) = grants.get(tool) {
+                let action = grant.request(&agent, tool, dest, arguments.clone());
+                return sock_action_decision(&sock, &action);
             }
             sock_decision(&sock, &agent, tool, dest)
         });
@@ -66,11 +71,18 @@ pub fn mcp_proxy(
     }
     let gate = gate.clone();
     let agent = agent.to_string();
-    spawn_proxy(argv, move |tool, dest, usd| {
+    spawn_proxy(argv, move |tool, dest, usd, arguments| {
         if let Some(usd) = usd {
             if gate.spend_add(&agent, usd).is_err() {
                 return Some("store_unavailable".into());
             }
+        }
+        if let Some(grant) = grants.get(tool) {
+            return match gate.admit_action(&grant.request(&agent, tool, dest, arguments.clone())) {
+                Ok(AdmitDecision::Allow) => None,
+                Ok(AdmitDecision::Deny { code }) => Some(code.as_str().into()),
+                Err(_) => Some("store_unavailable".into()),
+            };
         }
         match gate.admit_dest(&agent, tool, dest) {
             AdmitDecision::Allow => None,
@@ -79,13 +91,84 @@ pub fn mcp_proxy(
     })
 }
 
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ActionGrant {
+    nonce: String,
+    expires_at: i64,
+}
+impl ActionGrant {
+    fn request(
+        &self,
+        agent: &str,
+        tool: &str,
+        dest: Option<&str>,
+        arguments: Value,
+    ) -> ActionRequest {
+        ActionRequest {
+            version: 1,
+            agent_id: agent.into(),
+            tool: tool.into(),
+            dest: dest.map(str::to_string),
+            arguments,
+            nonce: self.nonce.clone(),
+            expires_at: self.expires_at,
+        }
+    }
+}
+fn action_grants(
+    agent: &str,
+) -> Result<std::collections::BTreeMap<String, ActionGrant>, DeadboltError> {
+    let Some(path) = std::env::var_os("DEADBOLT_ACTION_GRANTS") else {
+        return Ok(Default::default());
+    };
+    let mut raw = String::new();
+    std::fs::File::open(path)
+        .map_err(|_| DeadboltError::BadRequest)?
+        .take(32769)
+        .read_to_string(&mut raw)
+        .map_err(|_| DeadboltError::BadRequest)?;
+    if raw.len() > 32768 {
+        return Err(DeadboltError::BadRequest);
+    }
+    let grants: std::collections::BTreeMap<String, ActionGrant> =
+        serde_json::from_value(crate::actions::strict_json(&raw)?)
+            .map_err(|_| DeadboltError::BadRequest)?;
+    for (tool, grant) in &grants {
+        grant.request(agent, tool, None, json!({})).fingerprint()?;
+    }
+    Ok(grants)
+}
+
+fn sock_action_decision(sock: &Path, action: &ActionRequest) -> Option<String> {
+    if action.fingerprint().is_err() {
+        return Some("bad_request".into());
+    }
+    let Ok(body) = serde_json::to_string(action) else {
+        return Some("bad_request".into());
+    };
+    match http_json(sock, "POST", "/admit-action", Some(&body)) {
+        Ok((200..=299, v)) if v.get("decision").and_then(Value::as_str) == Some("allow") => None,
+        Ok((401, _)) => Some("unauthorized".into()),
+        Ok((403, _)) => Some("forbidden".into()),
+        Ok((200..=299, v)) => Some(
+            v.get("code")
+                .and_then(Value::as_str)
+                .unwrap_or("store_unavailable")
+                .into(),
+        ),
+        _ => Some("store_unavailable".into()),
+    }
+}
+
 fn spawn_proxy(
     argv: &[String],
-    admit: impl Fn(&str, Option<&str>, Option<f64>) -> Option<String> + 'static,
+    admit: impl Fn(&str, Option<&str>, Option<f64>, &Value) -> Option<String> + 'static,
 ) -> Result<(), DeadboltError> {
     let mut cmd = Command::new(&argv[0]);
     cmd.env_remove("DEADBOLT_TOKEN")
         .env_remove("DEADBOLT_ADMISSION_TOKEN")
+        .env_remove("DEADBOLT_ACTION_GRANTS")
         .args(&argv[1..])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -310,7 +393,18 @@ fn dispatch(
         };
         let dest = dest_of(&msg);
         let usd = spend_of(&msg);
-        if let Some(code) = admit(name, dest.as_deref(), usd) {
+        let arguments = msg
+            .get("params")
+            .and_then(|p| p.get("arguments"))
+            .cloned()
+            .unwrap_or_else(|| json!({}));
+        if !arguments.is_object() {
+            if let Some(id) = request_id(&msg) {
+                write_client(client, &error_line(id, -32602, "bad_request"))?;
+            }
+            return Ok(());
+        }
+        if let Some(code) = admit(name, dest.as_deref(), usd, &arguments) {
             if let Some(id) = request_id(&msg) {
                 write_client(client, &error_line(id, -32000, &code))?;
             }
@@ -659,7 +753,7 @@ mod tests {
                 pending: Vec::new(),
                 pos: 0,
             }),
-            &|_, _, _| panic!("oversized frame reached admission"),
+            &|_, _, _, _| panic!("oversized frame reached admission"),
         );
         assert_eq!(ran.unwrap_err().kind(), std::io::ErrorKind::InvalidData);
         drop(response_tx);
@@ -680,7 +774,7 @@ mod tests {
                 pending: Vec::new(),
                 pos: 0,
             }),
-            &|_, _, _| panic!("EOF reached admission"),
+            &|_, _, _, _| panic!("EOF reached admission"),
         );
         ran.unwrap();
         assert!(started.elapsed() < Duration::from_secs(2));
@@ -715,7 +809,7 @@ mod tests {
                 ChanWriter::new(out_tx),
                 Vec::new(),
                 Cursor::new(output),
-                &|_, _, _| panic!("idle client reached admission"),
+                &|_, _, _, _| panic!("idle client reached admission"),
             );
             assert!(started.elapsed() < Duration::from_secs(2));
             if oversized {
@@ -841,7 +935,7 @@ mod tests {
                 pending: Vec::new(),
                 pos: 0,
             }),
-            &move |tool, dest, usd| {
+            &move |tool, dest, usd, _| {
                 if let Some(usd) = usd {
                     if gate.spend_add("shop-bot", usd).is_err() {
                         return Some("store_unavailable".into());

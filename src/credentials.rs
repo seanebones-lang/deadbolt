@@ -198,7 +198,7 @@ impl Deadbolt {
                 return Err(DeadboltError::TokenRequired);
             }
             let decision = self
-                .evaluate_in_transaction(&tx, agent_id, tool, dest)
+                .evaluate_in_transaction(&tx, agent_id, tool, dest, false)
                 .map_err(|_| DeadboltError::StoreUnavailable)?;
             tx.commit().map_err(|_| DeadboltError::StoreUnavailable)?;
             decision
@@ -219,6 +219,20 @@ fn credential_hash(secret: &str) -> Result<String, DeadboltError> {
         return Err(DeadboltError::TokenRequired);
     }
     Ok(hex_encode(&Sha256::digest(secret.as_bytes())))
+}
+
+pub(crate) fn authenticate(
+    tx: &rusqlite::Transaction<'_>,
+    secret: &str,
+    agent_id: &str,
+) -> Result<(), DeadboltError> {
+    let hash = credential_hash(secret)?;
+    let valid:bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM admission_credentials WHERE token_hash=?1 AND agent_id=?2 AND expires_at>?3 AND revoked_at IS NULL)", params![hash,agent_id,now_secs()], |r| r.get(0)).map_err(|_|DeadboltError::StoreUnavailable)?;
+    if valid {
+        Ok(())
+    } else {
+        Err(DeadboltError::TokenRequired)
+    }
 }
 
 #[cfg(test)]

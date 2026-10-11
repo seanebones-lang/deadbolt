@@ -6,6 +6,10 @@ import asyncio
 import http.client
 import inspect
 import json
+import math
+import re
+import secrets
+import time
 import os
 import socket
 import sys
@@ -117,6 +121,104 @@ def admit(agent_id, tool, dest=None):
     if not isinstance(result, dict) or result.get("decision") not in ("allow", "deny"):
         return _down("/admit")
     return result
+
+
+
+def _json_snapshot(value, depth=0, budget=None):
+    """Copy only interoperable JSON values. Never use user conversion hooks."""
+    if budget is None:
+        budget = [4096]
+    if depth > 32 or budget[0] <= 0:
+        raise ValueError("invalid action JSON limits")
+    budget[0] -= 1
+    if value is None or type(value) is bool:
+        return value
+    if type(value) is str:
+        value.encode("utf-8")  # Lone surrogates have no interoperable encoding.
+        return value
+    if type(value) in (int, float):
+        if not math.isfinite(value) or abs(value) > 9007199254740991 or (value == 0 and math.copysign(1, value) < 0):
+            raise ValueError("invalid action number")
+        return value
+    if type(value) is list:
+        return [_json_snapshot(v, depth + 1, budget) for v in value]
+    if type(value) is dict and all(type(k) is str for k in value):
+        return {_json_snapshot(k): _json_snapshot(v, depth + 1, budget) for k, v in value.items()}
+    raise TypeError("exact actions require JSON-native values")
+
+
+def _action_snapshot(action):
+    action = _json_snapshot(action)
+    fields = {"version", "agent_id", "tool", "dest", "arguments", "nonce", "expires_at"}
+    if type(action) is not dict or set(action) != fields or type(action["version"]) is not int or action["version"] != 1:
+        raise ValueError("invalid action envelope")
+    for key in ("agent_id", "tool", "nonce", "dest"):
+        value = action[key]
+        if key == "dest" and value is None:
+            continue
+        if type(value) is not str or re.fullmatch(r"[A-Za-z0-9_.:/-]{1,128}", value) is None:
+            raise ValueError("invalid action token")
+    if type(action["arguments"]) is not dict or type(action["expires_at"]) is not int or action["expires_at"] <= 0:
+        raise ValueError("invalid action arguments/deadline")
+    if len(json.dumps(action, ensure_ascii=False, allow_nan=False).encode("utf-8")) > 32768:
+        raise ValueError("action too large")
+    return action
+
+
+def prepare_action(agent_id, tool, arguments, dest=None, ttl_secs=300):
+    """Prepare private review data locally. Does not grant or renew permission."""
+    if type(ttl_secs) is not int or not 1 <= ttl_secs <= 86400:
+        raise ValueError("invalid action lifetime")
+    return _action_snapshot({"version": 1, "agent_id": agent_id, "tool": tool, "dest": dest,
+                             "arguments": arguments, "nonce": secrets.token_hex(32),
+                             "expires_at": int(time.time()) + ttl_secs})
+
+
+def admit_action(action):
+    """Consume one exact approval. Unsupported/old servers fail closed."""
+    try:
+        result = _call("POST", "/admit-action", _action_snapshot(action))
+    except Exception:
+        return _down("/admit-action", "bad_request")
+    if not isinstance(result, dict) or result.get("decision") not in ("allow", "deny"):
+        return _down("/admit-action")
+    return result
+
+
+def dispatch_action(action, body):
+    """Admit a private snapshot then pass its exact arguments to the trusted body."""
+    if not callable(body) or inspect.iscoroutinefunction(body):
+        raise TypeError("use dispatch_action_async for asynchronous bodies")
+    try:
+        snapshot = _action_snapshot(action)
+    except Exception:
+        return {"executed": False, "decision": _down("/admit-action", "bad_request")}
+    decision = admit_action(snapshot)
+    if decision.get("decision") != "allow":
+        return {"executed": False, "decision": decision}
+    result = body(snapshot["arguments"])
+    if inspect.isawaitable(result):
+        if inspect.iscoroutine(result):
+            result.close()
+        raise TypeError("use dispatch_action_async for asynchronous bodies")
+    return {"executed": True, "decision": decision, "result": result}
+
+
+async def dispatch_action_async(action, body):
+    """Snapshot before waiting; never execute changed caller-owned arguments."""
+    if not callable(body):
+        raise TypeError("action body must be callable")
+    try:
+        snapshot = _action_snapshot(action)
+    except Exception:
+        return {"executed": False, "decision": _down("/admit-action", "bad_request")}
+    decision = await asyncio.to_thread(admit_action, snapshot)
+    if decision.get("decision") != "allow":
+        return {"executed": False, "decision": decision}
+    result = body(snapshot["arguments"])
+    if inspect.isawaitable(result):
+        result = await result
+    return {"executed": True, "decision": decision, "result": result}
 
 
 def policy(agent_id, **fields):
