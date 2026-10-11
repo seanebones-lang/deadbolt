@@ -143,7 +143,7 @@ mode-0600 Unix socket `~/.deadbolt/deadbolt.sock` on macOS/Linux. Windows uses
 loopback TCP and requires a nonempty operator token. TCP is also available on Unix.
 
 For a disposable evaluation, the script configures all of this itself. For your
-application, follow [sidecar setup](INTEGRATION.md#bolt-on-http-sidecar), configure
+application, follow [sidecar setup](INTEGRATION.md#bolt-on-python-node-or-any-http-client), configure
 policy before dispatch, and provision [admission-only credentials](CREDENTIALS.md)
 when using the candidate. Keep operator authority outside workload access.
 Public network binds are refused.

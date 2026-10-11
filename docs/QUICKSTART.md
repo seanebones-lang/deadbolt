@@ -113,7 +113,7 @@ evidence; deleting it would erase those records.
 
 ### Windows or a TCP integration
 
-Use the [token-required TCP setup](INTEGRATION.md#bolt-on-http-sidecar). In each
+Use the [token-required TCP setup](INTEGRATION.md#bolt-on-python-node-or-any-http-client). In each
 client terminal, set the same `DEADBOLT_SOCK` and `DEADBOLT_TOKEN`; set matching
 `DEADBOLT_DB` and `DEADBOLT_EVENTS` in the server and operator terminals. Run
 `python examples/deadbolt_sample_agent.py --agent demo-run-001 --interval 1`,
