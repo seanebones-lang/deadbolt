@@ -96,8 +96,10 @@ function start(root, file) {
 // This is an executable entry point, including when an MCP host imports it.
 // A require.main guard silently skips startup in embedded Node runtimes.
 try {
-  if (process.argv.length !== 3) fail('config_file_required');
-  start(path.resolve(__dirname, '..'), process.argv[2]);
+  if (process.argv.length < 2 || process.argv.length > 3) fail('invalid_arguments');
+  const root = path.resolve(__dirname, '..');
+  if (process.argv.length === 2 || process.argv[2] === '' || process.argv[2] === '${user_config.operator_config}') require('./setup.cjs').serve(root);
+  else start(root, process.argv[2]);
 } catch {
   // Do not echo configuration, paths, downstream arguments or credentials.
   process.stderr.write('deadbolt-bundle:setup_failed (check README and operator configuration)\n');

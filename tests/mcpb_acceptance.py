@@ -41,7 +41,8 @@ def main():
     node = shutil.which('node')
     assert node
     manifest = json.loads((bundle / 'manifest.json').read_text())
-    assert manifest['tools_generated'] and 'tools' not in manifest
+    assert manifest['tools_generated'] and len(manifest['tools']) == 2
+    assert not manifest['user_config']['operator_config']['required']
     target = {('Darwin', 'arm64'): 'aarch64-apple-darwin', ('Darwin', 'x86_64'): 'x86_64-apple-darwin',
               ('Linux', 'x86_64'): 'x86_64-unknown-linux-gnu', ('Windows', 'AMD64'): 'x86_64-pc-windows-msvc'}[(platform.system(), platform.machine())]
     exe = bundle / 'native' / target / ('deadbolt.exe' if os.name == 'nt' else 'deadbolt')
@@ -63,7 +64,8 @@ const {getMcpConfigForManifest} = require(process.argv[1]);
 const manifest = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
 const base = {manifest, extensionPath:process.argv[3], systemDirs:{}, pathSeparator:require('node:path').sep};
 (async()=>{
- if(await getMcpConfigForManifest({...base,userConfig:{}}) !== undefined) throw new Error('missing config accepted');
+ const setup = await getMcpConfigForManifest({...base,userConfig:{}});
+ if (!setup || setup.args.length !== 2 || !['', '${user_config.operator_config}'].includes(setup.args[1])) throw new Error('blank config does not resolve to setup mode');
  const c = await getMcpConfigForManifest({...base,userConfig:{operator_config:process.argv[4]}});
  console.log(JSON.stringify(c));
 })().catch(()=>process.exit(1));
@@ -74,7 +76,7 @@ const base = {manifest, extensionPath:process.argv[3], systemDirs:{}, pathSepara
         # including on Windows. Check equivalent native paths, not separators.
         assert len(resolved['args']) == 2
         assert [Path(value).resolve() for value in resolved['args']] == [launcher.resolve(), config.resolve()]
-        checks.append({'case':'official_mcpb_host_resolution_and_required_config', 'passed':True})
+        checks.append({'case':'official_mcpb_host_resolution_and_optional_setup_config', 'passed':True})
         # Inherited proxy settings must not choose the real store or use tokens.
         env = {**os.environ, 'DEADBOLT_DB': str(w / 'wrong.db'), 'DEADBOLT_EVENTS': str(w / 'wrong-events'),
                'DEADBOLT_TOKEN': 'disposable-never-forwarded', 'DEADBOLT_ADMISSION_TOKEN': 'disposable-bad-token'}
@@ -113,7 +115,7 @@ import(pathToFileURL(entry).href).catch(()=>process.exit(1));
             op_env = {k:v for k,v in os.environ.items() if not k.startswith('DEADBOLT_')}
             op_env.update(DEADBOLT_DB=c['database'], DEADBOLT_EVENTS=c['events'])
             return subprocess.run([str(exe), *cmd], env=op_env, check=True, capture_output=True, text=True, timeout=10)
-        proc = launch()
+        proc = None
         seq = 0
         def rpc(method, params=None):
             nonlocal seq
@@ -127,6 +129,51 @@ import(pathToFileURL(entry).href).catch(()=>process.exit(1));
             response = json.loads(line)
             assert response['id'] == seq
             return response
+        # Setup mode must be useful with zero operator configuration or effects.
+        for embedded in (False, True):
+            proc = launch('${user_config.operator_config}' if embedded else '', embedded=embedded)
+            try:
+                assert rpc('initialize', {'protocolVersion':'2025-06-18'})['result']['serverInfo']['name'] == 'deadbolt-setup'
+                definitions = rpc('tools/list')['result']['tools']
+                assert [(t['name'], t['description']) for t in definitions] == [(t['name'], t['description']) for t in manifest['tools']]
+                for t in definitions:
+                    assert t['annotations'] == {'readOnlyHint':True, 'destructiveHint':False, 'idempotentHint':True, 'openWorldHint':False}
+                    assert t['outputSchema']['type'] == 'object'
+                    assert all(v.get('description') for v in t['inputSchema']['properties'].values())
+                def setup_call(name, arguments):
+                    result = rpc('tools/call', {'name':name, 'arguments':arguments})['result']
+                    data = result['structuredContent']
+                    schema = next(t['outputSchema'] for t in definitions if t['name']==name)
+                    assert set(data) == set(schema['required'])
+                    types = {'string': str, 'boolean': bool, 'array': list}
+                    for key, prop in schema['properties'].items():
+                        assert isinstance(data[key], types[prop['type']])
+                        if 'const' in prop: assert data[key] == prop['const']
+                    assert json.loads(result['content'][0]['text']) == data
+                    return data
+                verified = setup_call('deadbolt_check_bundle', {})
+                assert verified['checksum_matches'] and verified['active_protection'] is False
+                assert verified['target'] == target and verified['engine_version'] == '1.0.3'
+                for route in ('claude_desktop', 'stdio_client', 'rust', 'http'):
+                    g = setup_call('deadbolt_get_integration_guide', {'route':route})
+                    assert g['route'] == route and 'no tools are protected' in g['boundary']
+                    assert json.loads(g['operator_config_example'])['tools']
+                for name, arguments in [('deadbolt_get_integration_guide', {}), ('deadbolt_get_integration_guide', {'route':'unknown'}), ('deadbolt_check_bundle', {'path': str(w)}), ('deadbolt_check_bundle', [])]:
+                    assert rpc('tools/call', {'name':name, 'arguments':arguments})['result']['isError']
+                assert 'error' in rpc('tools/call', {'name':'approve', 'arguments':{}})
+                assert 'error' in rpc('resources/read', {'uri':'file://'+str(w)})
+                assert not starts.exists() and not effects.exists() and not Path(c['database']).exists()
+            finally:
+                proc.stdin.close()
+                proc.wait(timeout=10)
+                assert proc.returncode == 0, proc.stderr.read()
+            checks.append({'case':'read_only_setup_and_typed_tools_embedded' if embedded else 'read_only_setup_and_typed_tools', 'passed': True})
+        # Supplying a missing configuration must fail, never fall back to setup.
+        invalid = launch(w/'missing-config.json')
+        stdout, stderr = invalid.communicate(timeout=10)
+        assert invalid.returncode != 0 and not stdout and not starts.exists()
+        checks.append({'case':'supplied_missing_config_never_falls_back_to_setup', 'passed':True})
+        proc = launch()
         def call(tool, deny=None):
             before = effects.read_text() if effects.exists() else ''
             response = rpc('tools/call', {'name': tool, 'arguments': {}})

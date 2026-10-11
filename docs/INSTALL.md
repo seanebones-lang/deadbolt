@@ -7,7 +7,8 @@ executable**; installing the client does not start a sidecar.
 | Path | You need | What you get |
 | --- | --- | --- |
 | Native archive | Matching OS/CPU; Python 3.9+ only for the evaluation | Stable v1.0.3 or prerelease 1.1.0-rc.1 executable, source clients, examples and docs |
-| Local MCP bundle (MCPB) | Compatible local MCP client, Node.js 20+ and a trusted downstream stdio server | Bundle 1.0.1 with stable v1.0.3 binaries and a configuration-file launcher |
+
+| Local MCP bundle (MCPB) | Compatible local MCP client, Node.js 20+ and a trusted downstream stdio server | Bundle 1.1.0 with stable v1.0.3 binaries and a configuration-file launcher |
 | Source binary / embedded Rust | Git, Rust 1.85+, native C compiler/linker for bundled SQLite | APIs at your selected tag or exact commit |
 | Python source installation | Python 3.10+, pip and a reviewed checkout | Base client with no third-party runtime dependencies |
 | Python wheel | Python 3.9+, pip and a reviewed `.whl` | Same base client; no Rust needed for the wheel |
@@ -74,7 +75,9 @@ the listing is not a public DeadBolt operator API. Your selected client or downl
 route may require its own account. DeadBolt itself requires no model key or hosted
 service for local operation.
 
-Bundle **1.0.1** contains **engine v1.0.3**. It does not include the prerelease's
+Bundle 1.1.0 adds optional read-only setup: leave Operator configuration blank for integration guidance and bundled-engine checksum checks. This does not start a downstream server or provide protection. Enter an explicit private configuration path to enable the gate; invalid supplied configuration stops startup. Configured tools replace setup tools.
+
+Bundle **1.1.0** contains **engine v1.0.3**. It does not include the prerelease's
 exact-action approvals or admission credentials. Supported binaries are macOS
 ARM64/Intel, Linux x64 with glibc and Windows x64. Node.js 20+ is required; clients
 such as Claude Desktop can supply a built-in Node runtime. Other clients may need
@@ -82,8 +85,8 @@ an installed runtime. Linux/Windows executables and the outer bundle are unsigne
 the macOS executables retain the published release's signatures.
 
 1. Obtain the bundle from the listing using your client's supported local-bundle
-   installation route. If saving the file yourself, name it `deadbolt-1.0.1.mcpb`
-   and verify it before installation. The published bundle 1.0.1 SHA-256 is:
+   installation route. Verify the matching bundle checksum before installation. For the previous
+   bundle 1.0.1 only (not the new 1.1.0), the SHA-256 is:
 
    ```text
    6f6f5e366133543df5692cbe3c41261fae4d2bb119d9b11a23cd392515be181f
@@ -98,7 +101,7 @@ the macOS executables retain the published release's signatures.
    Select an MCP server you trust, its executable and arguments, actual tool names,
    destination tokens, irreversible-tool classifications and reported-spend cap.
    Read [configuration and operator controls](../dist/mcpb/README.md) before connecting
-   a real account. No downstream server or example tools are bundled.
+   a real account. No downstream server is bundled. With Operator configuration left blank, the two read-only setup tools can explain integration and verify packaged-engine integrity; they provide no active protection.
 3. Install the `.mcpb` in your client. For Claude Desktop, use **Settings →
    Extensions → Advanced settings → Install extension**, then select the file
    and review the access notice. See
