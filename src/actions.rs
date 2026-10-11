@@ -129,14 +129,17 @@ impl Deadbolt {
     /// rolls back the grant with the default SQLite sink.
     pub fn approve_action(&self, action: &ActionRequest) -> Result<(), DeadboltError> {
         let fingerprint = action.fingerprint()?;
-        if action.expires_at <= now_secs() || action.expires_at > now_secs() + 86400 {
-            return Err(DeadboltError::BadRequest);
-        }
         self.operator_grant("action_approve",json!({"agent_id":action.agent_id,"tool":action.tool,"nonce":action.nonce,"fingerprint":fingerprint,"expires_at":action.expires_at}),|tx|{
+            // Validate time after acquiring the writer lock, not before waiting
+            // for another connection. Never report a newly expired review approved.
+            let now = now_secs();
+            if action.expires_at <= now || action.expires_at > now + 86400 {
+                return Err(DeadboltError::BadRequest);
+            }
             let lease=load_lease(tx,&action.agent_id).map_err(|_|DeadboltError::StoreUnavailable)?.ok_or(DeadboltError::NotFound)?;
             if lease.state=="killed" { return Err(DeadboltError::Killed); }
-            if now_secs()>=lease.expires_at { return Err(DeadboltError::BadRequest); }
-            tx.execute("INSERT INTO action_grants (agent_id,nonce,tool,fingerprint,expires_at,created_at) VALUES (?1,?2,?3,?4,?5,?6)",params![action.agent_id,action.nonce,action.tool,fingerprint,action.expires_at,now_secs()])
+            if now>=lease.expires_at { return Err(DeadboltError::BadRequest); }
+            tx.execute("INSERT INTO action_grants (agent_id,nonce,tool,fingerprint,expires_at,created_at) VALUES (?1,?2,?3,?4,?5,?6)",params![action.agent_id,action.nonce,action.tool,fingerprint,action.expires_at,now])
                 .map_err(|e|match e {rusqlite::Error::SqliteFailure(ref detail,_) if detail.code==rusqlite::ErrorCode::ConstraintViolation=>DeadboltError::BadRequest,_=>DeadboltError::StoreUnavailable})?;
             tx.execute("INSERT OR IGNORE INTO exact_action_requirements (agent_id,tool) VALUES (?1,?2)",params![action.agent_id,action.tool]).map_err(|_|DeadboltError::StoreUnavailable)?;
             Ok(())
@@ -586,6 +589,35 @@ mod tests {
             assert_eq!(db.admit_action(&request).unwrap(), AdmitDecision::Allow);
         }
     }
+    #[test]
+    fn approval_deadline_is_checked_after_writer_lock_wait() {
+        let (dir, db, mut request) = setup();
+        request.expires_at = now_secs() + 2;
+        let mut blocker = rusqlite::Connection::open(dir.path().join("deadbolt.db")).unwrap();
+        let tx = blocker
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .unwrap();
+        let (started, ready) = std::sync::mpsc::channel();
+        let deadline = request.expires_at;
+        let thread = std::thread::spawn(move || {
+            started.send(()).unwrap();
+            db.approve_action(&request)
+        });
+        ready.recv().unwrap();
+        while now_secs() <= deadline {
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        tx.commit().unwrap();
+        assert!(matches!(
+            thread.join().unwrap(),
+            Err(DeadboltError::BadRequest)
+        ));
+        let count: i64 = blocker
+            .query_row("SELECT COUNT(*) FROM action_grants", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 0);
+    }
+
     #[test]
     fn exact_admission_never_uses_legacy_fail_open_override() {
         let (dir, db, request) = setup();
