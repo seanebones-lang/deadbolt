@@ -1,0 +1,34 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.seanebones-lang/deadbolt",
+  "title": "DeadBolt by NextEleven",
+  "description": "Read-only setup by default; explicit configuration gates trusted MCP tool calls with local policy.",
+  "version": "1.1.0",
+  "repository": {
+    "url": "https://github.com/seanebones-lang/deadbolt",
+    "source": "github",
+    "id": "1394049538"
+  },
+  "websiteUrl": "https://nexteleven.dev/deadbolt",
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v1.1.0/deadbolt-1.1.0.mcpb",
+      "fileSha256": "7840d23f116b8a162322a372124718ca374296e3b9ca1d781e99f466d7a6634c",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "bundleVersion": "1.1.0",
+      "engineVersion": "1.0.3",
+      "license": "Apache-2.0",
+      "setupMode": "Two read-only setup and bundle-verification tools; no active protection until configured.",
+      "protectionBoundary": "Protects connected dispatch routes. Not an OS sandbox; cannot cancel running actions.",
+      "documentation": "https://github.com/seanebones-lang/deadbolt/blob/main/docs/INSTALL.md#local-mcp-bundle-mcpb",
+      "captionedWalkthrough": "https://seanebones-lang.github.io/deadbolt/walkthrough.html"
+    }
+  }
+}
