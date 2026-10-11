@@ -113,8 +113,8 @@ In your project's `Cargo.toml`:
 deadbolt = { package = "n11-deadbolt", git = "https://github.com/seanebones-lang/deadbolt.git", tag = "v1.0.3" }
 ```
 
-That tag uses the **published v1.0.3 API**. For the candidate helpers, replace
-`tag` with `tag = "v1.1.0-rc.1"`, or use a reviewed
+That tag uses the **published v1.0.3 API**. For the candidate helpers, replace the tag value
+with `"v1.1.0-rc.1"`, or use a reviewed
 adjacent checkout:
 
 ```toml
