@@ -31,7 +31,7 @@ Send one request per connection with a valid `Content-Length` when there is a bo
 
 `decision` is `allow` or `deny`. `code` is present only on deny. Tokens: `killed`, `paused`, `purpose_exceeded`, `lease_expired`, `store_unavailable`, `no_lease`, `spend_cap`, `needs_human`. Optional `dest` is a host token. If `dest_allow` is unset, `dest` is ignored. A present dest not on the list is `purpose_exceeded`. A missing dest is `purpose_exceeded` only for a network-class tool. HTTP status on a parsed admit is 200. The deny is in `decision`, not the status line.
 
-## POST /admit-action (unreleased)
+## POST /admit-action (1.1.0-rc.1 prerelease)
 
 A distinct endpoint for the exact version-1 envelope described in
 [action approvals](ACTION-APPROVALS.md). It accepts an operator token or an

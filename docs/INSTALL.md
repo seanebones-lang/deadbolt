@@ -6,10 +6,10 @@ executable**; installing the client does not start a sidecar.
 
 | Path | You need | What you get |
 | --- | --- | --- |
-| Native archive | Matching OS/CPU; Python 3.9+ only for the evaluation | Published v1.0.3 executable, source clients, examples and docs |
+| Native archive | Matching OS/CPU; Python 3.9+ only for the evaluation | Stable v1.0.3 or prerelease 1.1.0-rc.1 executable, source clients, examples and docs |
 | Source binary / embedded Rust | Git, Rust 1.85+, native C compiler/linker for bundled SQLite | APIs at your selected tag or exact commit |
-| Candidate Python source installation | Python 3.10+, pip and a reviewed checkout | Base client with no third-party runtime dependencies |
-| Candidate Python wheel | Python 3.9+, pip and a reviewed `.whl` | Same base client; no Rust needed for the wheel |
+| Python source installation | Python 3.10+, pip and a reviewed checkout | Base client with no third-party runtime dependencies |
+| Python wheel | Python 3.9+, pip and a reviewed `.whl` | Same base client; no Rust needed for the wheel |
 | Optional SDK adapter | Python 3.10+ and the `openai-agents` extra | Pinned tested SDK 0.23.1 integration |
 | Bundled Node client | Node (22 tested) | CommonJS source module; no npm installation |
 
@@ -18,9 +18,11 @@ local demonstrations. Docker is optional. Build tools are unnecessary for a nati
 
 ## Native archive (no Rust required)
 
-The latest published release was verified as
-[v1.0.3](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.3) on
-2026-10-10. Download the ZIP **and its matching `.zip.sha256` file**:
+Choose [stable v1.0.3](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.3)
+or [developer prerelease v1.1.0-rc.1](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.1.0-rc.1).
+The prerelease includes callback dispatch, scoped credentials and exact-action review;
+use it to evaluate those new APIs before stable promotion. Download the ZIP **and
+its matching `.zip.sha256` file**. Use the same version throughout these commands:
 
 | Computer | Asset suffix |
 | --- | --- |
@@ -51,7 +53,7 @@ checksum file before extracting with `Expand-Archive`. From the extracted root:
 python examples/evaluate.py --binary .\deadbolt.exe
 ```
 
-Expected: the checksum matches, version is `deadbolt 1.0.3`, the drill reports
+Expected: the checksum matches, version matches your selected release (`deadbolt 1.0.3` or `deadbolt 1.1.0-rc.1`), the drill reports
 `deadbolt drill ok`, and evaluation JSON has `"passed": true`. Keep this extracted
 folder to retain its examples, notices and source identity in `BUILD.json`.
 Add it to PATH or copy the executable to your chosen binary directory if desired;
@@ -82,32 +84,28 @@ If `deadbolt` is not found, call that executable by its full path or fix PATH.
 
 ## Reviewed source candidate
 
-The unreleased `1.1.0-rc.1` APIs are not in v1.0.3. Review
-[the candidate stack](https://github.com/seanebones-lang/deadbolt/pull/21) and
-pin the selected full SHA. The following exact runtime revision passed candidate
-checks; it is not a release tag:
+The `1.1.0-rc.1` APIs are not in v1.0.3. Select the versioned prerelease tag:
 
 ```sh
-git clone https://github.com/seanebones-lang/deadbolt.git
+git clone --branch v1.1.0-rc.1 --depth 1 https://github.com/seanebones-lang/deadbolt.git
 cd deadbolt
-git checkout --detach 6bbdf109b4ce5e26d56b466179f98ed9686ddbcf
 cargo install --path . --locked --bin deadbolt
 git rev-parse HEAD
 deadbolt --version
 deadbolt drill
 ```
 
-If you are already in a reviewed candidate checkout, keep that checkout and run
-its build/install commands. Record its SHA: several unreleased commits can share
-`deadbolt 1.1.0-rc.1`. Replacing an existing Cargo-installed binary requires an
-intentional `--force`; follow [upgrade preparation](#upgrade-and-remove) first.
-For direct Git installation use `cargo install --git
-https://github.com/seanebones-lang/deadbolt.git --rev REVIEWED_COMMIT --locked --bin deadbolt`,
-replacing `REVIEWED_COMMIT` with your chosen full SHA.
+Record the SHA and compare it with the release notes and `BUILD.json` when using
+an archive. Replacing an existing Cargo-installed binary requires an intentional
+`--force`; follow [upgrade preparation](#upgrade-and-remove) first. Direct Git install:
 
-The Rust crate `n11-deadbolt` and Python client `n11-deadbolt-client` returned
-registry 404s on 2026-10-10. Use the documented Git/local paths until publication;
-do not use `cargo install n11-deadbolt` or `pip install n11-deadbolt-client`.
+```sh
+cargo install --git https://github.com/seanebones-lang/deadbolt.git --tag v1.1.0-rc.1 --locked --bin deadbolt
+```
+
+The Rust crate and Python client are not published to package registries by this
+release. Use the Git/local paths or downloadable wheel; do not use
+`cargo install n11-deadbolt` or `pip install n11-deadbolt-client`.
 
 ## Python and Node
 
@@ -122,8 +120,9 @@ python -c "import deadbolt_client; print(deadbolt_client.__file__)"
 
 Windows: `python -m venv .venv`, then `.\.venv\Scripts\Activate.ps1` and the same
 pip/import commands with a real Windows path. Source installation needs Python
-3.10+ for its build backend. For Python 3.9, install a reviewed built wheel by its
-absolute filename. The imported path should be inside your environment.
+3.10+ for its build backend. For Python 3.9, install the release wheel by its absolute filename. Download
+`n11_deadbolt_client-1.1.0rc1-py3-none-any.whl` and `SHA256SUMS` from the prerelease,
+verify its hash, then run `python -m pip install /absolute/path/to/n11_deadbolt_client-1.1.0rc1-py3-none-any.whl`. The imported path should be inside your environment.
 
 For SDK function tools, install the extra instead:
 

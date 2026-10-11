@@ -1,7 +1,7 @@
 # Single-agent admission credentials
 
 The `1.1.0-rc.1` source candidate separates a dispatcher's admission access from
-operator authority. This is an unreleased protocol addition; stable `v1.0.3`
+operator authority. This is a prerelease protocol addition; stable `v1.0.3`
 does not support it.
 
 | Identity | HTTP access | Who holds it |

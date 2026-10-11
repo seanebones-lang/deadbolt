@@ -3,9 +3,14 @@
 Versioned GitHub releases identify publication and the exact source revision.
 The older `v0.1.1-product` tag is not the standalone hardening release.
 
-## Unreleased
+## 1.1.0-rc.1
 
-Source candidate version: `1.1.0-rc.1`. No release/tag is published by this change.
+Developer-evaluation prerelease. Native archives and the Python wheel/sdist are
+distributed through the versioned GitHub release; package registries remain separate.
+See its release notes for the exact source SHA, checks and signing status.
+
+- Keep hosted walkthrough media out of native and Cargo packages. Validate successful
+  accounting and evidence under bounded SQLite contention without retrying spends.
 
 - Reorganize developer onboarding around one-command real-effect evaluation,
   explicit published/candidate API selection, native/source/wheel installation,

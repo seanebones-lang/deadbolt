@@ -56,8 +56,8 @@ Mac after retrieving the exact-source candidate ZIPs from CI:
 ```sh
 security find-identity -v -p codesigning
 python3 dist/sign_macos_archive.py \
-  --input release-artifacts/deadbolt-1.0.3-aarch64-apple-darwin.zip \
-  --output signed/deadbolt-1.0.3-aarch64-apple-darwin.zip \
+  --input release-artifacts/deadbolt-1.1.0-rc.1-aarch64-apple-darwin.zip \
+  --output signed/deadbolt-1.1.0-rc.1-aarch64-apple-darwin.zip \
   --identity DEVELOPER_ID_APPLICATION_SHA1
 ```
 
@@ -72,7 +72,7 @@ evidence; do not publish them as the signed downloads.
 Submit **each final signed ZIP**, not a smaller test ZIP, to Apple:
 
 ```sh
-xcrun notarytool submit signed/deadbolt-1.0.3-aarch64-apple-darwin.zip \
+xcrun notarytool submit signed/deadbolt-1.1.0-rc.1-aarch64-apple-darwin.zip \
   --keychain-profile DeadboltNotarization --wait --output-format json
 xcrun notarytool log SUBMISSION_ID \
   --keychain-profile DeadboltNotarization --output-format json

@@ -1,6 +1,6 @@
-# Python client and OpenAI function tools (unreleased)
+# Python client and OpenAI function tools (1.1.0-rc.1 prerelease)
 
-This source candidate provides an installable Python client and an optional
+The 1.1.0-rc.1 prerelease provides an installable Python client and an optional
 OpenAI Agents SDK adapter. It is not published on PyPI and is not in v1.0.3.
 The client talks to the separately installed DeadBolt executable; the wheel
 does not bundle or start it. The base client uses only Python's standard library
@@ -8,9 +8,17 @@ and its wheel runs on Python 3.9+. Building/installing from source requires
 Python 3.10+ for the patched build backend. The optional adapter uses the pinned, tested
 `openai-agents==0.23.1`; use Python 3.10+ for that SDK.
 
-## Install a reviewed checkout
+## Install the release wheel or a reviewed checkout
 
-Create your application's virtual environment, activate it, then install from
+Download the wheel and `SHA256SUMS` from the [versioned prerelease](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.1.0-rc.1), verify its hash, and install in your application's virtual environment:
+
+```sh
+python -m pip install /absolute/path/to/n11_deadbolt_client-1.1.0rc1-py3-none-any.whl
+# Optional SDK integration uses Python 3.10+:
+python -m pip install '/absolute/path/to/n11_deadbolt_client-1.1.0rc1-py3-none-any.whl[openai-agents]'
+```
+
+Alternatively, activate the environment, then install from
 an absolute path to the reviewed source or extracted candidate archive:
 
 ```sh
@@ -183,5 +191,5 @@ The opt-in [exact-action protocol](ACTION-APPROVALS.md) binds reviewed arguments
 run, tool, destination, nonce and deadline. Its new endpoint cannot fall back to
 legacy admission. Approval enables exact-only policy for that run/tool;
 nonces persist after use/revocation. Existing unconfigured integrations retain
-their behavior. This is unreleased. Older binaries cannot enforce these new
+their behavior. This is available in 1.1.0-rc.1. Older binaries cannot enforce these new
 requirements; quiesce protected dispatch before any rollback.

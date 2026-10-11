@@ -13,7 +13,7 @@ result other than a fresh explicit `allow`.
 
 **Version rule:** v1.0.3 supports the manual admission examples below. Callback
 helpers, installable Python/SDK integration, scoped credentials and exact-action
-review require the unreleased candidate. [Select and install the right source](INSTALL.md).
+review require the 1.1.0-rc.1 prerelease. [Select and install the right source](INSTALL.md).
 
 Use this order in your application:
 
@@ -25,7 +25,7 @@ Use this order in your application:
 5. Wrap every protected body, then verify effects after allow, policy denial,
    kill, expiry, approval replay and unavailable gate. [Record route coverage](PILOT.md).
 
-## Current-source dispatch helpers (unreleased)
+## Current-source dispatch helpers (1.1.0-rc.1 prerelease)
 
 The current source adds helpers that take your actual tool callback and check
 immediately before invoking it. They are not in the published v1.0.3 archives.
@@ -114,7 +114,7 @@ deadbolt = { package = "n11-deadbolt", git = "https://github.com/seanebones-lang
 ```
 
 That tag uses the **published v1.0.3 API**. For the candidate helpers, replace
-`tag` with `rev = "6bbdf109b4ce5e26d56b466179f98ed9686ddbcf"`, or use a reviewed
+`tag` with `tag = "v1.1.0-rc.1"`, or use a reviewed
 adjacent checkout:
 
 ```toml
@@ -332,5 +332,5 @@ The opt-in [exact-action protocol](ACTION-APPROVALS.md) binds reviewed arguments
 run, tool, destination, nonce and deadline. Its new endpoint cannot fall back to
 legacy admission. Approval enables exact-only policy for that run/tool;
 nonces persist after use/revocation. Existing unconfigured integrations retain
-their behavior. This is unreleased. Older binaries cannot enforce these new
+their behavior. This is available in 1.1.0-rc.1. Older binaries cannot enforce these new
 requirements; quiesce protected dispatch before any rollback.

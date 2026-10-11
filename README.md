@@ -47,10 +47,10 @@ Choose the version before copying examples:
 | Available now | Included |
 | --- | --- |
 | **Published v1.0.3** | Native executable, embedded Rust, local HTTP, source Python/Node clients, stdio MCP, leases, policy, broad one-shot approval, kill and evidence |
-| **Unreleased 1.1.0-rc.1 source candidate** | All of the above, plus callback dispatch helpers, installable Python wheel/source package, optional SDK decorator, single-agent admission credentials and exact-action approvals |
+| **1.1.0-rc.1 prerelease** | All of the above, plus callback dispatch helpers, installable Python wheel/source package, optional SDK decorator, single-agent admission credentials and exact-action approvals |
 
-The new APIs are reviewed in [PRs #18–21](https://github.com/seanebones-lang/deadbolt/pull/21).
-They are **not in v1.0.3 downloads**. [Install a reviewed candidate](docs/INSTALL.md#reviewed-source-candidate)
+The [v1.1.0-rc.1 prerelease](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.1.0-rc.1) includes native downloads and a Python wheel. It is for developer evaluation before stable promotion.
+They are **not in v1.0.3 downloads**. [Install the prerelease](docs/INSTALL.md#reviewed-source-candidate)
 or use the stable examples labeled v1.0.3. Neither the Rust crate nor the Python
 client is published to a package registry; Node is a bundled source client.
 
