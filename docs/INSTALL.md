@@ -7,7 +7,6 @@ executable**; installing the client does not start a sidecar.
 | Path | You need | What you get |
 | --- | --- | --- |
 | Native archive | Matching OS/CPU; Python 3.9+ only for the evaluation | Stable v1.0.3 or prerelease 1.1.0-rc.1 executable, source clients, examples and docs |
-
 | Local MCP bundle (MCPB) | Compatible local MCP client, Node.js 20+ and a trusted downstream stdio server | Bundle 1.1.0 with stable v1.0.3 binaries and a configuration-file launcher |
 | Source binary / embedded Rust | Git, Rust 1.85+, native C compiler/linker for bundled SQLite | APIs at your selected tag or exact commit |
 | Python source installation | Python 3.10+, pip and a reviewed checkout | Base client with no third-party runtime dependencies |
@@ -85,15 +84,15 @@ an installed runtime. Linux/Windows executables and the outer bundle are unsigne
 the macOS executables retain the published release's signatures.
 
 1. Obtain the bundle from the listing using your client's supported local-bundle
-   installation route. Verify the matching bundle checksum before installation. For the previous
-   bundle 1.0.1 only (not the new 1.1.0), the SHA-256 is:
+   installation route. Verify the matching bundle checksum before installation. For bundle
+   **1.1.0**, the SHA-256 is:
 
    ```text
-   6f6f5e366133543df5692cbe3c41261fae4d2bb119d9b11a23cd392515be181f
+   7840d23f116b8a162322a372124718ca374296e3b9ca1d781e99f466d7a6634c
    ```
 
-   On macOS use `shasum -a 256 deadbolt-1.0.1.mcpb`; Linux uses `sha256sum`;
-   PowerShell uses `Get-FileHash .\deadbolt-1.0.1.mcpb -Algorithm SHA256`.
+   On macOS use `shasum -a 256 deadbolt-1.1.0.mcpb`; Linux uses `sha256sum`;
+   PowerShell uses `Get-FileHash .\deadbolt-1.1.0.mcpb -Algorithm SHA256`.
    A future bundle version needs its own verified checksum.
 2. Create a private state directory outside the agent's editable workspace.
    Copy [the example configuration](../dist/mcpb/operator-config.example.json)
