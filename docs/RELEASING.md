@@ -170,10 +170,10 @@ original release-date statements about registry availability; current
 [installation instructions](INSTALL.md#cargo-registry-cli-and-embedded-rust)
 are maintained separately.
 
-The candidate Python client builds an installable wheel/sdist, but PyPI
-publication still needs separate ownership, exact-package and registry-consumer
-review. Node remains a bundled source client. Do not imply either is published
-before verifying it.
+The candidate Python wheel/sdist are also published on
+[PyPI](https://pypi.org/project/n11-deadbolt-client/1.1.0rc1/) after separate
+ownership, exact-package and registry-consumer checks. Node remains a bundled
+source client, not an npm package.
 
 ## Python registry publication
 

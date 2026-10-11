@@ -11,7 +11,7 @@ executable**; installing the client does not start a sidecar.
 | Cargo registry CLI / embedded Rust | Rust 1.85+, native C compiler/linker for bundled SQLite | Stable 1.0.3 or explicitly selected 1.1.0-rc.1 |
 | Source binary / embedded Rust | Git, Rust 1.85+, native C compiler/linker for bundled SQLite | APIs at your selected tag or exact commit |
 | Python source installation | Python 3.10+, pip and a reviewed checkout | Base client with no third-party runtime dependencies |
-| Python wheel | Python 3.9+, pip and a reviewed `.whl` | Same base client; no Rust needed for the wheel |
+| Python package | Python 3.9+ and pip; pinned PyPI wheel or reviewed `.whl` | Prerelease client; engine installed separately; no Rust needed for the wheel |
 | Optional SDK adapter | Python 3.10+ and the `openai-agents` extra | Pinned tested SDK 0.23.1 integration |
 | Bundled Node client | Node (22 tested) | CommonJS source module; no npm installation |
 
@@ -193,7 +193,7 @@ Replacing an installed CLI requires an intentional `--force`; review
 Both registry versions come from their existing reviewed Git tags. Their
 packaged READMEs are frozen release snapshots and may describe registry
 publication as pending on the original release date. This guide tracks current
-installation routes. The Python client is not on PyPI; Node is not on npm.
+installation routes. The prerelease Python client is on PyPI; Node is not on npm.
 
 ## Published source
 
@@ -234,8 +234,8 @@ cargo install --git https://github.com/seanebones-lang/deadbolt.git --tag v1.1.0
 ```
 
 The Rust library and CLI are also available through the [Cargo registry route](#cargo-registry-cli-and-embedded-rust).
-The Python client is not on PyPI. Use its reviewed source or downloadable wheel
-instead of `pip install n11-deadbolt-client`.
+The prerelease Python client is also on [PyPI](https://pypi.org/project/n11-deadbolt-client/1.1.0rc1/).
+Pin `n11-deadbolt-client==1.1.0rc1`; install the matching engine separately.
 
 ## Python and Node
 
@@ -244,20 +244,21 @@ In your application, create and activate a virtual environment. On macOS/Linux:
 ```sh
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install /absolute/path/to/reviewed/deadbolt
+python -m pip install 'n11-deadbolt-client==1.1.0rc1'
 python -c "import deadbolt_client; print(deadbolt_client.__file__)"
 ```
 
 Windows: `python -m venv .venv`, then `.\.venv\Scripts\Activate.ps1` and the same
-pip/import commands with a real Windows path. Source installation needs Python
-3.10+ for its build backend. For Python 3.9, install the release wheel by its absolute filename. Download
+pip/import commands. To install reviewed source instead, use
+`python -m pip install /absolute/path/to/reviewed/deadbolt` with Python 3.10+
+for its build backend. The PyPI wheel runs on Python 3.9+. For a manual wheel, download
 `n11_deadbolt_client-1.1.0rc1-py3-none-any.whl` and `SHA256SUMS` from the prerelease,
 verify its hash, then run `python -m pip install /absolute/path/to/n11_deadbolt_client-1.1.0rc1-py3-none-any.whl`. The imported path should be inside your environment.
 
 For SDK function tools, install the extra instead:
 
 ```sh
-python -m pip install '/absolute/path/to/reviewed/deadbolt[openai-agents]'
+python -m pip install 'n11-deadbolt-client[openai-agents]==1.1.0rc1'
 ```
 
 See [Python setup](PYTHON.md) for the operator/dispatcher split and optional

@@ -104,7 +104,9 @@ checkout to inspect real allowed/blocked effects without an AI account.
 source, the Cargo registry and Python release packages. The Rust package is
 `n11-deadbolt`, its library is `deadbolt`, and its executable is `deadbolt`.
 Pin the reviewed registry version or a full Git revision for a deployment.
-The Python client is not on PyPI, and Node remains a source client.
+The prerelease Python client is on [PyPI](https://pypi.org/project/n11-deadbolt-client/1.1.0rc1/):
+`python -m pip install 'n11-deadbolt-client==1.1.0rc1'`. Install the matching
+candidate engine separately; see [Python setup](PYTHON.md). Node remains a source client.
 
 ## Build in: Rust executor
 

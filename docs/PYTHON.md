@@ -1,12 +1,35 @@
 # Python client and OpenAI function tools (1.1.0-rc.1 prerelease)
 
 The 1.1.0-rc.1 prerelease provides an installable Python client and an optional
-OpenAI Agents SDK adapter. It is not published on PyPI and is not in v1.0.3.
+OpenAI Agents SDK adapter. The same reviewed wheel and source archive are
+published on [PyPI as `n11-deadbolt-client==1.1.0rc1`](https://pypi.org/project/n11-deadbolt-client/1.1.0rc1/).
+These APIs are not in v1.0.3.
 The client talks to the separately installed DeadBolt executable; the wheel
 does not bundle or start it. The base client uses only Python's standard library
 and its wheel runs on Python 3.9+. Building/installing from source requires
 Python 3.10+ for the patched build backend. The optional adapter uses the pinned, tested
 `openai-agents==0.23.1`; use Python 3.10+ for that SDK.
+
+## Install from PyPI
+
+Activate your application virtual environment, then pin the prerelease explicitly:
+
+```sh
+python -m pip install 'n11-deadbolt-client==1.1.0rc1'
+# Optional SDK integration requires Python 3.10+:
+python -m pip install 'n11-deadbolt-client[openai-agents]==1.1.0rc1'
+```
+
+No PyPI account or publishing token is needed to install it. Install the
+matching engine separately with a reviewed native archive or
+`cargo install n11-deadbolt --version 1.1.0-rc.1 --locked --bin deadbolt`.
+The engine uses Rust version spelling `1.1.0-rc.1`; the Python package uses
+PEP 440 spelling `1.1.0rc1`. Both are prereleases. For an existing engine,
+review [upgrade preparation](INSTALL.md#upgrade-and-remove) first.
+
+The first PyPI upload preserves the exact GitHub release files and their
+hashes. Their bundled description retains its original pre-publication
+status; this current guide tracks the available installation routes.
 
 ## Install the release wheel or a reviewed checkout
 
@@ -31,7 +54,7 @@ For a wheel, first install the build frontend with `python -m pip install build=
 then run `python -m build --outdir release-artifacts/python` in the source checkout.
 Install the resulting `.whl` by its full path. Install with
 `[openai-agents]` to include the SDK, or omit it to keep the client dependency-free.
-Do not use `pip install n11-deadbolt-client` until a registry release exists.
+Pin `n11-deadbolt-client==1.1.0rc1` when installing from PyPI; it remains a prerelease.
 
 The wheel installs `deadbolt_client`, `deadbolt_openai_agents` and the
 `deadbolt-client` command. Existing source imports of `deadbolt_client` keep

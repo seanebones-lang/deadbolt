@@ -86,7 +86,9 @@ The [v1.1.0-rc.1 prerelease](https://github.com/seanebones-lang/deadbolt/release
 They are **not in v1.0.3 downloads**. [Install the prerelease](docs/INSTALL.md#reviewed-source-candidate)
 or use the stable examples labeled v1.0.3. The Rust library and CLI are on
 [crates.io](https://crates.io/crates/n11-deadbolt). The Python client is available
-as a release wheel or source installation; it is not on PyPI. Node is a bundled source client.
+on [PyPI as `n11-deadbolt-client==1.1.0rc1`](https://pypi.org/project/n11-deadbolt-client/1.1.0rc1/),
+or as a release wheel/source installation. This remains a prerelease client
+for a separately installed engine. Node is a bundled source client.
 
 **Install the stable CLI:**
 
