@@ -69,7 +69,10 @@ const base = {manifest, extensionPath:process.argv[3], systemDirs:{}, pathSepara
 '''
         resolved = json.loads(subprocess.check_output([node, '-e', resolver, str(args.mcpb_module.resolve()),
                                                        str(bundle/'manifest.json'), str(bundle), str(config)], text=True))
-        assert resolved['args'] == [str(launcher), str(config)]
+        # The official resolver normalizes bundle paths to forward slashes,
+        # including on Windows. Check equivalent native paths, not separators.
+        assert len(resolved['args']) == 2
+        assert [Path(value).resolve() for value in resolved['args']] == [launcher.resolve(), config.resolve()]
         checks.append({'case':'official_mcpb_host_resolution_and_required_config', 'passed':True})
         # Inherited proxy settings must not choose the real store or use tokens.
         env = {**os.environ, 'DEADBOLT_DB': str(w / 'wrong.db'), 'DEADBOLT_EVENTS': str(w / 'wrong-events'),
