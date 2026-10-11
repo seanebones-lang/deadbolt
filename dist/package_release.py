@@ -53,7 +53,9 @@ def main():
         shutil.copy2(ROOT / "THIRD-PARTY.md", staging / "THIRD-PARTY.md")
         shutil.copytree(ROOT / "third-party", staging / "third-party")
         collect(staging / "THIRD-PARTY-NOTICES.txt")
-        shutil.copytree(ROOT / "docs", staging / "docs")
+        # Landing-page media is hosted separately from installer documentation.
+        shutil.copytree(ROOT / "docs", staging / "docs",
+                        ignore=shutil.ignore_patterns("assets", "index.html", "walkthrough.html"))
         shutil.copytree(ROOT / "examples", staging / "examples",
                         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
         shutil.copytree(ROOT / "src", staging / "src")
