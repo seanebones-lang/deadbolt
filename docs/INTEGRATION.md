@@ -6,7 +6,7 @@ result other than a fresh explicit `allow`.
 
 | Route | Installation | Where the check belongs |
 | --- | --- | --- |
-| Embedded Rust | Git/local dependency | Immediately before your tool callback |
+| Embedded Rust | Cargo registry or Git/local dependency | Immediately before your tool callback |
 | Local HTTP | Native executable plus Python/Node client or HTTP implementation | Trusted dispatcher, before the body |
 | Stdio MCP | Native executable used as a server launch wrapper | Every routed `tools/call` |
 | Python SDK function tools | Sidecar plus optional Python extra | Decorator on each actual effect function |
@@ -29,8 +29,9 @@ Use this order in your application:
 
 The current source adds helpers that take your actual tool callback and check
 immediately before invoking it. They are not in the published v1.0.3 archives.
-Use a reviewed source checkout for these APIs; add its Rust dependency, install
-its Python package, or copy its Node source client as described below.
+Select the `1.1.0-rc.1` registry crate or reviewed source tag for these APIs;
+install the matching Python release wheel/source package, or copy its Node
+source client as described below.
 
 Configure the local gate/sidecar, stable run ID and policy first, then wrap the
 actual body. Operator setup and credentials belong outside model control.
@@ -100,9 +101,10 @@ checkout to inspect real allowed/blocked effects without an AI account.
 ## Installation and version selection
 
 [Installation](INSTALL.md) is the canonical guide for native archives, reviewed
-source and Python packages. The Rust package is `n11-deadbolt`, its library is
-`deadbolt`, and its executable is `deadbolt`. Pin a full reviewed Git revision
-for a candidate deployment. No registry installation is available yet.
+source, the Cargo registry and Python release packages. The Rust package is
+`n11-deadbolt`, its library is `deadbolt`, and its executable is `deadbolt`.
+Pin the reviewed registry version or a full Git revision for a deployment.
+The Python client is not on PyPI, and Node remains a source client.
 
 ## Build in: Rust executor
 
@@ -110,12 +112,11 @@ In your project's `Cargo.toml`:
 
 ```toml
 [dependencies]
-deadbolt = { package = "n11-deadbolt", git = "https://github.com/seanebones-lang/deadbolt.git", tag = "v1.0.3" }
+deadbolt = { package = "n11-deadbolt", version = "=1.0.3" }
 ```
 
-That tag uses the **published v1.0.3 API**. For the candidate helpers, replace the tag value
-with `"v1.1.0-rc.1"`, or use a reviewed
-adjacent checkout:
+That dependency uses the **published v1.0.3 API**. For the candidate helpers,
+replace the version value with `"=1.1.0-rc.1"`, or use a reviewed adjacent checkout:
 
 ```toml
 [dependencies]

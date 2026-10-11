@@ -22,13 +22,15 @@ access and make admission mandatory on every route it intends to protect.
 - Stdio MCP proxy for individual routed `tools/call` messages.
 - Native executables for Linux x86_64, Windows x86_64, and Apple Silicon/Intel Macs.
 
-The [latest release](https://github.com/seanebones-lang/deadbolt/releases/latest)
+The [stable v1.0.3 release](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.3)
 contains checksums, source identity, source code, examples, documentation and
 third-party notices. Deadbolt's own code is Apache-2.0; bundled dependencies retain
-their licenses. Linux and Windows binaries are unsigned. The v1.0.2 Mac
-archives are unnotarized; check the chosen release's notes for its exact macOS
-signing and notarization status.
-Python/Node clients are included source files; registry packages are not published.
+their licenses. Linux and Windows binaries are unsigned. Stable v1.0.3 macOS
+release archives contain Developer ID signed binaries, and Apple accepted those
+exact archives for notarization. Check the chosen release's notes for its status.
+The Rust library and CLI are available on [crates.io](https://crates.io/crates/n11-deadbolt).
+Python/Node clients are included source files; the candidate also has a Python
+release wheel. Those clients are not on PyPI or npm.
 
 ## Evidence an evaluator can reproduce
 

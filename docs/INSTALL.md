@@ -8,6 +8,7 @@ executable**; installing the client does not start a sidecar.
 | --- | --- | --- |
 | Native archive | Matching OS/CPU; Python 3.9+ only for the evaluation | Stable v1.0.3 or prerelease 1.1.0-rc.1 executable, source clients, examples and docs |
 | Local MCP bundle (MCPB) | Compatible local MCP client, Node.js 20+ and a trusted downstream stdio server | Bundle 1.1.0 with stable v1.0.3 binaries and a configuration-file launcher |
+| Cargo registry CLI / embedded Rust | Rust 1.85+, native C compiler/linker for bundled SQLite | Stable 1.0.3 or explicitly selected 1.1.0-rc.1 |
 | Source binary / embedded Rust | Git, Rust 1.85+, native C compiler/linker for bundled SQLite | APIs at your selected tag or exact commit |
 | Python source installation | Python 3.10+, pip and a reviewed checkout | Base client with no third-party runtime dependencies |
 | Python wheel | Python 3.9+, pip and a reviewed `.whl` | Same base client; no Rust needed for the wheel |
@@ -149,6 +150,51 @@ operator approval. `PROVENANCE.json` records release
 binary checksums and the packaging revision. Hashes identify the artifact; the
 outer bundle has no publisher signature.
 
+## Cargo registry CLI and embedded Rust
+
+The [registry package](https://crates.io/crates/n11-deadbolt) is `n11-deadbolt`;
+the executable and Rust library are both named `deadbolt`. You need no registry
+account or publishing token to install it.
+
+Install the stable CLI with its reviewed dependency lockfile:
+
+```sh
+cargo install n11-deadbolt --version 1.0.3 --locked --bin deadbolt
+deadbolt --version
+deadbolt drill
+```
+
+Expected version: `deadbolt 1.0.3`; expected drill: `deadbolt drill ok`.
+To embed the library, add this to your application's manifest:
+
+```toml
+[dependencies]
+deadbolt = { package = "n11-deadbolt", version = "=1.0.3" }
+```
+
+This dependency alias lets examples continue to use `use deadbolt::…`.
+Commit your application's own `Cargo.lock` and build it with `cargo build --locked`.
+Cargo does not use a dependency's lockfile when resolving your application.
+See the [dispatch-boundary example](INTEGRATION.md#build-in-rust-executor).
+[Stable Rust API reference](https://docs.rs/n11-deadbolt/1.0.3/deadbolt/).
+
+For candidate evaluation, select it explicitly:
+
+```sh
+cargo install n11-deadbolt --version 1.1.0-rc.1 --locked --bin deadbolt
+```
+
+Use `version = "=1.1.0-rc.1"` in the embedded dependency for callback helpers,
+scoped credentials and exact-action approvals. These remain prerelease APIs.
+[Candidate Rust API reference](https://docs.rs/n11-deadbolt/1.1.0-rc.1/deadbolt/).
+Replacing an installed CLI requires an intentional `--force`; review
+[upgrade preparation](#upgrade-and-remove) first.
+
+Both registry versions come from their existing reviewed Git tags. Their
+packaged READMEs are frozen release snapshots and may describe registry
+publication as pending on the original release date. This guide tracks current
+installation routes. The Python client is not on PyPI; Node is not on npm.
+
 ## Published source
 
 To build the published version instead of downloading an executable:
@@ -187,9 +233,9 @@ an archive. Replacing an existing Cargo-installed binary requires an intentional
 cargo install --git https://github.com/seanebones-lang/deadbolt.git --tag v1.1.0-rc.1 --locked --bin deadbolt
 ```
 
-The Rust crate and Python client are not published to package registries by this
-release. Use the Git/local paths or downloadable wheel; do not use
-`cargo install n11-deadbolt` or `pip install n11-deadbolt-client`.
+The Rust library and CLI are also available through the [Cargo registry route](#cargo-registry-cli-and-embedded-rust).
+The Python client is not on PyPI. Use its reviewed source or downloadable wheel
+instead of `pip install n11-deadbolt-client`.
 
 ## Python and Node
 

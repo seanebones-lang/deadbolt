@@ -84,8 +84,30 @@ Choose the version before copying examples:
 
 The [v1.1.0-rc.1 prerelease](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.1.0-rc.1) includes native downloads and a Python wheel. It is for developer evaluation before stable promotion.
 They are **not in v1.0.3 downloads**. [Install the prerelease](docs/INSTALL.md#reviewed-source-candidate)
-or use the stable examples labeled v1.0.3. Neither the Rust crate nor the Python
-client is published to a package registry; Node is a bundled source client.
+or use the stable examples labeled v1.0.3. The Rust library and CLI are on
+[crates.io](https://crates.io/crates/n11-deadbolt). The Python client is available
+as a release wheel or source installation; it is not on PyPI. Node is a bundled source client.
+
+**Install the stable CLI:**
+
+```sh
+cargo install n11-deadbolt --version 1.0.3 --locked --bin deadbolt
+deadbolt --version
+deadbolt drill
+```
+
+**Embed the stable library** in your application's `Cargo.toml`:
+
+```toml
+[dependencies]
+deadbolt = { package = "n11-deadbolt", version = "=1.0.3" }
+```
+
+Use `=1.1.0-rc.1` explicitly to evaluate the candidate APIs. Source builds need
+Rust 1.85+ and a native C compiler/linker; prebuilt downloads avoid that build.
+[All installation routes](docs/INSTALL.md#cargo-registry-cli-and-embedded-rust).
+[Stable Rust API](https://docs.rs/n11-deadbolt/1.0.3/deadbolt/) ·
+[Candidate Rust API](https://docs.rs/n11-deadbolt/1.1.0-rc.1/deadbolt/).
 
 ## Put the gate at the effect
 
