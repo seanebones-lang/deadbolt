@@ -41,7 +41,10 @@ configuration file defining your trusted downstream server, tool allow-list and
 state paths. Node.js 20+ is required; a compatible client can supply that runtime.
 No Rust build is needed.
 
-Bundle **1.0.1** is a packaging version, not engine 1.1.0. Its tools come from
+Bundle **1.1.0** packages stable engine **1.0.3**. Leave configuration blank for
+read-only integration guidance and bundle checksum verification; this setup mode
+provides no active protection. Supply an explicit operator configuration to enable
+the gate, whose tools come from
 the server you configure. Operator approval, pause and kill remain local CLI
 actions. The trusted child retains OS access; this is not a sandbox.
 [Installation and verification](docs/INSTALL.md#local-mcp-bundle-mcpb) ·
