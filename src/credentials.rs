@@ -117,7 +117,23 @@ impl Deadbolt {
     /// Serialized with credential validation and admission by the SQLite writer transaction.
     pub fn revoke_credential(&self, credential_id: &str) -> Result<(), DeadboltError> {
         require_token(credential_id)?;
-        self.operator_grant("credential_revoke", json!({"credential_id":credential_id}), |tx| {
+        // Credential IDs are immutable and never reused. Read the binding for
+        // agent-specific incident/export linkage; mutation still owns its transaction.
+        let agent_id: String = {
+            let store = self.store()?;
+            let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
+            g.conn
+                .query_row(
+                    "SELECT agent_id FROM admission_credentials WHERE credential_id=?1",
+                    params![credential_id],
+                    |r| r.get(0),
+                )
+                .map_err(|e| match e {
+                    rusqlite::Error::QueryReturnedNoRows => DeadboltError::NotFound,
+                    _ => DeadboltError::StoreUnavailable,
+                })?
+        };
+        self.operator_grant("credential_revoke", json!({"credential_id":credential_id,"agent_id":agent_id}), |tx| {
             let count = tx.execute(
                 "UPDATE admission_credentials SET revoked_at=COALESCE(revoked_at,?1) WHERE credential_id=?2",
                 params![now_secs(), credential_id],
@@ -266,6 +282,9 @@ mod tests {
             })
         );
         assert!(db.credentials().unwrap()[0].revoked_at.is_some());
+        let exported = db.export("A", false).unwrap();
+        assert!(exported.iter().any(|row| row.kind == "credential_issue"));
+        assert!(exported.iter().any(|row| row.kind == "credential_revoke"));
     }
 
     #[test]
