@@ -19,8 +19,9 @@ python -m pip install /absolute/path/to/deadbolt
 python -m pip install '/absolute/path/to/deadbolt[openai-agents]'
 ```
 
-For a wheel, build with `python -m build --outdir release-artifacts/python` in
-the source checkout. Install the resulting `.whl` by its full path. Install with
+For a wheel, first install the build frontend with `python -m pip install build==1.3.0`,
+then run `python -m build --outdir release-artifacts/python` in the source checkout.
+Install the resulting `.whl` by its full path. Install with
 `[openai-agents]` to include the SDK, or omit it to keep the client dependency-free.
 Do not use `pip install n11-deadbolt-client` until a registry release exists.
 
@@ -33,8 +34,9 @@ working; there is one implementation, rather than a copied package client.
 See [operations](OPERATIONS.md) for durable state, private paths and credentials.
 Use a new executor-assigned run ID and configure its policy before running it.
 On Unix the default local socket can be used. Windows requires a loopback TCP
-address. Keep `DEADBOLT_TOKEN` in the sidecar/operator environment. Set
-`DEADBOLT_ADMISSION_TOKEN` in the dispatcher environment after trusted setup; see
+address. Keep `DEADBOLT_TOKEN` in the sidecar/operator environment.
+Leave `DEADBOLT_ADMISSION_TOKEN` absent during operator setup below. Set it
+only in the dispatcher environment after lease/policy setup and issuance; see
 [credential issuance](CREDENTIALS.md).
 
 ```sh
@@ -42,6 +44,7 @@ deadbolt serve
 # In another terminal, with the same sidecar/state configuration:
 deadbolt-client ensure --agent my-run-001
 deadbolt policy --agent my-run-001 --tools write_file
+# Then issue the admission credential and launch the dispatcher with it.
 ```
 
 Check that `ensure` returns `ok: true`. Do not expose `ensure`, policy, approval,
@@ -106,8 +109,8 @@ The SDK's human approval and DeadBolt admission are separate decisions. This
 adapter does not automatically grant either one. If the operator configures
 `send_email` as irreversible in DeadBolt, it also needs a DeadBolt one-shot
 approval. **That existing approval covers the agent/tool pair, not these exact
-arguments.** Prefer the SDK's application-controlled per-call review for exact
-payload review while designing a payload-bound DeadBolt approval protocol.
+arguments.** Use the SDK's application-controlled per-call review or configure the candidate's [exact-action grant](ACTION-APPROVALS.md#optional-openai-agents-sdk-adapter)
+with `action_grant` to bind the actual validated arguments.
 SDK error-as-output handlers are rejected; `failure_error_function` must be
 `None`, so a blocked action or failing body stops instead of encouraging retries.
 

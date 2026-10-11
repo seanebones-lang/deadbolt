@@ -1,203 +1,129 @@
-# Deadbolt
+# DeadBolt
 
-[Project site](https://seanebones-lang.github.io/deadbolt/) · [Latest release](https://github.com/seanebones-lang/deadbolt/releases/latest) · [First evaluation](docs/FIRST-EVALUATION.md)
+**A local execution gate for software agents.** Put DeadBolt in the code that runs
+an action, then let policy and operator controls decide whether that action runs.
+Embed it in Rust, call its local sidecar from another language, or wrap a trusted
+stdio MCP server. Free under [Apache-2.0](LICENSE).
 
-<img width="360" alt="Deadbolt" src="https://github.com/user-attachments/assets/12175eb7-67b1-4758-92c9-e2562df80cb4" />
+[Try it](docs/QUICKSTART.md) · [Install](docs/INSTALL.md) · [Integrate](docs/INTEGRATION.md) · [Project site](https://seanebones-lang.github.io/deadbolt/)
 
 [![CI](https://github.com/seanebones-lang/deadbolt/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/seanebones-lang/deadbolt/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/seanebones-lang/deadbolt)](https://github.com/seanebones-lang/deadbolt/releases/latest)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-A local execution gate for software agents: check before each tool call, enforce
-policy, and let an operator revoke subsequent protected actions by an identity
-and its registered descendants.
+## Try it before connecting an agent
 
-Deadbolt runs without a model provider, API key, Harness, or separate database
-server. Embed the Rust library in your dispatcher, use the local HTTP sidecar
-from another language, or wrap a trusted stdio MCP server. Your executor must
-refuse execution unless the decision is explicitly `allow`.
-
-## Start here
-
-V1 native binaries target Linux x86_64, Windows x86_64, Apple Silicon and Intel
-Macs. Use the
-[latest release](https://github.com/seanebones-lang/deadbolt/releases/latest)
-and verify its checksum using [the archive installation instructions](docs/RELEASING.md#install-an-archive).
-Source installation is available below; the release page is the authority for
-published downloads and their exact source identity.
-
-For a first evaluation, download the v1.0.3 archive for your OS, verify and
-extract it, run `deadbolt drill`, then run the [Python-only first evaluation](docs/FIRST-EVALUATION.md)
-from the extracted directory. The native archive path needs Python 3.9+ for
-that evaluation, but no Rust toolchain, model account or API key. On macOS,
-v1.0.3 archives are Developer ID signed and Apple-notarized; read the release
-notes and your organization's download policy before running them.
-
-1. [Install](docs/INSTALL.md): prerequisites, macOS/Linux/Windows, verification.
-2. [Quick start](docs/QUICKSTART.md): allow a call, kill it, observe denial.
-3. [Integrate](docs/INTEGRATION.md): Rust, Python, Node, MCP, containers, services.
-4. [FAQ](docs/FAQ.md) and [troubleshooting](docs/TROUBLESHOOTING.md).
-
-Evaluating for a team? Start with the [technical brief](docs/EVALUATOR.md),
-[observable demonstration](docs/DEMO.md) and [application pilot](docs/PILOT.md).
-For a Python-only workflow with real file effects, use
-[first evaluation](docs/FIRST-EVALUATION.md). See the [adoption roadmap](docs/ROADMAP.md)
-for the next adoption milestones.
-
-To build from source instead:
+No model account, API key, Harness, cloud service or database server is needed.
+The [published v1.0.3 release](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.3)
+has native ZIPs for Linux x86_64, Windows x86_64, Apple Silicon and Intel Macs.
+[Verify and extract the matching archive](docs/INSTALL.md#native-archive-no-rust-required).
+From its extracted directory on macOS/Linux:
 
 ```sh
-git clone --branch v1.0.3 --depth 1 https://github.com/seanebones-lang/deadbolt.git
-cd deadbolt
-cargo install --path . --locked --bin deadbolt
-deadbolt --version
-deadbolt drill
+chmod 0755 deadbolt
+./deadbolt drill
+python3 examples/evaluate.py --binary ./deadbolt
 ```
 
-Requires Rust 1.85+ and a C/C++ toolchain for bundled SQLite. Python and Node are
-only needed for their examples and consumer tests. The Cargo package is
-`n11-deadbolt`, the Rust library is `deadbolt`, and the executable is `deadbolt`.
-The package is not published to crates.io as checked on 2026-09-29. Install from
-source; pin a reviewed Git commit for reproducible use.
+On Windows, use `.\deadbolt.exe drill` and
+`python examples/evaluate.py --binary .\deadbolt.exe`.
+Expected: `deadbolt drill ok`, then a JSON report with `"passed": true`.
+The evaluation starts a private sidecar, writes harmless temporary files, checks
+that policy, approval, kill and outage block effects, and cleans up afterward.
+Python 3.9+ is the only additional runtime needed. [Understand the report](docs/FIRST-EVALUATION.md).
 
-## Choose an integration
+## Pick your integration
 
-The candidate supports [exact-action approvals](docs/ACTION-APPROVALS.md): review
-one recipient/body/amount, then consume its approval once. Rust, Python, Node,
-MCP and the optional Python SDK adapter support this opt-in path. It is
-unreleased and requires a trusted executor that owns the actual effect.
-
-
-The current source includes [callback dispatch helpers](docs/INTEGRATION.md#current-source-dispatch-helpers-unreleased)
-for Rust, Python and Node, including async variants. Pass the actual tool body
-to the helper; it checks admission before calling it and leaves it untouched on
-denial. These additions are unreleased and are not in v1.0.3 downloads.
-
-The candidate also offers an [installable Python client and optional OpenAI
-Agents SDK decorator](docs/PYTHON.md). Protect a Python function with
-`@protected_tool(agent_id="executor-run-id")`; the normal SDK validation and
-approval flow remain in place, and DeadBolt checks before the body executes.
-The base client has no third-party runtime dependencies. The SDK adapter pins a
-tested SDK version and is verified through installed-wheel, real-runner tests
-without paid model calls. See the [next architecture decisions](docs/ARCHITECTURE-NEXT.md)
-for the exact-action approval work still to do. The current candidate also adds
-[admission-only credentials](docs/CREDENTIALS.md) bound to one agent, so a dispatcher
-can ask for permission without receiving operator controls.
-
-| Your application | Use | What you control |
+| Your executor | Smallest integration | Start here |
 | --- | --- | --- |
-| Rust executor | Embedded library | Every tool/spawn dispatch checks admission in process |
-| Python, Node, or another language | Local HTTP sidecar | Trusted dispatcher calls admit and refuses every non-allow result |
-| Trusted stdio MCP server | `deadbolt mcp-proxy` | Host routes `tools/call` through the proxy |
+| Rust application | One dependency, an embedded store and a check at dispatch | [Rust](docs/INTEGRATION.md#build-in-rust-executor) |
+| Python application | Local sidecar and `dispatch` around the actual function | [Python](docs/PYTHON.md) |
+| OpenAI Agents SDK function tools | Local sidecar and `@protected_tool` on each protected function | [SDK adapter](docs/PYTHON.md#add-the-decorator-to-the-actual-body) |
+| Node or another language | Local sidecar; bundled Node client or the HTTP protocol | [Sidecar](docs/INTEGRATION.md#bolt-on-http-sidecar) |
+| Trusted stdio MCP server | Replace its launch command with `deadbolt mcp-proxy … -- SERVER` | [MCP](docs/INTEGRATION.md#bolt-on-stdio-mcp-proxy) |
 
-The sidecar uses a mode-0600 Unix socket or token-required loopback TCP. Public
-binds are refused. Python and Node source clients are included; they are not
-published pip/npm packages. The MCP proxy accepts individual JSON-RPC 2.0
-objects over stdio and rejects batches. Remote HTTP/SSE MCP is not supported.
+Choose the version before copying examples:
 
-## What it does
-
-- Maintains agent leases with a default 60-second TTL.
-- Checks tool allow-lists, destination context, spend caps, clips and pause state.
-- Requires one-shot operator approval for explicitly classified irreversible tools.
-- Makes kill terminal for an ID and its registered descendants; unrelated agents
-  remain usable.
-- Denies on unavailable storage by default; the source clients deny on sidecar
-  failure, malformed decisions, and unsuccessful HTTP responses.
-- Records structured evidence in SQLite and JSONL and exports per-agent incidents.
-
-Unset policy lists are open. Configure policy before running an agent. Destination
-and spend are supplied by the trusted caller; they are not network interception
-or independent billing measurement. Children do not inherit policy automatically.
-
-## Try the gate
-
-This self-contained Rust example requires no sidecar:
-
-```sh
-cargo run --locked --example build_in
-```
-
-Expected sequence: `allow`, then `killed`. For the operator-controlled,
-three-terminal sidecar demonstration, follow [the quick start](docs/QUICKSTART.md).
-
-Operator commands include:
-
-```sh
-deadbolt status
-deadbolt policy --agent RUN_ID --tools read_file,write_file,shell --irreversible shell
-deadbolt approve --agent RUN_ID --tool shell
-deadbolt pause --agent RUN_ID
-deadbolt resume --agent RUN_ID
-deadbolt kill --agent RUN_ID
-deadbolt incident --agent RUN_ID --json --children
-deadbolt --help
-```
-
-The agent must first have a lease. Operator commands and the executor must use
-the same database and evidence paths. `kill`, `pause`, `clip`, `resume`, and
-`approve` are operator actions, not model tools.
-
-## Trust and limits
-
-Deadbolt gates later admissions; it does not stop a vendor model or cancel a
-body already running. Admission and execution are separate operations: check
-immediately before the side effect and never cache an allow. A caller that can
-skip the dispatcher, change the store, or assert a new identity is outside the
-intended boundary. A sidecar token authorizes all exposed routes, not one agent.
-
-The MCP child is a trusted process with the proxy's OS access and environment.
-Only routed tool calls are gated; other methods and server startup can have side
-effects. Evidence hashes identify content; they do not make operator-writable
-files tamper-proof or establish legal compliance.
-
-See [trust boundaries](docs/TRUST.md) and [security reporting](SECURITY.md).
-
-## Verify and operate
-
-```sh
-cargo fmt --check
-cargo test --locked
-cargo clippy --all-targets --locked -- -D warnings
-cargo build --locked --bin deadbolt
-python3 tests/client_contract.py
-```
-
-The last command requires Python 3 and Node. On Windows use `python` and set
-`DEADBOLT_BIN` to `target/debug/deadbolt.exe`.
-
-macOS and Linux container validation is recorded in [the standalone review](docs/STANDALONE-REVIEW.md).
-Remote Linux/macOS/Windows and Rust 1.85 CI passed on 2026-09-29. The
-[Hermes MCP showcase](docs/HERMES-SHOWCASE.md) records independent-host execution
-acceptance on macOS and Linux. The systemd template passed a bounded disposable
-Ubuntu-container test; native host installation remains experimental;
-each application must validate its own actual dispatch paths.
-These checks establish specific behavior, not universal integration or security
-certification. See [operations](docs/OPERATIONS.md) for deployment and recovery.
-
-## Documentation
-
-| Guide | Purpose |
+| Available now | Included |
 | --- | --- |
-| [Installation](docs/INSTALL.md) | Build requirements, source/Git install, platform setup |
-| [Quick start](docs/QUICKSTART.md) | Runnable allow/kill/deny demo |
-| [Integration](docs/INTEGRATION.md) | Embedded and sidecar client APIs, MCP, deployment |
-| [Protocol](docs/PROTOCOL.md) | HTTP routes, response shapes, framing and limits |
-| [FAQ](docs/FAQ.md) | Adoption, licensing, enforcement, policy and lifecycle |
-| [Troubleshooting](docs/TROUBLESHOOTING.md) | Symptoms, checks and recovery |
-| [Operations](docs/OPERATIONS.md) | Configuration, service, container, backup and acceptance |
-| [Trust](docs/TRUST.md) | Trust boundaries and limits |
-| [Incident](docs/INCIDENT.md) | Evidence taxonomy and operator workflow |
-| [Contributing](CONTRIBUTING.md) | Development checks and reporting |
-| [Changelog](CHANGELOG.md) | Versioned changes and candidate history |
-| [Hermes showcase](docs/HERMES-SHOWCASE.md) | Independent MCP host and real filesystem execution acceptance |
-| [Compatibility](docs/COMPATIBILITY.md) | V1 API, lifecycle and upgrade contract |
-| [V1 roadmap](docs/V1-READINESS.md) | Completed release and next adoption milestones |
-| [Third-party components](THIRD-PARTY.md) | Dependency notices and included MPL source distribution |
+| **Published v1.0.3** | Native executable, embedded Rust, local HTTP, source Python/Node clients, stdio MCP, leases, policy, broad one-shot approval, kill and evidence |
+| **Unreleased 1.1.0-rc.1 source candidate** | All of the above, plus callback dispatch helpers, installable Python wheel/source package, optional SDK decorator, single-agent admission credentials and exact-action approvals |
 
-Apache-2.0. Copyright NextEleven LLC 2026. [License](LICENSE) and [notice](NOTICE).
-Harness is one consumer; this repository does not include or relicense it.
+The new APIs are reviewed in [PRs #18–21](https://github.com/seanebones-lang/deadbolt/pull/21).
+They are **not in v1.0.3 downloads**. [Install a reviewed candidate](docs/INSTALL.md#reviewed-source-candidate)
+or use the stable examples labeled v1.0.3. Neither the Rust crate nor the Python
+client is published to a package registry; Node is a bundled source client.
 
-For integration evaluation, see the [pilot checklist](docs/PILOT.md). Report
-ordinary bugs through [GitHub issues](https://github.com/seanebones-lang/deadbolt/issues/new/choose)
-and suspected vulnerabilities through [private security reporting](SECURITY.md).
+## Put the gate at the effect
+
+Your trusted executor creates the run and configures policy first. With the
+candidate Python client installed and its sidecar configured:
+
+```python
+from pathlib import Path
+from deadbolt_client import dispatch
+
+outcome = dispatch(
+    "executor-run-001", "write_file",
+    lambda: Path("output.txt").write_text("allowed work"),
+)
+if not outcome["executed"]:
+    print("Action blocked:", outcome["decision"]["code"])
+```
+
+A fresh admission happens before the callback. A denial leaves the body uncalled.
+[The complete setup](docs/INTEGRATION.md) covers run creation, policy, credentials,
+transport and error handling. Wrap every protected route; never cache an allow
+or perform a separate admission before a one-shot dispatch helper.
+
+## Controls you can build on
+
+- Tool allow-lists, destination tokens, reported-spend caps, pause and clips.
+- Leases with a default 60-second sliding TTL; killed IDs stay killed.
+- Operator kill blocks subsequent actions for an ID and its registered descendants.
+- Broad one-shot approval for classified irreversible tools; the candidate adds
+  [review of exact arguments](docs/ACTION-APPROVALS.md), including recipient/body/amount.
+- Candidate [admission credentials](docs/CREDENTIALS.md) let one dispatcher ask
+  for permission for its run without receiving operator controls.
+- SQLite evidence, JSONL mirrors and per-agent incident exports.
+- Default denial when the store is unavailable; bundled clients deny on transport
+  failure, malformed responses and unsuccessful HTTP status.
+
+Unset policy lists are open. Configure each run and child before dispatch.
+Identity, tool routing, destinations and reported spend come from trusted
+application code. They are not network interception or independent billing.
+
+## Know the boundary
+
+DeadBolt protects actions routed through your executor. The operator owns state,
+policy and approvals; the model must not receive those controls. It does not
+isolate arbitrary code, stop a model provider, cancel a running body, or make an
+external effect transactional with admission. The MCP child is trusted and has
+OS access; startup and non-tool MCP methods are outside the tool-call gate.
+
+Evidence hashes identify content, but operator-writable records are not a
+compliance certification. Read [trust boundaries](docs/TRUST.md) before deploying.
+Use [the pilot checklist](docs/PILOT.md) to verify your application's actual routes.
+
+## Developer documentation
+
+| Need | Guide |
+| --- | --- |
+| First working result | [Quick start](docs/QUICKSTART.md), [first evaluation](docs/FIRST-EVALUATION.md) |
+| Binary, crate or Python installation | [Installation](docs/INSTALL.md) |
+| Embed, sidecar or MCP wiring | [Integration](docs/INTEGRATION.md), [Python / SDK](docs/PYTHON.md) |
+| Least-authority dispatch and sensitive actions | [Credentials](docs/CREDENTIALS.md), [exact approvals](docs/ACTION-APPROVALS.md) |
+| API and upgrade behavior | [HTTP protocol](docs/PROTOCOL.md), [compatibility](docs/COMPATIBILITY.md) |
+| Denial or setup problem | [Troubleshooting](docs/TROUBLESHOOTING.md), [FAQ](docs/FAQ.md) |
+| Deploy, backup and respond | [Operations](docs/OPERATIONS.md), [incidents](docs/INCIDENT.md) |
+| Evaluate or contribute | [Technical brief](docs/EVALUATOR.md), [Hermes showcase](docs/HERMES-SHOWCASE.md), [contributing](CONTRIBUTING.md) |
+| Versions and packaging | [Changelog](CHANGELOG.md), [release procedure](docs/RELEASING.md), [third-party notices](THIRD-PARTY.md) |
+
+Source checks: `cargo test --locked`, `cargo clippy --all-targets --locked -- -D warnings`,
+and `python3 tests/client_contract.py` after `cargo build --locked --bin deadbolt`
+(Python and Node required). CI also checks Rust 1.85, installed Python/SDK behavior
+and native packages. Passing these checks does not establish acceptance of your application.
+
+[Report ordinary bugs](https://github.com/seanebones-lang/deadbolt/issues/new/choose)
+or use [private security reporting](SECURITY.md). Copyright NextEleven LLC 2026.
+[License](LICENSE) · [Notice](NOTICE). Harness is one consumer, not a prerequisite.

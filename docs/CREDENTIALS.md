@@ -102,8 +102,9 @@ may have committed. Do not blindly retry the same ID or modify credential rows.
 The role boundary is HTTP authority. Protect the database, CLI, operator bearer
 and executor routing with OS/service ownership. It does not isolate an untrusted
 process that can write the store, use the CLI or bypass the protected dispatcher.
-Admission credentials also do not bind approvals to exact arguments; that is the
-next separate protocol milestone.
+Admission credentials authorize a caller; they do not themselves approve an
+effect. Use the candidate's separate [exact-action grant](ACTION-APPROVALS.md)
+when permission must bind the actual arguments.
 
 ## Acceptance
 

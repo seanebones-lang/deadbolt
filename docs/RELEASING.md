@@ -124,5 +124,6 @@ for the Rust crate `n11-deadbolt`; it supports both the library and CLI. Inspect
 source, then verify name availability, publisher account/team ownership and the
 package contents before an actual upload. A registry version cannot be replaced
 after publication. Do not claim `cargo install n11-deadbolt` until the uploaded
-crate is visible and installable. Python and Node integrations remain included
-source clients; publish them only after their API and ownership are reviewed.
+crate is visible and installable. The candidate Python client already builds an installable wheel/sdist; registry
+publication still needs API, ownership and exact-package review. Node remains a
+bundled source client. Do not imply either is published before verifying it.

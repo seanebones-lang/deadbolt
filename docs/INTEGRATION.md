@@ -1,16 +1,36 @@
-# Integrate Deadbolt in another project
+# Integrate DeadBolt at your dispatch boundary
 
-Deadbolt has no Harness, Witness, model-provider, or API-key dependency. It uses
-bundled SQLite and local files. Choose the integration that owns your executor's
-actual dispatch boundary. Calling `admit` alone does not intercept execution:
-your dispatcher must stop on every result other than `allow`.
+Choose the route your application actually uses to execute effects. DeadBolt needs
+no Harness, Witness, provider or API key. Your trusted executor must deny every
+result other than a fresh explicit `allow`.
+
+| Route | Installation | Where the check belongs |
+| --- | --- | --- |
+| Embedded Rust | Git/local dependency | Immediately before your tool callback |
+| Local HTTP | Native executable plus Python/Node client or HTTP implementation | Trusted dispatcher, before the body |
+| Stdio MCP | Native executable used as a server launch wrapper | Every routed `tools/call` |
+| Python SDK function tools | Sidecar plus optional Python extra | Decorator on each actual effect function |
+
+**Version rule:** v1.0.3 supports the manual admission examples below. Callback
+helpers, installable Python/SDK integration, scoped credentials and exact-action
+review require the unreleased candidate. [Select and install the right source](INSTALL.md).
+
+Use this order in your application:
+
+1. Give the run an executor-assigned ID; create its lease in trusted setup.
+2. Configure the actual tool names, destination policy and sensitive-action review.
+3. Configure each child before dispatch; policy is not inherited automatically.
+4. Give the dispatcher only its required authority. The candidate supports a
+   [single-agent admission credential](CREDENTIALS.md).
+5. Wrap every protected body, then verify effects after allow, policy denial,
+   kill, expiry, approval replay and unavailable gate. [Record route coverage](PILOT.md).
 
 ## Current-source dispatch helpers (unreleased)
 
 The current source adds helpers that take your actual tool callback and check
 immediately before invoking it. They are not in the published v1.0.3 archives.
-Use a reviewed source checkout for these APIs; use the local Rust `path`
-dependency described below or copy its Python/Node source client into your project.
+Use a reviewed source checkout for these APIs; add its Rust dependency, install
+its Python package, or copy its Node source client as described below.
 
 Configure the local gate/sidecar, stable run ID and policy first, then wrap the
 actual body. Operator setup and credentials belong outside model control.
@@ -77,25 +97,12 @@ separately before a one-shot helper invocation or cache an allow. Try
 `python3 examples/evaluate.py --binary /absolute/path/to/deadbolt` from this source
 checkout to inspect real allowed/blocked effects without an AI account.
 
-## Install from source
+## Installation and version selection
 
-Requires Rust 1.85 or newer and a C/C++ build toolchain for bundled SQLite.
-The package is named `n11-deadbolt`, the Rust library is `deadbolt`, and the
-executable is `deadbolt`. As checked on 2026-09-29, this package is not on
-crates.io. Use Git or a local checkout until a registry release is published.
-
-```sh
-git clone --branch v1.0.3 --depth 1 https://github.com/seanebones-lang/deadbolt.git
-cd deadbolt
-cargo install --path . --locked --bin deadbolt
-deadbolt drill
-```
-
-Pin a reviewed commit when installing for production:
-
-```sh
-cargo install --git https://github.com/seanebones-lang/deadbolt.git --rev YOUR_REVIEWED_COMMIT --locked --bin deadbolt
-```
+[Installation](INSTALL.md) is the canonical guide for native archives, reviewed
+source and Python packages. The Rust package is `n11-deadbolt`, its library is
+`deadbolt`, and its executable is `deadbolt`. Pin a full reviewed Git revision
+for a candidate deployment. No registry installation is available yet.
 
 ## Build in: Rust executor
 
@@ -106,8 +113,18 @@ In your project's `Cargo.toml`:
 deadbolt = { package = "n11-deadbolt", git = "https://github.com/seanebones-lang/deadbolt.git", tag = "v1.0.3" }
 ```
 
-For an adjacent source checkout, replace `git` and `tag` with
-`path = "../deadbolt"`. No socket or service is needed.
+That tag uses the **published v1.0.3 API**. For the candidate helpers, replace
+`tag` with `rev = "6bbdf109b4ce5e26d56b466179f98ed9686ddbcf"`, or use a reviewed
+adjacent checkout:
+
+```toml
+[dependencies]
+deadbolt = { package = "n11-deadbolt", path = "../deadbolt" }
+```
+
+No socket, bearer token, Python package or service is needed. State is persistent;
+keep it outside disposable build output. This complete example works with v1.0.3
+or the candidate and configures policy before dispatch:
 
 ```rust
 use deadbolt::{AdmitDecision, Deadbolt};
@@ -116,6 +133,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state = std::path::PathBuf::from("./agent-state/deadbolt");
     let gate = Deadbolt::open_at(&state, true, 60);
     gate.ensure_agent("my-executor-run-001")?;
+    gate.set_policy("my-executor-run-001", deadbolt::PolicyPatch {
+        tools_allow: Some(vec!["write_file".into()]),
+        ..Default::default()
+    })?;
     match gate.admit("my-executor-run-001", "write_file") {
         AdmitDecision::Allow => std::fs::write("output.txt", "allowed work")?,
         AdmitDecision::Deny { code } => return Err(code.as_str().into()),
@@ -144,8 +165,11 @@ deadbolt kill --agent my-executor-run-001
 ```
 
 The gate denies subsequent calls; it does not cancel a tool already running.
-A one-shot approval is consumed by admission, even if the subsequent tool or
-evidence write fails. Never cache an allow result for later execution.
+An admitted one-shot approval is consumed even if the subsequent body fails.
+Post-commit evidence mirror errors can also require reconciliation before retry.
+Never cache an allow result for later execution.
+
+<a id="bolt-on-http-sidecar"></a>
 
 ## Bolt on: Python, Node, or any HTTP client
 
@@ -161,17 +185,32 @@ deadbolt serve --bind 127.0.0.1:9782
 ```
 
 Keep that terminal running. Supply the same endpoint and token to your trusted
-executor. For PowerShell, use `$env:DEADBOLT_TOKEN` and `$env:DEADBOLT_SOCK`.
+executor. PowerShell server setup:
+
+```powershell
+$env:DEADBOLT_TOKEN = python -c "import secrets; print(secrets.token_hex(32))"
+$env:DEADBOLT_SOCK = "127.0.0.1:9782"
+deadbolt serve --bind $env:DEADBOLT_SOCK
+```
+
+Another terminal does not inherit these variables. Supply the same endpoint and
+private operator token through trusted setup; never print or commit the token.
 Keep operator access and credentials away from the model-controlled process.
 For the current candidate, finish trusted lease/policy setup and issue an
 [admission credential](CREDENTIALS.md); pass only `DEADBOLT_ADMISSION_TOKEN`
 to the dispatcher. The shared operator token remains a compatibility path.
 
-Copy `examples/deadbolt_client.py` or `examples/deadbolt_client.js` into your
-project. These are source clients, not published pip/npm packages. Python uses
+Install the candidate [Python package](PYTHON.md), or copy the selected
+revision's `examples/deadbolt_client.py` / `examples/deadbolt_client.js` beside
+your application. The Node client is source-only; neither is on a registry.
+Python uses
 only its standard library; Node uses built-in modules and CommonJS exports.
 Both expose ensure, admit (with optional destination), child registration,
-status, policy, and spend. In Node the registration function is `registerChild`.
+status, policy, and spend. Those control methods belong to trusted operator setup.
+The following stable-compatible examples keep setup and dispatch together for a
+local demonstration; a candidate workload credential cannot call `ensure`.
+Create the lease through the operator before switching to workload credentials.
+In Node the registration function is `registerChild`.
 
 ```python
 from deadbolt_client import ensure, admit
@@ -227,7 +266,10 @@ are outside the tool gate. Only place servers you trust behind the proxy.
 
 The executor assigns the fixed agent ID; model arguments cannot change it.
 By default the proxy opens the local store. To use a running sidecar, add
-`--serve-sock 127.0.0.1:9782` and supply `DEADBOLT_TOKEN`.
+`--serve-sock 127.0.0.1:9782`. Stable integrations use the operator token in the
+trusted proxy; candidate integrations can use an admission credential after
+operator lease/policy setup. See [MCP credential restrictions](CREDENTIALS.md)
+and [exact-action metadata](ACTION-APPROVALS.md#mcp-proxy).
 
 Destination discovery examines `url`, `uri`, `href`, `endpoint`, and `host`
 arguments. Spend discovery examines numeric `amount`, `usd`, and `cost`.

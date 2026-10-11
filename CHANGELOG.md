@@ -7,6 +7,11 @@ The older `v0.1.1-product` tag is not the standalone hardening release.
 
 Source candidate version: `1.1.0-rc.1`. No release/tag is published by this change.
 
+- Reorganize developer onboarding around one-command real-effect evaluation,
+  explicit published/candidate API selection, native/source/wheel installation,
+  embedded Rust and operator/dispatcher setup. Correct stale future-work and
+  package-installation statements; keep registry publication separate.
+
 - Add opt-in operator-reviewed exact-action grants, RFC 8785 fingerprints, fixed
   deadlines, atomic single-use admission and a separate `/admit-action` route.
   Exact-only tool policy closes normal admit/probe/broad approval paths under

@@ -10,7 +10,7 @@ version may be shared by several unreleased commits.
 | Symptom | Check | Action |
 | --- | --- | --- |
 | `deadbolt` command not found | Cargo bin directory is on PATH; `command -v deadbolt` on Unix or `Get-Command deadbolt` in PowerShell | Reopen the terminal or call the Cargo bin executable directly |
-| `cargo install n11-deadbolt` cannot find the crate | This package is not published on crates.io | Use the [source/Git installation](INSTALL.md) |
+| `cargo install n11-deadbolt` or `pip install n11-deadbolt-client` cannot find the package | These package names are not published to crates.io/PyPI | Use the [source/Git installation](INSTALL.md) |
 | SQLite/compiler/linker build error | Native compiler and Rust version | Install the OS C/C++ toolchain; on Windows use MSVC Build Tools and SDK |
 | `token_required` | TCP server has a nonempty `DEADBOLT_TOKEN` | Configure a private token before starting TCP; provide the same token to clients |
 | `bind_refused` | Bind is loopback or a Unix path; port/socket already in use; token file mode | Use `127.0.0.1:PORT` or `[::1]:PORT`; stop the existing service deliberately; token files must be 0600 on Unix |
@@ -18,10 +18,22 @@ version may be shared by several unreleased commits.
 | `bind_refused` at an existing path | The path is a regular file, symlink, or live socket | Select a new path; the listener preserves those entries rather than deleting them |
 | Docker host cannot connect | Socket is inside the container's volume | Attach a consumer container to that volume or run a native host sidecar; published ports cannot reach container-local loopback |
 
+## Python imports and mismatched versions
+
+- `ModuleNotFoundError: deadbolt_client`: use `python -m pip` in the same virtual
+  environment as your application; inspect `python -c "import sys; print(sys.executable)"`.
+- The base wheel works on Python 3.9+, but source building and the optional SDK
+  need Python 3.10+. A Python package install does not install or start the sidecar.
+- New helpers are absent from v1.0.3 source clients. Match the client and executable
+  to your reviewed candidate; record the source SHA, not only the Cargo version.
+- `/admit-action` on an old sidecar fails closed. Upgrade the selected executable
+  deliberately; never fall back to `/admit` for an exact-reviewed action.
+
 ## Decision and operator problems
 
 | Result or symptom | Meaning | Check/action |
 | --- | --- | --- |
+| HTTP 403 / `forbidden` | Admission credential used for operator routes or a different run | Complete setup with operator authority; pass a credential bound to the dispatcher's actual run |
 | HTTP 401 / `unauthorized` | Missing or wrong token | Server/client environments match; restart the server deliberately after rotating the token |
 | `no_lease` | No lease for that ID in this store | Ensure once before dispatch; confirm the executor-assigned ID and store paths |
 | `killed` | Terminal revocation | Confirm operator intent; use a new ID only for a deliberately authorized new run |
@@ -29,7 +41,7 @@ version may be shared by several unreleased commits.
 | `paused` | Operator pause | Inspect status/policy; operator can resume after review |
 | `spend_cap` | Reported cumulative spend crossed cap | Inspect spend and policy; resume alone leaves spend/cap policy in place |
 | `purpose_exceeded` | Tool clip/allow-list or destination check denied | Inspect tool name, clips, explicit host and stored policy; use your tool's real name |
-| `needs_human` | Irreversible tool lacks an approval | Operator approves the exact agent/tool once; other policy must still allow it |
+| `needs_human` | Required approval is missing, changed, expired or already consumed | Inspect policy; legacy approval covers run/tool only. For candidate exact-only tools review a new [exact-action envelope](ACTION-APPROVALS.md), not broad `approve`. Other policy must still allow the action |
 | `store_unavailable` | Store/evidence/transport failed or response was unusable | Check service, endpoint, writable state, free disk, deadlines and logs; retain denial while diagnosing |
 | Kill seems to do nothing | Different database/agent or dispatch skipped admit | Match DB/events paths, UID and ID; inspect the dispatch path; do not cache allow results |
 | Sample exits with code 2 | Expected denial path | Read the emitted code; after kill, this is success for the demonstration |
