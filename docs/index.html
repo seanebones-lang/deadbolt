@@ -37,6 +37,7 @@
           <a class="button button-orange" href="https://github.com/seanebones-lang/deadbolt/blob/v1.0.3/docs/FIRST-EVALUATION.md">I build these systems <span aria-hidden="true">↗</span></a>
           <a class="button button-outline" href="#leadership">I lead a team using them <span aria-hidden="true">↓</span></a>
         </div>
+        <p class="hero-watch"><a href="https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v1.1.0/deadbolt-1.1.0.mcpb">Download MCP bundle 1.1.0 ↓</a> · <a href="#install">Installation & checksums</a></p>
         <p class="hero-watch"><a href="#watch">Watch DeadBolt and Harness in action ↓</a></p>
         <div class="producthunt-launch">
           <p>Meet DeadBolt on Product Hunt. Follow the launch and share your feedback.</p>
@@ -124,6 +125,7 @@
 
     <section class="install wrap" id="install" aria-labelledby="install-title">
       <div class="section-head"><p class="section-index">DEVELOPER START / V1.0.3</p><h2 id="install-title">One bounded action. One working gate.</h2></div>
+      <div class="release-note"><strong>Installing in a desktop MCP client?</strong> <a href="https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v1.1.0/deadbolt-1.1.0.mcpb">Download bundle 1.1.0</a>, containing stable engine v1.0.3. Node.js 20+ is required; compatible clients may provide it. No Rust build or GitHub sign-in is needed. Blank configuration provides read-only setup guidance with no active protection; a private operator configuration enables the gate. <a href="https://github.com/seanebones-lang/deadbolt/blob/main/docs/INSTALL.md#local-mcp-bundle-mcpb">Verify the checksum and follow the installation guide ↗</a>. <a href="https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v1.1.0">Release notes & checksums ↗</a></div>
       <div class="install-grid"><article><h3>Use a native release</h3><p>Download the archive and its checksum for your platform. Verify it, extract it and run <code>deadbolt drill</code>. A prebuilt binary needs no Rust toolchain, model key, cloud account or database server.</p><p>macOS arm64 and Intel archives are signed and notarized. Linux and Windows binaries are unsigned.</p><a class="text-link" href="https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.3">Download v1.0.3 ↗</a><p><a href="https://github.com/seanebones-lang/deadbolt/blob/v1.0.3/docs/RELEASING.md#install-an-archive">Checksum & archive instructions ↗</a></p></article>
       <article><h3>Build from reviewed source</h3><pre><code>cargo install --git https://github.com/seanebones-lang/deadbolt.git --tag v1.0.3 --locked --bin deadbolt
 deadbolt --version

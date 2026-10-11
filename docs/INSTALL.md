@@ -68,11 +68,15 @@ Linux arm64, Windows arm64 and Alpine/musl are outside the native asset matrix.
 
 ## Local MCP bundle (MCPB)
 
-[Smithery's DeadBolt listing](https://smithery.ai/servers/seanebones/deadbolt)
-distributes the local bundle. Clients download it and run it on their own computer;
-the listing is not a public DeadBolt operator API. Your selected client or download
-route may require its own account. DeadBolt itself requires no model key or hosted
-service for local operation.
+[Download bundle 1.1.0 directly from GitHub](https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v1.1.0/deadbolt-1.1.0.mcpb)
+without signing in. [Release notes and SHA256SUMS](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v1.1.0)
+are published alongside the bundle. It is also available through
+[Smithery](https://smithery.ai/servers/seanebones/deadbolt) and listed in the
+[official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.seanebones-lang%2Fdeadbolt&limit=10)
+as `io.github.seanebones-lang/deadbolt`.
+Clients download it and run it on their own computer; these listings are not
+public DeadBolt operator APIs. Your selected client may require its own account.
+DeadBolt itself requires no model key or hosted service for local operation.
 
 Bundle 1.1.0 adds optional read-only setup: leave Operator configuration blank for integration guidance and bundled-engine checksum checks. This does not start a downstream server or provide protection. Enter an explicit private configuration path to enable the gate; invalid supplied configuration stops startup. Configured tools replace setup tools.
 
@@ -83,8 +87,8 @@ such as Claude Desktop can supply a built-in Node runtime. Other clients may nee
 an installed runtime. Linux/Windows executables and the outer bundle are unsigned;
 the macOS executables retain the published release's signatures.
 
-1. Obtain the bundle from the listing using your client's supported local-bundle
-   installation route. Verify the matching bundle checksum before installation. For bundle
+1. [Download `deadbolt-1.1.0.mcpb`](https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v1.1.0/deadbolt-1.1.0.mcpb).
+   Verify the matching bundle checksum before installation. For bundle
    **1.1.0**, the SHA-256 is:
 
    ```text

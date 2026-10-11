@@ -5,7 +5,7 @@ an action, then let policy and operator controls decide whether that action runs
 Embed it in Rust, call its local sidecar from another language, or wrap a trusted
 stdio MCP server. Free under [Apache-2.0](LICENSE).
 
-[Try it](docs/QUICKSTART.md) · [Install](docs/INSTALL.md) · [Integrate](docs/INTEGRATION.md) · [Smithery](https://smithery.ai/servers/seanebones/deadbolt) · [Project site](https://seanebones-lang.github.io/deadbolt/)
+[Download MCP bundle 1.1.0](https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v1.1.0/deadbolt-1.1.0.mcpb) · [Try it](docs/QUICKSTART.md) · [Install](docs/INSTALL.md) · [Integrate](docs/INTEGRATION.md) · [Project site](https://nexteleven.dev/deadbolt)
 
 [![CI](https://github.com/seanebones-lang/deadbolt/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/seanebones-lang/deadbolt/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/seanebones-lang/deadbolt)](https://github.com/seanebones-lang/deadbolt/releases/latest)
@@ -34,12 +34,13 @@ Python 3.9+ is the only additional runtime needed. [Understand the report](docs/
 
 ## Install in a desktop MCP client
 
-[DeadBolt on Smithery](https://smithery.ai/servers/seanebones/deadbolt) distributes
-a local **MCPB bundle** containing the published v1.0.3 executable and a Node.js
-launcher. Install it in a compatible client and select one private operator
+[Download the local MCPB bundle 1.1.0 directly](https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v1.1.0/deadbolt-1.1.0.mcpb)
+from GitHub. [Verify its checksum](docs/INSTALL.md#local-mcp-bundle-mcpb)
+before installing it. No GitHub sign-in or Rust build is required.
+The bundle contains the published v1.0.3 executable and a Node.js launcher.
+Install it in a compatible client and select one private operator
 configuration file defining your trusted downstream server, tool allow-list and
 state paths. Node.js 20+ is required; a compatible client can supply that runtime.
-No Rust build is needed.
 
 Bundle **1.1.0** packages stable engine **1.0.3**. Leave configuration blank for
 read-only integration guidance and bundle checksum verification; this setup mode
@@ -49,6 +50,13 @@ the server you configure. Operator approval, pause and kill remain local CLI
 actions. The trusted child retains OS access; this is not a sandbox.
 [Installation and verification](docs/INSTALL.md#local-mcp-bundle-mcpb) ·
 [Configuration and operator controls](dist/mcpb/README.md).
+
+The same bundle is available through [Smithery](https://smithery.ai/servers/seanebones/deadbolt)
+and listed in the [official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.seanebones-lang%2Fdeadbolt&limit=10)
+as `io.github.seanebones-lang/deadbolt`. The registry is a discovery record, not a
+hosted operator endpoint or an endorsement. [server.json](server.json) records
+the published package URL and SHA-256. This bundle release is separate from the
+engine's v1.1.0-rc.1 prerelease below.
 
 ## Pick your integration
 
