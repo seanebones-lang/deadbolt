@@ -60,6 +60,12 @@ engine's v1.1.0-rc.1 prerelease below.
 
 ## Pick your integration
 
+**Using VS Code or Cursor?** Follow the [editor installation guide](docs/EDITORS.md)
+for a checksum-verified configuration helper, a local Cursor install link and a
+disposable effect test. Start with read-only setup, then demonstrate denial,
+one-shot approval and revocation on one routed MCP connection.
+[Practical tutorial](docs/EDITOR-TUTORIAL.md).
+
 | Your executor | Smallest integration | Start here |
 | --- | --- | --- |
 | Rust application | One dependency, an embedded store and a check at dispatch | [Rust](docs/INTEGRATION.md#build-in-rust-executor) |
