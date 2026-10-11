@@ -28,8 +28,8 @@ action = prepare_action("customer-run-1", "send_email_v1", {
     "body": "The exact message for review",
 }, dest="mail.example.com", ttl_secs=300)
 # Store private review data exclusively, accessible only to the operator.
-with os.fdopen(os.open("review.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as f:
-    json.dump(action, f)
+with os.fdopen(os.open("review.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w", encoding="utf-8") as f:
+    json.dump(action, f, ensure_ascii=False)
 ```
 
 On Windows, protect review storage with an owner-only ACL; `0o600` does not

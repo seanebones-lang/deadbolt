@@ -52,13 +52,13 @@ class ClientContract(unittest.TestCase):
 
     def node(self, expression):
         script = f"const d = require({json.dumps(str(ROOT / 'examples/deadbolt_client.js'))}); {expression}"
-        out = subprocess.run(["node", "-e", script], env=self.env, capture_output=True, text=True, timeout=10)
+        out = subprocess.run(["node", "-e", script], env=self.env, capture_output=True, text=True, encoding="utf-8", timeout=10)
         self.assertEqual(out.returncode, 0, out.stderr)
         return json.loads(out.stdout)
 
     def approve_action(self, action):
         file = Path(self.temp.name) / "review.json"
-        file.write_text(json.dumps(action), encoding="utf-8")
+        file.write_text(json.dumps(action, ensure_ascii=False), encoding="utf-8")
         result = subprocess.run([str(BINARY), "action", "inspect", "--file", str(file)],
                                 env=self.env, check=True, capture_output=True, text=True)
         fingerprint = result.stdout.splitlines()[0].split("=", 1)[1]
@@ -107,6 +107,19 @@ class ClientContract(unittest.TestCase):
                 client.prepare_action("agent", "write", {"value":value})
         self.assertEqual(self.node('const a=d.prepareAction("agent","write",{}); a.arguments.value=-0; d.dispatchAction(a,()=>{throw Error("ran")}).then(x=>console.log(JSON.stringify(x)))')["decision"]["code"], "bad_request")
         self.assertEqual(self.node('try {d.prepareAction("agent","write",{value:undefined}); console.log("bad")} catch {console.log(JSON.stringify({rejected:true}))}')["rejected"], True)
+
+    def test_utf8_review_and_wire_size_match_for_non_ascii_bodies(self):
+        content="é"*10000
+        action=client.prepare_action("agent","write",{"body":content})
+        self.approve_action(action)
+        result=client.dispatch_action(action,lambda args:args["body"])
+        self.assertTrue(result["executed"])
+        self.assertEqual(result["result"],content)
+        action=client.prepare_action("agent","write",{"body":content})
+        self.approve_action(action)
+        result=self.node('d.dispatchAction('+json.dumps(action)+',args=>args.body).then(x=>console.log(JSON.stringify(x)))')
+        self.assertTrue(result["executed"])
+        self.assertEqual(result["result"],content)
 
     def test_old_endpoint_and_error_responses_cannot_allow_exact_dispatch(self):
         paths=[]

@@ -86,7 +86,7 @@ def _down(path, code="store_unavailable"):
 def _call(method, path, body=None):
     conn = None
     try:
-        payload = None if body is None else json.dumps(body).encode("utf-8")
+        payload = None if body is None else json.dumps(body, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode("utf-8")
         target = _tcp_target(sock_path())
         if target:
             host, port = target
@@ -160,7 +160,7 @@ def _action_snapshot(action):
             raise ValueError("invalid action token")
     if type(action["arguments"]) is not dict or type(action["expires_at"]) is not int or action["expires_at"] <= 0:
         raise ValueError("invalid action arguments/deadline")
-    if len(json.dumps(action, ensure_ascii=False, allow_nan=False).encode("utf-8")) > 32768:
+    if len(json.dumps(action, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode("utf-8")) > 32768:
         raise ValueError("action too large")
     return action
 
