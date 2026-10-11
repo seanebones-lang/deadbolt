@@ -7,7 +7,7 @@ executable**; installing the client does not start a sidecar.
 | Path | You need | What you get |
 | --- | --- | --- |
 | Native archive | Matching OS/CPU; Python 3.9+ only for the evaluation | Stable v1.0.3 or prerelease 1.1.0-rc.1 executable, source clients, examples and docs |
-| Local MCP bundle (MCPB) | Compatible local MCP client, Node.js 20+ and a trusted downstream stdio server | Bundle 1.0.0 with stable v1.0.3 binaries and a configuration-file launcher |
+| Local MCP bundle (MCPB) | Compatible local MCP client, Node.js 20+ and a trusted downstream stdio server | Bundle 1.0.1 with stable v1.0.3 binaries and a configuration-file launcher |
 | Source binary / embedded Rust | Git, Rust 1.85+, native C compiler/linker for bundled SQLite | APIs at your selected tag or exact commit |
 | Python source installation | Python 3.10+, pip and a reviewed checkout | Base client with no third-party runtime dependencies |
 | Python wheel | Python 3.9+, pip and a reviewed `.whl` | Same base client; no Rust needed for the wheel |
@@ -86,7 +86,7 @@ the macOS executables retain the published release's signatures.
    and verify it before installation. The published bundle 1.0.1 SHA-256 is:
 
    ```text
-   6149a0371706bc3bbf25e317a0d5431d542dce221c36c6349631642db976e4ef
+   6f6f5e366133543df5692cbe3c41261fae4d2bb119d9b11a23cd392515be181f
    ```
 
    On macOS use `shasum -a 256 deadbolt-1.0.1.mcpb`; Linux uses `sha256sum`;
