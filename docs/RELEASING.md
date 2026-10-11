@@ -118,15 +118,62 @@ is an available alternative if your installation policy requires it.
    the selected stable source before a versioned tag/release. Never move an
    already published version tag.
 
-Registry publication is separate. The first useful registry target is crates.io
-for the Rust crate `n11-deadbolt`; it supports both the library and CLI. Inspect
-`cargo package --list` and run `cargo publish --dry-run` at the exact release
-source, then verify name availability, publisher account/team ownership and the
-package contents before an actual upload. A registry version cannot be replaced
-after publication. Do not claim `cargo install n11-deadbolt` until the uploaded
-crate is visible and installable. The candidate Python client already builds an installable wheel/sdist; registry
-publication still needs API, ownership and exact-package review. Node remains a
-bundled source client. Do not imply either is published before verifying it.
+## Cargo registry publication
+
+The Rust crate `n11-deadbolt` provides both library `deadbolt` and CLI `deadbolt`.
+Stable `1.0.3` and candidate `1.1.0-rc.1` are published on
+[crates.io](https://crates.io/crates/n11-deadbolt/versions). Registry publication
+is separate from native archives, MCP bundles and Python release wheels.
+
+For each future version:
+
+1. Select a clean, reviewed release commit and immutable tag. Confirm the
+   manifest version, license, publisher ownership and repository identity.
+   Never move an already published tag or edit its release source to change
+   a package under the same version.
+2. Inspect `cargo package --list`, then run `cargo publish --dry-run --locked`
+   and `cargo package --locked`. Verify the actual archive includes the lockfile,
+   licenses, source, runnable examples and documentation, with no credentials,
+   private state or oversized media. Inspect `.cargo_vcs_info.json` and record
+   the package SHA-256.
+3. Extract the archive outside the checkout and install its CLI with
+   `cargo install --path /absolute/extracted/package --locked --root /temporary/install`.
+   Run its version, drill and packaged `examples/evaluate.py`. Exercise a
+   separate Rust application depending on the extracted library. Verify actual
+   permitted effects and that denied, replayed or revoked requests leave the
+   protected bodies untouched. Candidate-specific APIs need candidate-specific
+   acceptance in addition to the stable gate checks.
+4. Use a verified publisher account and a short-lived token restricted to this
+   crate's required publish scopes. Keep it in private Cargo credential storage,
+   never command-line arguments, Git, screenshots, reports or logs. Use the
+   official `cargo login` prompt for manual credential setup. An installer or
+   library consumer needs no publishing credential.
+5. Run `cargo publish --locked` from the exact clean release source. Publication
+   is permanent: a version cannot be overwritten. Follow the
+   [Cargo publishing guide](https://doc.rust-lang.org/cargo/reference/publishing.html).
+6. Verify the public registry version and publisher. Download the registry
+   archive and compare its SHA-256 with both the tested package and registry
+   checksum; confirm the embedded Git SHA. Install the pinned version with
+   `cargo install n11-deadbolt --version VERSION --locked --bin deadbolt --root /temporary/install`.
+   Repeat the drill and real sidecar effects. Build a separate consumer using
+   `deadbolt = { package = "n11-deadbolt", version = "=VERSION" }`, then check
+   allowed/blocked effects using that registry dependency. Remove temporary
+   installs and revoke the short-lived publishing token when finished.
+7. Check the rendered registry README and its links, plus the docs.rs build
+   separately. A visible crate is not proof that generated documentation built.
+   Update current installation documentation only after registry acceptance.
+
+The first registry publication used existing release tags without source edits:
+`v1.0.3` (`3a857f8438dcda4bdaadb414d37f128508dc44f1`) and `v1.1.0-rc.1`
+(`52a2085155b658f3d1dda5a73a8d95a7a1d88fad`). Their packaged READMEs retain the
+original release-date statements about registry availability; current
+[installation instructions](INSTALL.md#cargo-registry-cli-and-embedded-rust)
+are maintained separately.
+
+The candidate Python client builds an installable wheel/sdist, but PyPI
+publication still needs separate ownership, exact-package and registry-consumer
+review. Node remains a bundled source client. Do not imply either is published
+before verifying it.
 
 ## HOL listing update
 
