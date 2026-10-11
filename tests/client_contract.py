@@ -116,8 +116,9 @@ class ClientContract(unittest.TestCase):
         self.assertTrue(result["executed"])
         self.assertEqual(result["result"],content)
         action=client.prepare_action("agent","write",{"body":content})
-        self.approve_action(action)
-        result=self.node('d.dispatchAction('+json.dumps(action)+',args=>args.body).then(x=>console.log(JSON.stringify(x)))')
+        file,_=self.approve_action(action)
+        # Keep the fixture out of argv: Windows has a smaller command-line limit.
+        result=self.node('d.dispatchAction(JSON.parse(require("fs").readFileSync('+json.dumps(str(file))+',"utf8")),args=>args.body).then(x=>console.log(JSON.stringify(x)))')
         self.assertTrue(result["executed"])
         self.assertEqual(result["result"],content)
 
