@@ -215,6 +215,22 @@ silently skip a file or treat a partial upload as complete. Once public, a PyPI
 version's files cannot be replaced. The engine remains separately installed;
 the Python distribution is a client and optional adapter, not a sandbox.
 
+## Homebrew tap updates
+
+The [NextEleven tap](https://github.com/seanebones-lang/homebrew-tap) packages
+the existing signed macOS archives; it does not rebuild or republish an engine.
+Stable and preview have separate, conflicting casks. For each engine update,
+verify both published archive hashes, extracted executable hashes, strict
+Developer ID signatures and matching accepted Apple notarization logs. Update
+the cask and `releases.json` together, then pass the four-channel/architecture
+acceptance jobs before merging. Check a fresh public-tap installation and its
+actual file-effect behavior before updating current documentation.
+
+See [Homebrew installation and maintenance](HOMEBREW.md) and the
+[tap procedure](https://github.com/seanebones-lang/homebrew-tap#maintainers-and-validation).
+Do not infer engine updates from MCP bundle version numbers. A lifecycle
+reinstall test is not proof of compatibility across different engine versions.
+
 ## HOL listing update
 
 After publication, follow [HOL submission and existing-listing updates](HOL-SUBMISSION.md).

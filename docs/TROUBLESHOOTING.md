@@ -9,7 +9,9 @@ version may be shared by several unreleased commits.
 
 | Symptom | Check | Action |
 | --- | --- | --- |
-| `deadbolt` command not found | Cargo bin directory is on PATH; `command -v deadbolt` on Unix or `Get-Command deadbolt` in PowerShell | Reopen the terminal or call the Cargo bin executable directly |
+| `deadbolt` command not found | Cargo or Homebrew bin directory is on PATH; `command -v deadbolt` on Unix or `Get-Command deadbolt` in PowerShell | Reopen the terminal or call the selected installation's executable directly |
+| Homebrew says the tap/cask is untrusted | Review the named cask and check whether `brew help trust` is available | Trust only the selected cask; follow [Homebrew setup](HOMEBREW.md#if-homebrew-asks-you-to-trust-the-cask); keep trust checks enabled |
+| Homebrew reports a conflicting channel or existing binary | Stable/preview both link `deadbolt`; an archive or Cargo installation may already own the path | Identify the existing command, stop dispatch, back up state and choose one owner; use [deliberate channel switching](HOMEBREW.md#update-switch-channels-or-remove), not a forced overwrite |
 | Cargo cannot find the selected release | Registry is crates.io; package name is `n11-deadbolt`; prerelease is explicitly selected | Use the pinned [Cargo installation](INSTALL.md#cargo-registry-cli-and-embedded-rust); check registry/network configuration |
 | Python package/version cannot be resolved | Check the index, version spelling and Python requirement | Use `python -m pip install 'n11-deadbolt-client==1.1.0rc1'` from PyPI; the base wheel needs Python 3.9+, the SDK extra needs 3.10+. See [installation](INSTALL.md#python-and-node) |
 | SQLite/compiler/linker build error | Native compiler and Rust version | Install the OS C/C++ toolchain; on Windows use MSVC Build Tools and SDK |

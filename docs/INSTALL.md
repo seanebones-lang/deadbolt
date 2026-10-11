@@ -7,6 +7,7 @@ executable**; installing the client does not start a sidecar.
 | Path | You need | What you get |
 | --- | --- | --- |
 | Native archive | Matching OS/CPU; Python 3.9+ only for the evaluation | Stable v1.0.3 or prerelease 1.1.0-rc.1 executable, source clients, examples and docs |
+| [Homebrew tap](HOMEBREW.md) | macOS Apple Silicon or Intel and Homebrew | Signed prebuilt stable CLI or explicitly selected preview; no Rust build |
 | Local MCP bundle (MCPB) | Compatible local MCP client, Node.js 20+ and a trusted downstream stdio server | Bundle 1.1.0 with stable v1.0.3 binaries and a configuration-file launcher |
 | Cargo registry CLI / embedded Rust | Rust 1.85+, native C compiler/linker for bundled SQLite | Stable 1.0.3 or explicitly selected 1.1.0-rc.1 |
 | Source binary / embedded Rust | Git, Rust 1.85+, native C compiler/linker for bundled SQLite | APIs at your selected tag or exact commit |
@@ -17,6 +18,20 @@ executable**; installing the client does not start a sidecar.
 
 No model key, Harness, cloud account or database server is needed for setup or
 local demonstrations. Docker is optional. Build tools are unnecessary for a native archive.
+
+## Homebrew on macOS
+
+```sh
+brew install --cask seanebones-lang/tap/n11-deadbolt
+deadbolt --version
+deadbolt drill
+```
+
+Expected version: `deadbolt 1.0.3`. The separate `n11-deadbolt-preview` cask
+selects `1.1.0-rc.1`; both casks cannot be installed together. Installation
+does not start a service or configure policy. See [the Homebrew guide](HOMEBREW.md)
+for scoped trust, the installed release's disposable evaluation, updates,
+channel switching and state-preserving removal.
 
 ## Native archive (no Rust required)
 
@@ -289,6 +304,8 @@ older binaries cannot enforce new credential/exact-action requirements.
 `cargo uninstall n11-deadbolt` removes a Cargo-installed executable;
 `python -m pip uninstall n11-deadbolt-client` removes the client in that environment.
 Archive installation is removed by deleting the executable you installed.
+For Homebrew, use `brew uninstall --cask n11-deadbolt` (or the preview cask
+name); follow [the package lifecycle guide](HOMEBREW.md#update-switch-channels-or-remove).
 These steps leave databases, revocations and evidence in place. Preserve them
 according to your retention policy.
 
