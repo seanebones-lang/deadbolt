@@ -1,6 +1,7 @@
 """Upgrade real legacy state to a candidate binary using disposable state."""
 
 import argparse
+from contextlib import closing
 import hashlib
 import json
 import os
@@ -92,7 +93,7 @@ def main():
             finally:
                 server.terminate()
                 server.wait(timeout=10)
-        with sqlite3.connect(env["DEADBOLT_DB"]) as db:
+        with closing(sqlite3.connect(env["DEADBOLT_DB"])) as db:
             before = {row[0] for row in db.execute("SELECT cid FROM events")}
             assert db.execute("SELECT spend_usd FROM leases WHERE agent_id='B'").fetchone()[0] == 1.25
         server = start(new)
@@ -148,7 +149,7 @@ def main():
         finally:
             server.terminate()
             server.wait(timeout=10)
-        with sqlite3.connect(env["DEADBOLT_DB"]) as db:
+        with closing(sqlite3.connect(env["DEADBOLT_DB"])) as db:
             after = {row[0] for row in db.execute("SELECT cid FROM events")}
             assert before <= after, "upgrade lost existing evidence"
             assert db.execute("SELECT parent_id FROM leases WHERE agent_id='child'").fetchone()[0] == "A"
