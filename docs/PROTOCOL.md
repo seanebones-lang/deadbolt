@@ -95,6 +95,13 @@ fixed cutoff, before idle expiry. No in-flight cancellation is performed.
 
 `swarm_task_id` is optional. Success: `{"live":true}` or `{"live":false}` when the child is recorded killed. Failure: `{"ok":false,"code":"<token>"}`.
 
+The live result describes the child's stored state at registration, not permission
+to execute. It does not recheck all ancestors or apply their tool policies.
+Current unreleased source rechecks the complete registered ancestor chain for
+regular and exact-action admission, with either operator or workload credentials.
+Inactive ancestors deny before TTL refresh or grant consumption; malformed,
+missing or cyclic lineage fails closed with `store_unavailable`.
+
 ## GET /status
 
 `GET /status` lists every lease. `GET /status?agent=shop-bot` lists one.
@@ -107,7 +114,7 @@ Current source reports read-only effective `state`: `active`, `paused`, `killed`
 `expired`, or `deadline_exceeded`. Kill wins; otherwise the fixed deadline wins
 over idle expiry, including for paused leases. Status never rewrites the lease
 or records an admission. It describes that lease's own state and clocks, not a
-complete tool/ancestor-policy admission decision. Check fresh admission before
+complete tool-policy or ancestor-liveness admission decision. Check fresh admission before
 every effect. Published 2.0.0-rc.1 and 1.x binaries still report stored state.
 
 The HTTP enumeration contract remains an empty `agents` list for a missing ID.
