@@ -2,7 +2,7 @@
 
 HTTP/1.1 over a Unix socket or loopback TCP. `0.0.0.0`, `[::]`, and any non-loopback host are refused. Default socket: `~/.deadbolt/deadbolt.sock` (mode `0600`). TCP bind: `deadbolt serve --bind 127.0.0.1:PORT` or `[::1]:PORT`. `DEADBOLT_TOKEN` is required to start TCP. On a Unix socket operator authentication is optional only while the store has never issued a scoped credential (admission or supervisor). Clients treat `DEADBOLT_SOCK` as loopback HTTP when it is `127.0.0.1:PORT`, `[::1]:PORT`, or `http://127.0.0.1:PORT`. A Unix path still uses the socket.
 
-Operator requests use `X-Deadbolt-Token: <value>` when configured. Workload requests instead use `X-Deadbolt-Admission: <secret>`; this header authorizes only `POST /admit` and `POST /admit-action` for its bound agent. Mixed or duplicated authentication headers are refused. Unknown, revoked, expired or wrong-agent credentials return 401; workload control routes return 403. Neither status can grant admission. See [credential setup and migration](CREDENTIALS.md). TCP serve refuses to start when that token is missing. A missing or wrong header is HTTP 401 and does not admit, ensure, register, or status.
+Operator requests use `X-Deadbolt-Token: <value>` when configured. Workload requests instead use `X-Deadbolt-Admission: <secret>`; this header authorizes admission routes for its bound agent, including the unreleased MCP routes below. Mixed or duplicated authentication headers are refused. Unknown, revoked, expired or wrong-agent credentials return 401; workload control routes return 403. Neither status can grant admission. See [credential setup and migration](CREDENTIALS.md). TCP serve refuses to start when that token is missing. A missing or wrong header is HTTP 401 and does not admit, ensure, register, or status.
 
 ```http
 HTTP/1.1 401
@@ -42,6 +42,22 @@ allow/deny shape. Missing, changed, expired or replayed grants deny `needs_human
 Malformed/oversized/duplicate-key envelopes return 400; authentication returns
 401/403; gate/storage failure returns 503. None authorize execution. An old
 sidecar lacking this route must fail closed; never retry through `/admit`.
+
+## MCP admission routes (unreleased 2.0 candidate)
+
+`POST /admit-mcp` takes the same payload as `/admit`; `/admit-mcp-action`
+takes the same exact envelope as `/admit-action`. Both require an existing live
+lease with an explicitly set tool allowlist. Unset `tools_allow` denies
+`policy_required`; an empty list denies `purpose_exceeded`. Liveness, ancestor
+checks, policy and grant consumption share the same writer transaction. Missing
+setup cannot refresh a TTL or consume a grant. Neither route creates leases.
+Both accept the operator or bound admission credential; supervisor credentials
+cannot admit. Disabled enforcement and legacy fail-open configuration cannot
+permit MCP execution. An older sidecar lacking these routes fails closed; clients
+must never retry through `/admit`, `/admit-action` or `/ensure`.
+
+Ordinary `/admit` and `/admit-action` retain their trusted executor contract:
+an unset tool list remains open. Use MCP-specific routes for MCP dispatch.
 
 ## POST /policy
 

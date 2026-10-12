@@ -7,7 +7,7 @@ does not support it.
 | Identity | HTTP access | Who holds it |
 | --- | --- | --- |
 | Operator (`DEADBOLT_TOKEN` / `X-Deadbolt-Token`) | Operator routes, including setup, policy, spend and status; no supervisor-only renewal | Trusted setup/administration |
-| Admission (`DEADBOLT_ADMISSION_TOKEN` / `X-Deadbolt-Admission`) | Only `POST /admit` and `POST /admit-action`, for one stored agent ID | Trusted dispatcher for that run |
+| Admission (`DEADBOLT_ADMISSION_TOKEN` / `X-Deadbolt-Admission`) | Admission routes for one stored agent ID: `/admit`, `/admit-action`, and the unreleased `/admit-mcp` / `/admit-mcp-action` | Trusted dispatcher for that run |
 | Socket possession without credentials | Legacy operator access only before any scoped credential has ever been issued | Existing Unix integrations only |
 
 An admission credential cannot ensure/register agents, alter policy, report spend,
@@ -60,6 +60,10 @@ wrong-agent credentials deny execution; Python/Node preserve `unauthorized` and
 MCP workload mode requires `--serve-sock`; in-process MCP owns operator-capable
 state and cannot claim this separation. Scoped MCP does not call `/ensure` and
 cannot call `/spend`; tool calls containing spend reporting therefore fail closed.
+The unreleased proxy also omits provisioning in operator and embedded modes.
+All MCP admissions require an existing live lease with an explicit tool allowlist;
+unset policy denies `policy_required` without consuming grants. Its distinct MCP
+routes cannot fall back to an older sidecar's legacy routes.
 Have trusted operator infrastructure report costs separately. Proxy children do
 not inherit either DeadBolt bearer-token environment variable. This is hygiene,
 not a sandbox: same-user processes may still access files or inspect other

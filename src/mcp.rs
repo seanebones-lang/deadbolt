@@ -27,7 +27,8 @@ const MAX_RESPONSE_BYTES: u64 = 1024 * 1024;
 const SHUTDOWN_GRACE: Duration = Duration::from_secs(1);
 
 /// Run an MCP server as a child. Admit `tools/call` in-process, or over
-/// `serve_sock` when set. Does not bind `0.0.0.0`.
+/// `serve_sock` when set. Does not provision a lease. MCP admission requires an
+/// explicit operator-owned tools allowlist. Does not bind `0.0.0.0`.
 pub fn mcp_proxy(
     agent: &str,
     gate: &Deadbolt,
@@ -47,11 +48,6 @@ pub fn mcp_proxy(
         if bind_refused(&sock) {
             return Err(DeadboltError::BindRefused);
         }
-        if !scoped {
-            if let Err(err) = sock_ensure(&sock, agent) {
-                eprintln!("{err}");
-            }
-        }
         let sock = sock.clone();
         let agent = agent.to_string();
         return spawn_proxy(argv, move |tool, dest, usd, arguments| {
@@ -67,9 +63,6 @@ pub fn mcp_proxy(
             sock_decision(&sock, &agent, tool, dest)
         });
     }
-    if let Err(err) = gate.ensure_agent(agent) {
-        eprintln!("{err}");
-    }
     let gate = gate.clone();
     let agent = agent.to_string();
     spawn_proxy(argv, move |tool, dest, usd, arguments| {
@@ -79,13 +72,17 @@ pub fn mcp_proxy(
             }
         }
         if let Some(grant) = grants.get(tool) {
-            return match gate.admit_action(&grant.request(&agent, tool, dest, arguments.clone())) {
+            return match gate.admit_action_inner(
+                &grant.request(&agent, tool, dest, arguments.clone()),
+                None,
+                true,
+            ) {
                 Ok(AdmitDecision::Allow) => None,
                 Ok(AdmitDecision::Deny { code }) => Some(code.as_str().into()),
                 Err(_) => Some("store_unavailable".into()),
             };
         }
-        match gate.admit_dest(&agent, tool, dest) {
+        match gate.admit_mcp_dest(&agent, tool, dest) {
             AdmitDecision::Allow => None,
             AdmitDecision::Deny { code } => Some(code.as_str().to_string()),
         }
@@ -148,7 +145,7 @@ fn sock_action_decision(sock: &Path, action: &ActionRequest) -> Option<String> {
     let Ok(body) = serde_json::to_string(action) else {
         return Some("bad_request".into());
     };
-    match http_json(sock, "POST", "/admit-action", Some(&body)) {
+    match http_json(sock, "POST", "/admit-mcp-action", Some(&body)) {
         Ok((200..=299, v)) if v.get("decision").and_then(Value::as_str) == Some("allow") => None,
         Ok((401, _)) => Some("unauthorized".into()),
         Ok((403, _)) => Some("forbidden".into()),
@@ -534,8 +531,8 @@ fn denial_line(id: &Value, code: &str) -> String {
     // reflect an arbitrary sidecar response, policy, arguments or credentials.
     let code = match code {
         "killed" | "paused" | "purpose_exceeded" | "lease_expired" | "deadline_exceeded"
-        | "store_unavailable" | "no_lease" | "spend_cap" | "needs_human" | "unauthorized"
-        | "forbidden" | "bad_request" => code,
+        | "store_unavailable" | "no_lease" | "policy_required" | "spend_cap" | "needs_human"
+        | "unauthorized" | "forbidden" | "bad_request" => code,
         _ => "store_unavailable",
     };
     let (retry, hint) = match code {
@@ -590,24 +587,12 @@ fn normalize_sock(path: &Path) -> Result<PathBuf, DeadboltError> {
     Ok(PathBuf::from(raw))
 }
 
-fn sock_ensure(sock: &Path, agent: &str) -> Result<(), DeadboltError> {
-    let body = json!({"agent_id": agent}).to_string();
-    match http_json(sock, "POST", "/ensure", Some(&body)) {
-        Ok((401, _)) => {
-            eprintln!("deadbolt:unauthorized");
-            Ok(())
-        }
-        Ok(_) => Ok(()),
-        Err(err) => Err(err),
-    }
-}
-
 fn sock_decision(sock: &Path, agent: &str, tool: &str, dest: Option<&str>) -> Option<String> {
     let body = match dest {
         Some(dest) => json!({"agent_id": agent, "tool": tool, "dest": dest}).to_string(),
         None => json!({"agent_id": agent, "tool": tool}).to_string(),
     };
-    match http_json(sock, "POST", "/admit", Some(&body)) {
+    match http_json(sock, "POST", "/admit-mcp", Some(&body)) {
         Ok((401, _)) => Some("unauthorized".to_string()),
         Ok((200..=299, v)) if v.get("decision").and_then(|d| d.as_str()) == Some("allow") => None,
         Ok((_, v)) => Some(

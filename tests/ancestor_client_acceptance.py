@@ -86,6 +86,7 @@ def main():
                     require(client.ensure(ancestor).get("ok") is True, "activity root setup")
                 require(client.register_child(ancestor, parent).get("live") is True, "parent setup")
                 require(client.register_child(parent, grandchild).get("live") is True, "grandchild setup")
+                require(client.policy(grandchild, tools=["read"]).get("ok") is True, "MCP policy setup")
                 key_path = root / (mode + ".key")
                 operator("credential", "issue", "--agent", grandchild, "--id", mode,
                          "--ttl-secs", "600", "--out", str(key_path))

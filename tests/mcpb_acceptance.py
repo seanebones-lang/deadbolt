@@ -8,11 +8,13 @@ from pathlib import Path
 import platform
 import queue
 import shutil
+import socket
 import sqlite3
 import subprocess
 import tempfile
 import threading
 import time
+from urllib.request import Request, urlopen
 
 FIXTURE = r'''
 const fs = require('node:fs');
@@ -306,7 +308,34 @@ import(pathToFileURL(entry).href).catch(()=>process.exit(1));
             assert invalid.returncode != 0 and starts.read_text() == count
         checks.append({'case':'existing_deadline_and_renewal_mode_cannot_change', 'passed':True})
         c['agent'] = 'legacy-idle-only-test'
-        operator('mcp-proxy', '--agent', c['agent'], '--', str(exe), '--version')
+        # Explicit operator setup works with both the pinned rc.1 engine and
+        # the source candidate; raw proxy runtime is not a setup API anymore.
+        with socket.socket() as probe:
+            probe.bind(('127.0.0.1', 0))
+            endpoint = f'127.0.0.1:{probe.getsockname()[1]}'
+        token = 'disposable-mcpb-setup-token'
+        op_env = {k:v for k,v in os.environ.items() if not k.startswith('DEADBOLT_')}
+        op_env.update(DEADBOLT_DB=c['database'], DEADBOLT_EVENTS=c['events'])
+        server = subprocess.Popen([str(exe), 'serve', '--bind', endpoint],
+                                  env={**op_env, 'DEADBOLT_TOKEN':token},
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            for _ in range(100):
+                try:
+                    request = Request('http://'+endpoint+'/ensure',
+                                      data=json.dumps({'agent_id':c['agent']}).encode(),
+                                      headers={'X-Deadbolt-Token':token})
+                    with urlopen(request, timeout=1) as response:
+                        assert json.load(response)['ok'] is True
+                    break
+                except OSError:
+                    assert server.poll() is None, 'setup sidecar exited'
+                    time.sleep(.02)
+            else:
+                raise AssertionError('setup sidecar never became ready')
+        finally:
+            server.terminate()
+            server.wait(timeout=10)
         config.write_text(json.dumps(c))
         invalid = launch(); invalid.communicate(timeout=10)
         assert invalid.returncode != 0 and starts.read_text() == count

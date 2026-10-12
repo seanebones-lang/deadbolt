@@ -167,6 +167,7 @@ class ClientContract(unittest.TestCase):
             fake.shutdown(); worker.join(); fake.server_close()
 
     def test_mcp_exact_action_raw_arguments_once_and_unreadable_metadata(self):
+        self.assertTrue(client.policy("agent", tools=["write"])["ok"])
         action = client.prepare_action("agent", "write", {"body":"reviewed"})
         self.approve_action(action)
         root = Path(self.temp.name)

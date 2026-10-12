@@ -57,7 +57,7 @@ The operator token `DEADBOLT_TOKEN` authenticates full HTTP authority and can
 assert any agent ID. The current candidate also accepts single-agent admission
 credentials: their stored hash, agent binding, fixed expiry and revocation are
 checked in the same writer transaction as lease/policy evaluation. These
-credentials authorize only `POST /admit` and `POST /admit-action`, not setup or control routes. See
+credentials authorize only admission routes, including the unreleased MCP routes, not setup or control routes. See
 [credential setup](CREDENTIALS.md), including migration from anonymous Unix
 access. In either mode the trusted executor assigns the ID and tool identity;
 the model does not. Scoped admission always fails closed, even when the trusted
@@ -74,6 +74,15 @@ No frontier shutdown. No shadow-agent discovery. No fleet halt. No proof that a 
 ## Blast radius
 
 Unset policy is open. A set `tools_allow` denies `purpose_exceeded` for tools outside the list.
+
+**Unreleased MCP setup candidate:** raw proxy runtime does not create a lease.
+Every MCP tool admission requires an existing live lease and an explicitly set
+tool allowlist, including exact grants and scoped calls. Missing policy denies
+`policy_required` before target TTL renewal or approval consumption. An empty
+list denies all tools. Ordinary trusted Rust/HTTP admission retains the open
+unset-policy behavior above. MCP enforcement always fails closed and its new
+sidecar routes cannot downgrade to older admission routes. Downstream startup
+and non-tool methods are still outside the tool-call gate.
 
 **Current source tightens destination policy:** when `dest_allow` is set, every tool must declare an allowed destination unless the operator explicitly lists it in the per-lease `offline_tools`. A present foreign destination is denied even for an offline-classified tool. Empty `offline_tools` clears the exceptions. This replaces name-based classification; arbitrary names such as `shell`, `python`, `curl` and custom MCP tools no longer receive an implicit missing-destination exception. Existing destination policies migrate to no offline exceptions. Each child needs its own policy.
 

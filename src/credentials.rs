@@ -235,6 +235,17 @@ impl Deadbolt {
         tool: &str,
         dest: Option<&str>,
     ) -> Result<AdmitDecision, DeadboltError> {
+        self.admit_credential_inner(secret, agent_id, tool, dest, false)
+    }
+
+    pub(crate) fn admit_credential_inner(
+        &self,
+        secret: &str,
+        agent_id: &str,
+        tool: &str,
+        dest: Option<&str>,
+        require_policy: bool,
+    ) -> Result<AdmitDecision, DeadboltError> {
         let hash = credential_hash(secret)?;
         if !self.enabled {
             return Err(DeadboltError::Disabled);
@@ -258,7 +269,7 @@ impl Deadbolt {
                 return Err(DeadboltError::TokenRequired);
             }
             let decision = self
-                .evaluate_in_transaction(&tx, agent_id, tool, dest, false)
+                .evaluate_in_transaction(&tx, agent_id, tool, dest, false, require_policy)
                 .map_err(|_| DeadboltError::StoreUnavailable)?;
             tx.commit().map_err(|_| DeadboltError::StoreUnavailable)?;
             decision
@@ -320,6 +331,43 @@ mod tests {
         let path = dir.path().join(id);
         db.issue_credential("A", id, 3600, &path).unwrap();
         fs::read_to_string(path).unwrap()
+    }
+
+    #[test]
+    fn scoped_mcp_requires_explicit_policy_while_ordinary_contract_is_preserved() {
+        let (dir, db) = fixture();
+        let secret = issue(&dir, &db, "worker");
+        assert_eq!(
+            db.admit_credential(&secret, "A", "read", None).unwrap(),
+            AdmitDecision::Allow
+        );
+        assert_eq!(
+            db.admit_credential_inner(&secret, "A", "read", None, true)
+                .unwrap(),
+            AdmitDecision::Deny {
+                code: DenyCode::PolicyRequired
+            }
+        );
+        db.set_policy(
+            "A",
+            PolicyPatch {
+                tools_allow: Some(vec!["read".into()]),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            db.admit_credential_inner(&secret, "A", "read", None, true)
+                .unwrap(),
+            AdmitDecision::Allow
+        );
+        assert_eq!(
+            db.admit_credential_inner(&secret, "A", "shell", None, true)
+                .unwrap(),
+            AdmitDecision::Deny {
+                code: DenyCode::PurposeExceeded
+            }
+        );
     }
 
     #[test]

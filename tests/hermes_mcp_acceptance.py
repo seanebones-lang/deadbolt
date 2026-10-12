@@ -108,6 +108,9 @@ async def acceptance(args, work):
 
     try:
         sidecar = start_sidecar()
+        for agent in ["A", "B"]:
+            operator("ensure", "--agent", agent)
+            operator("policy", "--agent", agent, "--tools", "write_file,read_text_file")
         a = await host("A")
         await write(a, "allowed.txt")
         operator("policy", "--agent", "A", "--tools", "read_text_file")
