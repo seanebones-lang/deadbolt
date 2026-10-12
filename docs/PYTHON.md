@@ -229,3 +229,13 @@ It adds POSIX process-group cleanup to source-built wheels; the published RC whe
 does not contain it. It uses read-only status, never repeated admissions, and
 refuses unsupported hosts before starting work. This is separate from the normal
 callback wrappers and does not turn them into cancellable processes.
+
+## Optional supervised idle expiry (unreleased source)
+
+[Supervisor-only renewal](SUPERVISION.md) is a separate opt-in control for fresh
+root runs. Admissions do not refresh those leases; a separate root-bound
+credential maintains only still-live members. A fixed deadline remains immutable
+and wins even during heartbeat activity. The explicit Python renewal call never
+uses operator/workload environment authentication. Existing published artifacts
+do not include this feature; source, migration and release gates apply. Running
+work still needs executor-owned cancellation and OS isolation where appropriate.

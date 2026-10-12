@@ -1,6 +1,6 @@
 # Sidecar protocol
 
-HTTP/1.1 over a Unix socket or loopback TCP. `0.0.0.0`, `[::]`, and any non-loopback host are refused. Default socket: `~/.deadbolt/deadbolt.sock` (mode `0600`). TCP bind: `deadbolt serve --bind 127.0.0.1:PORT` or `[::1]:PORT`. `DEADBOLT_TOKEN` is required to start TCP. On a Unix socket operator authentication is optional only while the store has never issued an admission credential. Clients treat `DEADBOLT_SOCK` as loopback HTTP when it is `127.0.0.1:PORT`, `[::1]:PORT`, or `http://127.0.0.1:PORT`. A Unix path still uses the socket.
+HTTP/1.1 over a Unix socket or loopback TCP. `0.0.0.0`, `[::]`, and any non-loopback host are refused. Default socket: `~/.deadbolt/deadbolt.sock` (mode `0600`). TCP bind: `deadbolt serve --bind 127.0.0.1:PORT` or `[::1]:PORT`. `DEADBOLT_TOKEN` is required to start TCP. On a Unix socket operator authentication is optional only while the store has never issued a scoped credential (admission or supervisor). Clients treat `DEADBOLT_SOCK` as loopback HTTP when it is `127.0.0.1:PORT`, `[::1]:PORT`, or `http://127.0.0.1:PORT`. A Unix path still uses the socket.
 
 Operator requests use `X-Deadbolt-Token: <value>` when configured. Workload requests instead use `X-Deadbolt-Admission: <secret>`; this header authorizes only `POST /admit` and `POST /admit-action` for its bound agent. Mixed or duplicated authentication headers are refused. Unknown, revoked, expired or wrong-agent credentials return 401; workload control routes return 403. Neither status can grant admission. See [credential setup and migration](CREDENTIALS.md). TCP serve refuses to start when that token is missing. A missing or wrong header is HTTP 401 and does not admit, ensure, register, or status.
 
@@ -114,3 +114,17 @@ fixed cutoff, before idle expiry. No in-flight cancellation is performed.
 | 404 | `not_found` | unknown path |
 
 `kill`, `pause`, `clip`, and `resume` are CLI only. They are not HTTP routes.
+
+## Supervisor-only renewal (unreleased source)
+
+`POST /issue-supervised` is operator-only fresh-run issuance with `agent_id` and
+an optional integral future `hard_deadline_at`. Duplicate/unknown fields and
+null/string/fraction deadlines are refused. Existing IDs cannot be converted or
+extended. Status adds nullable `supervision_root`; children inherit it.
+
+`POST /renew` accepts only `X-Deadbolt-Supervisor` and a strict `{"agent_id":"root"}`
+body. This root-bound credential maintains only still-live matching root/children;
+it cannot admit, change policy, unpause, revive expiry/kill or slide a fixed
+deadline. Success is `{"ok":true}`; every other response must stop continuation.
+No operator/workload fallback exists. Supervisor headers on other routes get 403;
+mixed/duplicate headers get 401. See [full setup, status codes and migration](SUPERVISION.md).

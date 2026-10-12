@@ -5,6 +5,19 @@ The older `v0.1.1-product` tag is not the standalone hardening release.
 
 ## Unreleased source additions
 
+- Add optional supervisor-only idle renewal for fresh root runs and registered
+  descendants. Agent allow/deny activity cannot keep this mode alive; immutable
+  fixed deadlines remain independent and always win. Existing leases keep their
+  renewal behavior.
+- Add separate root-bound renewal credentials, scope-preserving migration,
+  operator issuance/list/revoke, renewal-only HTTP access and explicit Python
+  authentication without operator/workload fallback. No expired/killed revival
+  or policy/approval changes. Observed renewal exports retain exact maintained IDs
+  and expiry; failed default primary evidence rolls the mutation back.
+- Validate schema migration, restart, writer-lock expiry, HTTP role boundaries and
+  installed-client effects against a real sidecar and actual 60-second idle TTL.
+  See [supervision setup and limitations](docs/SUPERVISION.md).
+
 - Add a source-built Python owned-process supervisor reference: fresh admission,
   read-only lease monitoring and POSIX group cleanup, with installed-consumer
   kill/deadline/outage acceptance. Refuse unsupported hosts before execution.
@@ -22,8 +35,7 @@ The older `v0.1.1-product` tag is not the standalone hardening release.
   installed Python/Node callbacks on three CI platforms.
 - These source additions are not in existing registry engines or plugin bundles.
   They stop new admissions; the executor still owns in-flight cancellation,
-  host clock trust and process/egress confinement. Supervisor-only renewal is
-  separate future work. See [fixed lease deadlines](docs/LEASE-DEADLINES.md).
+  host clock trust and process/egress confinement. Optional supervisor-only renewal is also an unreleased source addition. See [fixed lease deadlines](docs/LEASE-DEADLINES.md).
 
 ## 1.1.0-rc.1
 

@@ -24,8 +24,9 @@ Rust additions that break exhaustive matches or struct construction are breaking
 changes and need a major version after 1.0.
 
 Kill stays terminal for an identity in the same store. Ensure cannot restore a
-killed identity. Live admission refreshes the lease, silence does not, and an
-expired lease is not refreshed by admission. Children need registration and their
+killed identity. Legacy live admission refreshes the lease, silence does not, and an
+expired lease is not refreshed by admission. Optional supervised source mode
+requires a separate trusted heartbeat. Children need registration and their
 own policy. One-shot approval is consumed by a successful admission, not successful
 completion of the subsequent tool body.
 
@@ -109,3 +110,24 @@ Published engine/MCPB/plugin versions do not include this addition. Older
 executables ignore the column, so rollback does not preserve the guarantee.
 Quiesce protected dispatch before changing binaries. See
 [deadline setup, evidence and limits](LEASE-DEADLINES.md).
+
+## Supervised liveness source addition
+
+Unreleased source adds nullable `leases.supervision_root` and a credential `scope`
+column defaulting to admission. Existing identities and credentials preserve
+legacy authority and renewal behavior. Supervised runs require fresh operator
+issuance; children inherit mode. New renewal credentials cannot admit or control
+policy. Their sole route has no operator/workload fallback. Migration tests
+reconstruct the prior schema and preserve old admission credentials and kills.
+
+Rust `AgentStatus` adds `supervision_root`; `ExportRow` adds `supervision_root`,
+`expires_at` and `renewed`. These public struct additions require changes in
+consumers constructing literals and belong in a reviewed major release after
+1.0, along with the new deadline enum variant. JSON consumers tolerate added
+fields while preserving strict allow/deny decisions. Do not publish this source
+as a compatible stable 1.1 update without resolving that version boundary.
+
+Older executables ignore supervision, so rollback does not preserve its liveness
+guarantee. Quiesce protected dispatch first and follow the backup/rollback plan.
+No existing release or plugin is upgraded by merging this source. See
+[supervision](SUPERVISION.md) and the consolidated release gates.
