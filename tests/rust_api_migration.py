@@ -42,7 +42,15 @@ def main():
             consumer=root/name;(consumer/'src').mkdir(parents=True)
             (consumer/'Cargo.toml').write_text('[package]\nname="migration-probe"\nversion="0.0.0"\nedition="2021"\n[dependencies]\ndeadbolt={package="n11-deadbolt",path='+json.dumps(str(dep))+'}\n')
             (consumer/'src/main.rs').write_text(program)
-            result=subprocess.run(['cargo','check','--offline'],cwd=consumer,env={**os.environ,'CARGO_TARGET_DIR':str(root/'target')},capture_output=True,text=True,timeout=180)
+            # The old consumer needs its own pinned dependency graph even when
+            # the current crate no longer uses those versions. Seed its lock
+            # from the reviewed source, then hydrate it before offline checks.
+            # Fetch may add the consumer root; compilation must not change it.
+            (consumer/'Cargo.lock').write_bytes((dep/'Cargo.lock').read_bytes())
+            fetched=subprocess.run(['cargo','fetch','--manifest-path',str(consumer/'Cargo.toml')],
+                                   cwd=consumer,capture_output=True,text=True,timeout=180)
+            if fetched.returncode:raise RuntimeError(name+' dependency preparation failed:\n'+fetched.stderr[-3000:])
+            result=subprocess.run(['cargo','check','--locked','--offline'],cwd=consumer,env={**os.environ,'CARGO_TARGET_DIR':str(root/'target')},capture_output=True,text=True,timeout=180)
             if (result.returncode==0)!=expected:raise RuntimeError(name+' unexpected result:\n'+result.stderr[-3000:])
             if not expected:assert 'E0004' in result.stderr and 'E0063' in result.stderr
             reports.append({'case':name,'compiles':result.returncode==0,'expected':expected})
