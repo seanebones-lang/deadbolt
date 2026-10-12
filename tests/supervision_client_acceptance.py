@@ -94,6 +94,7 @@ def main():
 
             server = start()
             operator("supervise", "--agent", "run")
+            require(client.policy("run", tools=["read", "write"]).get("ok") is True, "MCP policy setup")
             require(client.register_child("run", "child").get("live") is True, "child setup")
             operator("supervisor", "issue", "--agent", "run", "--id", "sup", "--ttl-secs", "600", "--out", str(root / "sup"))
             secret = (root / "sup").read_text()

@@ -66,9 +66,12 @@ outside the workload's reach.
 New registered children inherit the parent's fixed deadline, including through
 multiple generations. Their idle expiry is bounded by that timestamp. Repeated
 registration preserves the original row; reparenting and reissuing a child as
-a root are refused. A missing, inactive or expired parent cannot create a live
-child. Policy remains separate: configure each child's tools, destinations and
-approvals explicitly.
+a root are refused. A missing, inactive or expired immediate parent cannot create
+a live child. Registration's live result is not
+an admission decision for the full ancestor chain. Current unreleased source
+checks every ancestor's state, idle expiry and fixed deadline before a tool call
+can proceed. Policy remains separate: configure each child's tools, destinations
+and approvals explicitly.
 
 SQLite persists the deadline across restart. Existing stores migrate with NULL
 deadlines and keep their prior idle-only behavior; opt in using new run IDs.
@@ -77,7 +80,9 @@ Status reports `hard_deadline_at` (null for idle-only leases) separately from
 reads without rewriting stored state or evidence. Killed state takes precedence;
 the fixed deadline takes precedence over idle expiry. Published 2.0.0-rc.1 and
 1.x engines report stored state, so their active rows can already be expired.
-Status is never a substitute for fresh tool admission.
+Status describes only the selected lease's own state and clocks; a healthy child
+can still be denied by an inactive ancestor. Status is never a substitute for
+fresh tool admission.
 
 Root issuance and child registration record the timestamp as Observed lease
 evidence. With the default SQLite/JSONL sink, failed primary issuance evidence

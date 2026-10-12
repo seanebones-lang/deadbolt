@@ -175,7 +175,7 @@ impl Deadbolt {
     /// Caller must execute these exact arguments immediately after allow; no
     /// cached allow, implicit retries, cancellation or OS isolation is provided.
     pub fn admit_action(&self, action: &ActionRequest) -> Result<AdmitDecision, DeadboltError> {
-        self.admit_action_inner(action, None)
+        self.admit_action_inner(action, None, false)
     }
 
     /// Exact-action admission using a single-agent workload credential. Identity,
@@ -185,13 +185,14 @@ impl Deadbolt {
         secret: &str,
         action: &ActionRequest,
     ) -> Result<AdmitDecision, DeadboltError> {
-        self.admit_action_inner(action, Some(secret))
+        self.admit_action_inner(action, Some(secret), false)
     }
 
-    fn admit_action_inner(
+    pub(crate) fn admit_action_inner(
         &self,
         action: &ActionRequest,
         secret: Option<&str>,
+        require_policy: bool,
     ) -> Result<AdmitDecision, DeadboltError> {
         let fingerprint = action.fingerprint()?;
         if !self.enabled {
@@ -218,6 +219,7 @@ impl Deadbolt {
                     &action.tool,
                     action.dest.as_deref(),
                     true,
+                    require_policy,
                 )
                 .map_err(|_| DeadboltError::StoreUnavailable)?;
             let mut record = None;
@@ -377,6 +379,39 @@ mod tests {
     fn human() -> AdmitDecision {
         AdmitDecision::Deny {
             code: DenyCode::NeedsHuman,
+        }
+    }
+    #[test]
+    fn exact_mcp_policy_check_precedes_grant_consumption_with_both_authorities() {
+        for scoped in [false, true] {
+            let (dir, db, request) = setup();
+            db.approve_action(&request).unwrap();
+            let path = dir.path().join("worker");
+            db.issue_credential("run", "worker", 300, &path).unwrap();
+            let secret = std::fs::read_to_string(path).unwrap();
+            let credential = scoped.then_some(secret.as_str());
+            assert_eq!(
+                db.admit_action_inner(&request, credential, true).unwrap(),
+                AdmitDecision::Deny {
+                    code: DenyCode::PolicyRequired
+                }
+            );
+            db.set_policy(
+                "run",
+                PolicyPatch {
+                    tools_allow: Some(vec!["send".into()]),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+            assert_eq!(
+                db.admit_action_inner(&request, credential, true).unwrap(),
+                AdmitDecision::Allow
+            );
+            assert_eq!(
+                db.admit_action_inner(&request, credential, true).unwrap(),
+                human()
+            );
         }
     }
     #[test]

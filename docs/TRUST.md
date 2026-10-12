@@ -45,7 +45,9 @@ which still denies subsequent admissions rather than cancelling running bodies.
 
 `ensure` issues the lease. Default TTL is 60 seconds. Every admit rechecks it. Expiry is deny `lease_expired`.
 
-A live admit, allow or deny, renews the idle TTL before the policy deny return. Silence does not renew. A stream of denied requests can keep an idle-only lease active. Scoped admission credentials have their own fixed expiry, which activity cannot renew.
+A live activity-mode admit, allow or policy deny, renews the requested lease's idle TTL before the policy deny return. Silence does not renew. A stream of policy-denied requests can keep an idle-only lease active. Scoped admission credentials have their own fixed expiry, which activity cannot renew.
+
+**Unreleased source:** every admission also checks the complete registered ancestor chain in the same SQLite writer transaction. A killed, paused, idle-expired or deadline-exceeded ancestor denies before the requested lease is refreshed or any approval is consumed. Missing, cyclic or inconsistent lineage fails closed. Descendant activity never renews its ancestors. This is a liveness check; each child's tool, destination and spending policy still requires explicit configuration. Pause does not rewrite descendant rows or cancel work already admitted. Status describes each lease's own state and clocks, so an active child can still be denied by an ancestor. Published 2.0.0-rc.1 and 1.x engines do not provide this complete-chain check.
 
 **2.0 candidate:** operator `issue` creates a fresh run with an immutable `hard_deadline_at`. New admissions at or after that timestamp deny `deadline_exceeded` before idle TTL evaluation or renewal. Child leases inherit the deadline; restart preserves it; `ensure`, resume and policy cannot extend it. Killed leases still deny `killed`. [Deadline setup, migration, clock and cancellation limits](LEASE-DEADLINES.md) distinguish this guarantee from an absolute runtime limit on already admitted work. Published 1.x engines and plugin bundles do not include it. Optional [supervisor-only idle renewal](SUPERVISION.md) is another 2.0 candidate addition with a separate root-bound credential; its heartbeat cannot extend that deadline.
 
@@ -55,7 +57,7 @@ The operator token `DEADBOLT_TOKEN` authenticates full HTTP authority and can
 assert any agent ID. The current candidate also accepts single-agent admission
 credentials: their stored hash, agent binding, fixed expiry and revocation are
 checked in the same writer transaction as lease/policy evaluation. These
-credentials authorize only `POST /admit` and `POST /admit-action`, not setup or control routes. See
+credentials authorize only admission routes, including the unreleased MCP routes, not setup or control routes. See
 [credential setup](CREDENTIALS.md), including migration from anonymous Unix
 access. In either mode the trusted executor assigns the ID and tool identity;
 the model does not. Scoped admission always fails closed, even when the trusted
@@ -72,6 +74,15 @@ No frontier shutdown. No shadow-agent discovery. No fleet halt. No proof that a 
 ## Blast radius
 
 Unset policy is open. A set `tools_allow` denies `purpose_exceeded` for tools outside the list.
+
+**Unreleased MCP setup candidate:** raw proxy runtime does not create a lease.
+Every MCP tool admission requires an existing live lease and an explicitly set
+tool allowlist, including exact grants and scoped calls. Missing policy denies
+`policy_required` before target TTL renewal or approval consumption. An empty
+list denies all tools. Ordinary trusted Rust/HTTP admission retains the open
+unset-policy behavior above. MCP enforcement always fails closed and its new
+sidecar routes cannot downgrade to older admission routes. Downstream startup
+and non-tool methods are still outside the tool-call gate.
 
 **Current source tightens destination policy:** when `dest_allow` is set, every tool must declare an allowed destination unless the operator explicitly lists it in the per-lease `offline_tools`. A present foreign destination is denied even for an offline-classified tool. Empty `offline_tools` clears the exceptions. This replaces name-based classification; arbitrary names such as `shell`, `python`, `curl` and custom MCP tools no longer receive an implicit missing-destination exception. Existing destination policies migrate to no offline exceptions. Each child needs its own policy.
 

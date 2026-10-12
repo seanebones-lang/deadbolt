@@ -36,6 +36,25 @@ for the same one-shot dispatch. Never reuse a previous allow as current permissi
 
 ## Versions and upgrades
 
+The unreleased 2.0 MCP setup candidate removes runtime provisioning from the raw
+proxy and requires an explicit tool allowlist in all MCP admission paths. Trusted
+setup can use the new `deadbolt ensure --agent ID` command for legacy idle-only
+runs or choose `issue`/`supervise` for bounded operation. The new MCP sidecar
+routes fail closed against older servers; ordinary Rust/HTTP admission retains
+its existing open-policy contract. `policy_required` is a new denial token, so
+exhaustive Rust enum matches need updating. Existing leases, policies, grants and
+terminal revocations are preserved. Published artifacts are unchanged.
+
+The unreleased ancestor-admission candidate tightens admission for registered
+trees in both activity and supervised modes. Every ancestor must be live; a
+paused parent blocks new descendant calls without rewriting descendant state.
+Missing, cyclic or inconsistent lineage fails closed. The check precedes target
+TTL renewal and broad or exact approval consumption, so blocked requests preserve
+their grants. Public API, wire format and database schema are unchanged. Own-lease
+status and registration's live result remain separate from fresh admission.
+Child policy inheritance and cancellation of already admitted work are separate
+integration concerns. Published rc.1 and 1.x artifacts retain their older behavior.
+
 The unreleased 2.0 feedback candidate changes MCP admission denials from JSON-RPC
 errors to `isError: true` tool results, reports effective status expiry without
 mutating state, and makes a named missing CLI status query exit 1. Consumers must

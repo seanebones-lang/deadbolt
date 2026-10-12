@@ -271,9 +271,23 @@ cooperative: your executor must prevent any direct dispatch that skips them.
 
 ## Bolt on: stdio MCP proxy
 
+**Unreleased 2.0 candidate:** the raw proxy no longer creates leases at runtime.
+Before starting it, trusted operator setup must create a fresh run and set its
+tool allowlist. For a local idle-only demonstration:
+
 ```sh
+deadbolt ensure --agent my-mcp-run-001
+deadbolt policy --agent my-mcp-run-001 --tools read_file,write_file
 deadbolt mcp-proxy --agent my-mcp-run-001 -- python3 your_mcp_server.py
 ```
+
+Use your server's actual tool names. Prefer a fixed-deadline `issue` or supervised
+run for unattended work; the explicit `ensure` command retains legacy idle-only
+setup. A missing lease denies `no_lease`; an unset tool policy denies
+`policy_required`; an empty allowlist denies every tool. The check also applies
+to exact-action grants and workload credentials. Setup denials do not slide the
+idle TTL or consume approvals. Published rc.1 and 1.x proxies retain their older
+setup behavior until a corrected candidate is published.
 
 Use that command as the MCP server command in your host's configuration.
 It supports newline-delimited JSON-RPC 2.0 objects over stdio. Batches and
@@ -289,6 +303,11 @@ By default the proxy opens the local store. To use a running sidecar, add
 trusted proxy; candidate integrations can use an admission credential after
 operator lease/policy setup. See [MCP credential restrictions](CREDENTIALS.md)
 and [exact-action metadata](ACTION-APPROVALS.md#mcp-proxy).
+
+The candidate socket proxy uses `/admit-mcp` and `/admit-mcp-action`; pair it with
+the matching sidecar. Older sidecars lacking those routes deny execution, with
+no fallback to legacy admission or implicit `/ensure`. Server startup,
+initialization and other non-tool methods remain outside the tool-call gate.
 
 Destination discovery examines `url`, `uri`, `href`, `endpoint`, and `host`
 arguments. Spend discovery examines numeric `amount`, `usd`, and `cost`.

@@ -110,6 +110,18 @@ jobs:
       - name: Installed client respects separate supervisor liveness and fixed deadlines
         run: python tests/supervision_client_acceptance.py --binary target/debug/deadbolt.exe
         if: runner.os == 'Windows'
+      - name: Installed client and MCP backends recheck all registered ancestors
+        run: python tests/ancestor_client_acceptance.py --binary target/debug/deadbolt
+        if: runner.os != 'Windows'
+      - name: Installed client and MCP backends recheck all registered ancestors
+        run: python tests/ancestor_client_acceptance.py --binary target/debug/deadbolt.exe
+        if: runner.os == 'Windows'
+      - name: Raw MCP proxy requires explicit lease and policy setup
+        run: python tests/proxy_setup_acceptance.py --binary target/debug/deadbolt
+        if: runner.os != 'Windows'
+      - name: Raw MCP proxy requires explicit lease and policy setup
+        run: python tests/proxy_setup_acceptance.py --binary target/debug/deadbolt.exe
+        if: runner.os == 'Windows'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: python-client-${{ matrix.os }}

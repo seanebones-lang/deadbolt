@@ -198,6 +198,8 @@ pub enum DenyCode {
     StoreUnavailable,
     /// No lease row. Fail closed.
     NoLease,
+    /// MCP runtime requires an explicit operator-owned tool allowlist.
+    PolicyRequired,
     /// Spend crossed `spend_cap_usd`. The lease is paused.
     SpendCap,
     /// Irreversible tool. One operator approve has not been granted.
@@ -215,6 +217,7 @@ impl DenyCode {
             Self::DeadlineExceeded => "deadline_exceeded",
             Self::StoreUnavailable => "store_unavailable",
             Self::NoLease => "no_lease",
+            Self::PolicyRequired => "policy_required",
             Self::SpendCap => "spend_cap",
             Self::NeedsHuman => "needs_human",
         }
@@ -864,7 +867,16 @@ impl Deadbolt {
     /// A present dest is checked against the list. A missing dest requires an
     /// explicit operator-owned offline exception when `dest_allow` is set.
     pub fn admit_dest(&self, agent_id: &str, tool: &str, dest: Option<&str>) -> AdmitDecision {
-        self.decide(agent_id, tool, dest, true)
+        self.decide(agent_id, tool, dest, true, false)
+    }
+
+    pub(crate) fn admit_mcp_dest(
+        &self,
+        agent_id: &str,
+        tool: &str,
+        dest: Option<&str>,
+    ) -> AdmitDecision {
+        self.decide(agent_id, tool, dest, true, true)
     }
 
     /// Check admission immediately before invoking a trusted tool body.
@@ -905,7 +917,7 @@ impl Deadbolt {
 
     /// Recheck before the tool body. Records only a new denial.
     pub fn probe(&self, agent_id: &str, tool: &str) -> AdmitDecision {
-        self.decide(agent_id, tool, None, false)
+        self.decide(agent_id, tool, None, false, false)
     }
 
     fn decide(
@@ -914,12 +926,19 @@ impl Deadbolt {
         tool: &str,
         dest: Option<&str>,
         record_allow: bool,
+        require_policy: bool,
     ) -> AdmitDecision {
         if !self.enabled {
-            return AdmitDecision::Allow;
+            return if require_policy {
+                AdmitDecision::Deny {
+                    code: DenyCode::StoreUnavailable,
+                }
+            } else {
+                AdmitDecision::Allow
+            };
         }
         if self.store.is_none() {
-            return if self.fail_closed {
+            return if self.fail_closed || require_policy {
                 AdmitDecision::Deny {
                     code: DenyCode::StoreUnavailable,
                 }
@@ -932,13 +951,13 @@ impl Deadbolt {
                 code: DenyCode::NoLease,
             };
         }
-        let decision = self.evaluate(agent_id, tool, dest);
+        let decision = self.evaluate(agent_id, tool, dest, require_policy);
         let deny = matches!(decision, AdmitDecision::Deny { .. });
         if (record_allow || deny) && self.record_decision(agent_id, tool, &decision).is_err() {
             if keeps_deny_code(decision) {
                 return decision;
             }
-            if self.fail_closed {
+            if self.fail_closed || require_policy {
                 return AdmitDecision::Deny {
                     code: DenyCode::StoreUnavailable,
                 };
@@ -947,8 +966,14 @@ impl Deadbolt {
         decision
     }
 
-    fn evaluate(&self, agent_id: &str, tool: &str, dest: Option<&str>) -> AdmitDecision {
-        self.evaluate_atomic(agent_id, tool, dest)
+    fn evaluate(
+        &self,
+        agent_id: &str,
+        tool: &str,
+        dest: Option<&str>,
+        require_policy: bool,
+    ) -> AdmitDecision {
+        self.evaluate_atomic(agent_id, tool, dest, require_policy)
             .unwrap_or(AdmitDecision::Deny {
                 code: DenyCode::StoreUnavailable,
             })
@@ -959,6 +984,7 @@ impl Deadbolt {
         agent_id: &str,
         tool: &str,
         dest: Option<&str>,
+        require_policy: bool,
     ) -> Result<AdmitDecision, rusqlite::Error> {
         let Some(store) = &self.store else {
             return Ok(AdmitDecision::Deny {
@@ -977,7 +1003,8 @@ impl Deadbolt {
             &g.conn,
             rusqlite::TransactionBehavior::Immediate,
         )?;
-        let decision = self.evaluate_in_transaction(&tx, agent_id, tool, dest, false)?;
+        let decision =
+            self.evaluate_in_transaction(&tx, agent_id, tool, dest, false, require_policy)?;
         tx.commit()?;
         Ok(decision)
     }
@@ -989,6 +1016,7 @@ impl Deadbolt {
         tool: &str,
         dest: Option<&str>,
         exact: bool,
+        require_policy: bool,
     ) -> Result<AdmitDecision, rusqlite::Error> {
         let lease = match load_lease(tx, agent_id) {
             Ok(v) => v,
@@ -1019,25 +1047,20 @@ impl Deadbolt {
                 code: DenyCode::LeaseExpired,
             });
         }
-        if let Some(root) = &lease.supervision_root {
-            let root_lease = load_lease(tx, root)?.ok_or(rusqlite::Error::QueryReturnedNoRows)?;
-            let code = if root_lease.state == "killed" {
-                Some(DenyCode::Killed)
-            } else if deadline_reached(&root_lease, now) {
-                Some(DenyCode::DeadlineExceeded)
-            } else if now >= root_lease.expires_at {
-                Some(DenyCode::LeaseExpired)
-            } else if root_lease.state == "paused" {
-                Some(DenyCode::Paused)
-            } else if root_lease.supervision_root.as_deref() != Some(root) {
-                Some(DenyCode::StoreUnavailable)
-            } else {
-                None
-            };
-            if let Some(code) = code {
-                return Ok(AdmitDecision::Deny { code });
-            }
-        } else {
+        // Check the complete lineage under this same writer lock, before any
+        // target TTL refresh or approval consumption. Descendant activity must
+        // not bypass an inactive intermediate parent or renew its ancestors.
+        if let Some(code) = ancestor_admission_denial(tx, &lease, now)? {
+            return Ok(AdmitDecision::Deny { code });
+        }
+        // Runtime is not operator setup. Check this under the same lock as
+        // liveness and grants, including exact actions and scoped credentials.
+        if require_policy && lease.tools_allow.is_none() {
+            return Ok(AdmitDecision::Deny {
+                code: DenyCode::PolicyRequired,
+            });
+        }
+        if lease.supervision_root.is_none() {
             let exp = bounded_expiry(now, self.ttl, lease.hard_deadline_at);
             tx.execute(
                 "UPDATE leases SET expires_at=?1, updated_at=?1 WHERE agent_id=?2 AND state!='killed'",
@@ -1240,7 +1263,9 @@ impl Deadbolt {
         })
     }
 
-    /// Pause one agent. Not a fleet halt.
+    /// Pause one stored lease. Its registered descendants also deny new
+    /// admissions while this ancestor is paused; other roots are unaffected.
+    /// This does not cancel already admitted work or rewrite descendant state.
     pub fn pause(&self, agent_id: &str) -> Result<(), DeadboltError> {
         self.set_state(agent_id, "paused")
     }
@@ -2349,6 +2374,55 @@ fn lease_from_row(r: &rusqlite::Row<'_>) -> Result<Lease, rusqlite::Error> {
     })
 }
 
+fn ancestor_admission_denial(
+    conn: &Connection,
+    lease: &Lease,
+    now: i64,
+) -> Result<Option<DenyCode>, rusqlite::Error> {
+    if !matches!(lease.state.as_str(), "active" | "paused" | "killed") {
+        return Err(rusqlite::Error::InvalidQuery);
+    }
+    let mut seen = BTreeSet::from([lease.agent_id.clone()]);
+    let mut parent = lease.parent_id.clone();
+    let mut root_id = lease.agent_id.clone();
+    let mut denial = None;
+    while let Some(id) = parent {
+        if !is_token(&id) || !seen.insert(id.clone()) {
+            return Err(rusqlite::Error::InvalidQuery);
+        }
+        let ancestor = load_lease(conn, &id)?.ok_or(rusqlite::Error::QueryReturnedNoRows)?;
+        if ancestor.supervision_root != lease.supervision_root
+            || !matches!(ancestor.state.as_str(), "active" | "paused" | "killed")
+        {
+            return Err(rusqlite::Error::InvalidQuery);
+        }
+        let code = if ancestor.state == "killed" {
+            Some(DenyCode::Killed)
+        } else if deadline_reached(&ancestor, now) {
+            Some(DenyCode::DeadlineExceeded)
+        } else if now >= ancestor.expires_at {
+            Some(DenyCode::LeaseExpired)
+        } else if ancestor.state == "paused" {
+            Some(DenyCode::Paused)
+        } else {
+            None
+        };
+        // Preserve the nearest blocking ancestor's reason, but validate the
+        // rest of the lineage so incomplete/cyclic state never grants access.
+        denial = denial.or(code);
+        root_id = id;
+        parent = ancestor.parent_id;
+    }
+    if lease
+        .supervision_root
+        .as_ref()
+        .is_some_and(|root| root != &root_id)
+    {
+        return Err(rusqlite::Error::InvalidQuery);
+    }
+    Ok(denial)
+}
+
 fn descendant_ids(conn: &Connection, root: &str) -> Result<Vec<String>, rusqlite::Error> {
     let mut out = Vec::new();
     let mut queue = VecDeque::from([root.to_string()]);
@@ -2486,6 +2560,105 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let db = Deadbolt::open_at(dir.path(), true, 60);
         (dir, db)
+    }
+
+    #[test]
+    fn mcp_requires_policy_without_sliding_ttl_or_consuming_approval() {
+        let (_dir, db) = gate();
+        db.ensure_agent("run").unwrap();
+        // Ordinary trusted integration retains its explicit open-policy contract.
+        assert_eq!(db.admit("run", "read"), AdmitDecision::Allow);
+        db.set_policy(
+            "run",
+            PolicyPatch {
+                irreversible: Some(vec!["write".into()]),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        db.approve("run", "write").unwrap();
+        let store = db.store.as_ref().unwrap();
+        store
+            .lock()
+            .unwrap()
+            .conn
+            .execute(
+                "UPDATE leases SET expires_at=?1 WHERE agent_id='run'",
+                [now_secs() + 30],
+            )
+            .unwrap();
+        let before = load_lease(&store.lock().unwrap().conn, "run")
+            .unwrap()
+            .unwrap()
+            .expires_at;
+        assert_eq!(
+            db.admit_mcp_dest("run", "write", None),
+            AdmitDecision::Deny {
+                code: DenyCode::PolicyRequired
+            }
+        );
+        assert_eq!(
+            load_lease(&store.lock().unwrap().conn, "run")
+                .unwrap()
+                .unwrap()
+                .expires_at,
+            before
+        );
+        db.set_policy(
+            "run",
+            PolicyPatch {
+                tools_allow: Some(vec!["write".into()]),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            db.admit_mcp_dest("run", "write", None),
+            AdmitDecision::Allow
+        );
+        assert_eq!(
+            db.admit_mcp_dest("run", "write", None),
+            AdmitDecision::Deny {
+                code: DenyCode::NeedsHuman
+            }
+        );
+        db.set_policy(
+            "run",
+            PolicyPatch {
+                tools_allow: Some(vec![]),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            db.admit_mcp_dest("run", "read", None),
+            AdmitDecision::Deny {
+                code: DenyCode::PurposeExceeded
+            }
+        );
+    }
+
+    #[test]
+    fn mcp_cannot_use_legacy_disabled_or_fail_open_configuration() {
+        let (_dir, mut db) = gate();
+        db.enabled = false;
+        assert_eq!(db.admit("run", "read"), AdmitDecision::Allow);
+        assert_eq!(
+            db.admit_mcp_dest("run", "read", None),
+            AdmitDecision::Deny {
+                code: DenyCode::StoreUnavailable
+            }
+        );
+        db.enabled = true;
+        db.fail_closed = false;
+        db.store = None;
+        assert_eq!(db.admit("run", "read"), AdmitDecision::Allow);
+        assert_eq!(
+            db.admit_mcp_dest("run", "read", None),
+            AdmitDecision::Deny {
+                code: DenyCode::StoreUnavailable
+            }
+        );
     }
 
     #[test]

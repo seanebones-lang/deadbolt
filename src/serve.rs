@@ -440,13 +440,18 @@ fn dispatch_http(gate: &Deadbolt, raw: &str, token: Option<&str>) -> (u16, Strin
         if operator.is_some() {
             return (401, json!({"code":"unauthorized"}).to_string());
         }
-        if method != "POST" || !matches!(path, "/admit" | "/admit-action") {
+        if method != "POST"
+            || !matches!(
+                path,
+                "/admit" | "/admit-action" | "/admit-mcp" | "/admit-mcp-action"
+            )
+        {
             return (403, json!({"code":"forbidden"}).to_string());
         }
-        if path == "/admit-action" {
-            return admit_action(gate, body, Some(&secret));
+        if matches!(path, "/admit-action" | "/admit-mcp-action") {
+            return admit_action(gate, body, Some(&secret), path == "/admit-mcp-action");
         }
-        return admit_scoped(gate, body, &secret);
+        return admit_scoped(gate, body, &secret, path == "/admit-mcp");
     }
     if let Some(expected) = token {
         if !operator.is_some_and(|got| token_eq(&got, expected)) {
@@ -462,8 +467,10 @@ fn dispatch_http(gate: &Deadbolt, raw: &str, token: Option<&str>) -> (u16, Strin
         }
     }
     match (method, path) {
-        ("POST", "/admit") => admit(gate, body),
-        ("POST", "/admit-action") => admit_action(gate, body, None),
+        ("POST", "/admit") => admit(gate, body, false),
+        ("POST", "/admit-mcp") => admit(gate, body, true),
+        ("POST", "/admit-action") => admit_action(gate, body, None, false),
+        ("POST", "/admit-mcp-action") => admit_action(gate, body, None, true),
         ("POST", "/ensure") => ensure(gate, body),
         ("POST", "/issue") => issue(gate, body),
         ("POST", "/issue-supervised") => issue_supervised(gate, body),
@@ -475,7 +482,7 @@ fn dispatch_http(gate: &Deadbolt, raw: &str, token: Option<&str>) -> (u16, Strin
     }
 }
 
-fn admit(gate: &Deadbolt, body: &str) -> (u16, String) {
+fn admit(gate: &Deadbolt, body: &str, require_policy: bool) -> (u16, String) {
     let Ok(v) = serde_json::from_str::<Value>(body) else {
         return (400, json!({"code":"bad_request"}).to_string());
     };
@@ -486,7 +493,12 @@ fn admit(gate: &Deadbolt, body: &str) -> (u16, String) {
         return (400, json!({"code":"bad_request"}).to_string());
     };
     let dest = v.get("dest").and_then(|x| x.as_str());
-    match gate.admit_dest(agent_id, tool, dest) {
+    let decision = if require_policy {
+        gate.admit_mcp_dest(agent_id, tool, dest)
+    } else {
+        gate.admit_dest(agent_id, tool, dest)
+    };
+    match decision {
         AdmitDecision::Allow => (200, json!({"decision":"allow"}).to_string()),
         AdmitDecision::Deny { code } => (
             200,
@@ -495,7 +507,7 @@ fn admit(gate: &Deadbolt, body: &str) -> (u16, String) {
     }
 }
 
-fn admit_scoped(gate: &Deadbolt, body: &str, secret: &str) -> (u16, String) {
+fn admit_scoped(gate: &Deadbolt, body: &str, secret: &str, require_policy: bool) -> (u16, String) {
     let Ok(v) = serde_json::from_str::<Value>(body) else {
         return (400, json!({"code":"bad_request"}).to_string());
     };
@@ -510,7 +522,7 @@ fn admit_scoped(gate: &Deadbolt, body: &str, secret: &str) -> (u16, String) {
         Some(Value::String(s)) => Some(s.as_str()),
         _ => return (400, json!({"code":"bad_request"}).to_string()),
     };
-    match gate.admit_credential(secret, agent, tool, dest) {
+    match gate.admit_credential_inner(secret, agent, tool, dest, require_policy) {
         Ok(AdmitDecision::Allow) => (200, json!({"decision":"allow"}).to_string()),
         Ok(AdmitDecision::Deny { code }) => (
             200,
@@ -522,15 +534,17 @@ fn admit_scoped(gate: &Deadbolt, body: &str, secret: &str) -> (u16, String) {
     }
 }
 
-fn admit_action(gate: &Deadbolt, body: &str, secret: Option<&str>) -> (u16, String) {
+fn admit_action(
+    gate: &Deadbolt,
+    body: &str,
+    secret: Option<&str>,
+    require_policy: bool,
+) -> (u16, String) {
     let action = match crate::ActionRequest::from_json(body) {
         Ok(a) => a,
         Err(_) => return (400, json!({"code":"bad_request"}).to_string()),
     };
-    let decision = match secret {
-        Some(secret) => gate.admit_action_credential(secret, &action),
-        None => gate.admit_action(&action),
-    };
+    let decision = gate.admit_action_inner(&action, secret, require_policy);
     match decision {
         Ok(AdmitDecision::Allow) => (200, json!({"decision":"allow"}).to_string()),
         Ok(AdmitDecision::Deny { code }) => (
@@ -751,6 +765,67 @@ mod credential_tests {
 
     fn request(method: &str, path: &str, headers: &str, body: &str) -> String {
         format!("{method} {path} HTTP/1.1\r\nhost: localhost\r\n{headers}content-length: {}\r\n\r\n{body}", body.len())
+    }
+
+    #[test]
+    fn mcp_routes_keep_role_and_agent_binding_and_require_policy() {
+        let dir = tempfile::tempdir().unwrap();
+        let gate = Deadbolt::open_at(dir.path(), true, 60);
+        gate.issue_supervised_agent("A", None).unwrap();
+        gate.ensure_agent("B").unwrap();
+        gate.issue_credential("A", "worker", 300, &dir.path().join("worker"))
+            .unwrap();
+        gate.issue_supervisor_credential("A", "supervisor", 300, &dir.path().join("supervisor"))
+            .unwrap();
+        let worker = format!(
+            "X-Deadbolt-Admission: {}\r\n",
+            fs::read_to_string(dir.path().join("worker")).unwrap()
+        );
+        let supervisor = format!(
+            "X-Deadbolt-Supervisor: {}\r\n",
+            fs::read_to_string(dir.path().join("supervisor")).unwrap()
+        );
+        let action = crate::ActionRequest::new("A", "read", None, json!({}), 300).unwrap();
+        gate.approve_action(&action).unwrap();
+        for (path, body) in [
+            (
+                "/admit-mcp",
+                json!({"agent_id":"A","tool":"read"}).to_string(),
+            ),
+            ("/admit-mcp-action", serde_json::to_string(&action).unwrap()),
+        ] {
+            assert_eq!(
+                dispatch_http(
+                    &gate,
+                    &request("POST", path, &supervisor, &body),
+                    Some("operator")
+                )
+                .0,
+                403
+            );
+            for header in ["X-Deadbolt-Token: operator\r\n", worker.as_str()] {
+                let (status, result) = dispatch_http(
+                    &gate,
+                    &request("POST", path, header, &body),
+                    Some("operator"),
+                );
+                assert_eq!(status, 200);
+                assert_eq!(
+                    serde_json::from_str::<Value>(&result).unwrap()["code"],
+                    "policy_required"
+                );
+            }
+            let wrong = body.replace("\"A\"", "\"B\"");
+            assert_eq!(
+                dispatch_http(
+                    &gate,
+                    &request("POST", path, &worker, &wrong),
+                    Some("operator")
+                )
+                .0,
+                401
+            );
+        }
     }
 
     #[test]

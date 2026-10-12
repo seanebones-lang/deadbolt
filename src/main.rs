@@ -22,6 +22,11 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Explicit operator-only idle-lease setup. Does not renew existing runs.
+    Ensure {
+        #[arg(long)]
+        agent: String,
+    },
     /// Issue a fresh supervised run. Only its separate supervisor credential renews TTL.
     Supervise {
         #[arg(long)]
@@ -284,6 +289,10 @@ fn run() -> Result<(), DeadboltError> {
     }
     let db = Deadbolt::open(&cfg());
     match cli.command {
+        Command::Ensure { agent } => {
+            db.ensure_agent(&agent)?;
+            println!("deadbolt ensured {agent}");
+        }
         Command::Supervise {
             agent,
             hard_deadline_at,
