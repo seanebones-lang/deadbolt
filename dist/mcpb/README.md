@@ -1,6 +1,6 @@
 # DeadBolt local MCP bundle
 
-This **2.0.0-rc.3 preview bundle** includes the checksum-pinned published DeadBolt 2.0.0-rc.3 executable and a dependency-free Node.js launcher. It is a separately versioned candidate; existing stable 1.x bundles keep their original engine and behavior. Use disposable integration tests before connecting real effects.
+This **2.0.0 stable bundle** includes the checksum-pinned published DeadBolt 2.0.0 executable and a dependency-free Node.js launcher. It is a separately versioned distribution artifact; existing stable 1.x bundles keep their original engine and behavior. Use disposable integration tests before connecting real effects.
 
 ## Try read-only setup first
 
