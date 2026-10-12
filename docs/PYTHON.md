@@ -1,10 +1,11 @@
 # Python client and OpenAI function tools
 
-## Matching 2.0 candidate source
+## Published matching 2.0 candidate
 
-This checkout builds `n11-deadbolt-client` version **2.0.0rc1**, matched to engine
-**2.0.0-rc.1**. Install the reviewed candidate wheel from your local build or its
-validated versioned release; existing PyPI `1.1.0rc1` remains its original package.
+The [versioned GitHub release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.1) contains `n11-deadbolt-client`
+**2.0.0rc1**, matched to engine **2.0.0-rc.1**. Verify `SHA256SUMS` and install
+`n11_deadbolt_client-2.0.0rc1-py3-none-any.whl` in your virtual environment. Install
+the matching engine separately. Existing PyPI `1.1.0rc1` remains its original package.
 [Migration and installation](MIGRATING-V2.md) covers source compatibility and
 which new controls require the new engine. The older registry instructions below
 apply to the original prerelease. The new wheel includes `deadbolt_supervisor`

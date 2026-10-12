@@ -11,6 +11,17 @@ stdio MCP server. Free under [Apache-2.0](LICENSE).
 [![Release](https://img.shields.io/github/v/release/seanebones-lang/deadbolt)](https://github.com/seanebones-lang/deadbolt/releases/latest)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
+## Evaluate the 2.0 developer candidate
+
+[Download engine 2.0.0-rc.1 and matching Python wheel 2.0.0rc1](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.1)
+for immutable run deadlines, optional supervisor-only idle renewal and explicit
+operator-owned offline destination exceptions. The release includes four native
+targets, checksums and acceptance receipts; both Mac ZIPs are signed/notarized.
+[Read the major Rust migration guide](docs/MIGRATING-V2.md) before upgrading.
+2.0 is available through these downloads and the immutable Git tag; the separately
+published registry, Homebrew and editor/MCP bundle versions are tracked in
+[the installation guide](docs/INSTALL.md).
+
 ## Try it before connecting an agent
 
 No model account, API key, Harness, cloud service or database server is needed.
