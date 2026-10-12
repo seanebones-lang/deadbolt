@@ -36,6 +36,17 @@ for the same one-shot dispatch. Never reuse a previous allow as current permissi
 
 ## Versions and upgrades
 
+The unreleased HTTP authentication candidate requires a nonempty operator token
+for Unix sidecar startup as well as TCP. `DeadboltConfig` adds default-false
+`allow_legacy_unauthenticated_unix`; complete Rust struct literals must add it or
+use `..Default::default()`. Explicit `serve --legacy-unauthenticated-unix` preserves
+older Unix access only before any scoped credential has ever been issued. A
+configured token always wins; TCP remains token-required. The shared HTTP handler
+also refuses missing authentication by default, regardless of enforcement mode.
+This major-version default change does not change local CLI/library authority
+or existing credential scope. Published rc.1/1.x retain their prior behavior.
+[Setup and migration](HTTP-AUTHENTICATION.md) cover the changed startup contract.
+
 The unreleased 2.0 MCP setup candidate removes runtime provisioning from the raw
 proxy and requires an explicit tool allowlist in all MCP admission paths. Trusted
 setup can use the new `deadbolt ensure --agent ID` command for legacy idle-only
@@ -52,8 +63,24 @@ Missing, cyclic or inconsistent lineage fails closed. The check precedes target
 TTL renewal and broad or exact approval consumption, so blocked requests preserve
 their grants. Public API, wire format and database schema are unchanged. Own-lease
 status and registration's live result remain separate from fresh admission.
-Child policy inheritance and cancellation of already admitted work are separate
-integration concerns. Published rc.1 and 1.x artifacts retain their older behavior.
+The separate unreleased child-policy change below supplies capability and
+reported-spend ceilings. Cancellation of already admitted work remains an
+executor responsibility. Published rc.1 and 1.x artifacts retain their older behavior.
+
+The unreleased child-policy candidate tightens registered-tree authorization.
+Every ancestor's current tool, destination/offline, clip and irreversible/exact
+review restrictions apply to each descendant. Grants never transfer between
+identities. MCP still requires an explicit tool allowlist on the target itself.
+Policy denials on live, configured activity-mode requests renew only the target's
+idle TTL, as local policy denials do; supervised mode does not. Inactive ancestry
+and missing MCP setup still deny before renewal. A cap covers the budget owner's
+registered subtree, counting each identity's own ledger once. `SpendAdded.paused`
+now means this report reaches an identity or ancestor cap; incident policy adds
+`subtree_spend_usd`. Existing ledger values and grants are preserved, but already
+recorded descendant costs can exhaust a previously available parent cap. This
+is a major-version behavior change with no new schema or provider-billing claim.
+SQLite traverses registered lineage and capped subtrees under the writer lock;
+large trees need their own workload validation. Published rc.1/1.x are unchanged.
 
 The unreleased 2.0 feedback candidate changes MCP admission denials from JSON-RPC
 errors to `isError: true` tool results, reports effective status expiry without

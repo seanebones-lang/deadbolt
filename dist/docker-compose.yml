@@ -9,6 +9,9 @@ services:
 # Connect a trusted executor container to this same volume and use
 # DEADBOLT_SOCK=/home/deadbolt/.deadbolt/deadbolt.sock. It must run with the
 # same numeric UID as Deadbolt (10001) to access the mode-0600 socket.
+# Current source requires DEADBOLT_TOKEN in private deadbolt.env for Unix startup.
+# Give a dispatcher only its scoped credential after trusted setup.
+# Shared state/UID grants file authority: this volume is for trusted services only.
 # No port publishing: loopback TCP inside a container is container-local.
 volumes:
   deadbolt-state:

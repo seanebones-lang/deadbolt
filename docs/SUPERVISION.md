@@ -60,7 +60,9 @@ Issuance cannot convert an existing lease's mode. Rust exposes
 `POST /issue-supervised`. `ensure` remains legacy setup and cannot acknowledge
 requested supervision. A fresh registered child inherits its parent's
 `supervision_root` and deadline, starts no later than its parent's idle expiry,
-and does not inherit its policy. Current unreleased source checks every registered
+and keeps a separate policy and approval ledger. Unreleased source applies
+ancestor capability and reported-spend ceilings without copying policy or grants.
+Current unreleased source checks every registered
 ancestor's liveness during admission, including intermediate parents, before
 refreshing the requested lease or consuming an approval. The chain must end at
 the declared supervision root, with consistent mode bindings and no missing or
@@ -189,8 +191,9 @@ That protocol test does not replace a graphical model rerun of a new bundle.
   authorize continuation even when represented as HTTP 200 with `ok:false`.
 - A supervisor header on any other route returns 403. An admission header cannot
   renew; a full operator header alone has no renewal route (404). Mixed or
-  duplicate role headers return 401. Anonymous Unix authority is disabled after
-  **any** scoped credential issuance, including supervisor-only issuance; it
+  duplicate role headers return 401. Unreleased source requires an operator token
+  for Unix startup by default. In explicit legacy Unix mode, anonymous authority
+  is disabled after **any** scoped credential issuance, including supervisor-only issuance; it
   stays disabled after all credentials expire or are revoked.
 
 Status and incident output include nullable `supervision_root`. Root issuance

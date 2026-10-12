@@ -64,15 +64,20 @@ In terminal A, choose isolated demo state:
 
 ```sh
 mkdir -p .demo-state
+chmod 700 .demo-state
+python3 -c 'import os,secrets; f=os.open(".demo-state/operator.token",os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600); os.write(f,secrets.token_hex(32).encode()); os.close(f)'
+export DEADBOLT_TOKEN="$(cat .demo-state/operator.token)"
 export DEADBOLT_DB="$PWD/.demo-state/deadbolt.db"
 export DEADBOLT_EVENTS="$PWD/.demo-state/events.jsonl"
 export DEADBOLT_SOCK="$PWD/.demo-state/deadbolt.sock"
 deadbolt serve --bind "$DEADBOLT_SOCK"
 ```
 
-The server waits for requests. Leave this terminal running. If you have a
-`DEADBOLT_TOKEN` set already, either provide the same token to terminal B or
-unset it for this same-user Unix demonstration before starting the server.
+The server waits for requests. Leave this terminal running. The token file is
+created exclusively: if it already exists, reuse your intended private demo token
+instead of overwriting it. Keep it out of logs and Git. Unreleased source requires
+the token for Unix startup; this authenticated recipe also works on older engines.
+See [HTTP authentication](HTTP-AUTHENTICATION.md) for the version boundary.
 
 ### Run the sample
 
@@ -80,12 +85,15 @@ In terminal B, from the same checkout:
 
 ```sh
 export DEADBOLT_SOCK="$PWD/.demo-state/deadbolt.sock"
+export DEADBOLT_TOKEN="$(cat .demo-state/operator.token)"
 python3 examples/deadbolt_sample_agent.py --agent demo-run-001 --interval 1
 ```
 
 It creates a lease and prints `{"decision": "allow", "tool": "shell"}` roughly
 once a second. Each line is a fresh admission check. The sample does not run an
-OS shell or contact a model.
+OS shell or contact a model. This trusted demonstration uses operator access to
+create its lease. A real workload dispatcher should receive only a separately
+issued [admission credential](CREDENTIALS.md) after trusted setup.
 
 ### Kill the lease
 

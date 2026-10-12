@@ -1,6 +1,6 @@
 # Sidecar protocol
 
-HTTP/1.1 over a Unix socket or loopback TCP. `0.0.0.0`, `[::]`, and any non-loopback host are refused. Default socket: `~/.deadbolt/deadbolt.sock` (mode `0600`). TCP bind: `deadbolt serve --bind 127.0.0.1:PORT` or `[::1]:PORT`. `DEADBOLT_TOKEN` is required to start TCP. On a Unix socket operator authentication is optional only while the store has never issued a scoped credential (admission or supervisor). Clients treat `DEADBOLT_SOCK` as loopback HTTP when it is `127.0.0.1:PORT`, `[::1]:PORT`, or `http://127.0.0.1:PORT`. A Unix path still uses the socket.
+HTTP/1.1 over a Unix socket or loopback TCP. `0.0.0.0`, `[::]`, and any non-loopback host are refused. Default socket: `~/.deadbolt/deadbolt.sock` (mode `0600`). TCP bind: `deadbolt serve --bind 127.0.0.1:PORT` or `[::1]:PORT`. `DEADBOLT_TOKEN` is required to start both transports in unreleased source. Published rc.1/1.x require it only for TCP. Unreleased `--legacy-unauthenticated-unix` explicitly permits the older Unix socket-possession authority only while the store has never issued a scoped credential (admission or supervisor); a configured token always wins. See [HTTP authentication](HTTP-AUTHENTICATION.md). Clients treat `DEADBOLT_SOCK` as loopback HTTP when it is `127.0.0.1:PORT`, `[::1]:PORT`, or `http://127.0.0.1:PORT`. A Unix path still uses the socket.
 
 Operator requests use `X-Deadbolt-Token: <value>` when configured. Workload requests instead use `X-Deadbolt-Admission: <secret>`; this header authorizes admission routes for its bound agent, including the unreleased MCP routes below. Mixed or duplicated authentication headers are refused. Unknown, revoked, expired or wrong-agent credentials return 401; workload control routes return 403. Neither status can grant admission. See [credential setup and migration](CREDENTIALS.md). TCP serve refuses to start when that token is missing. A missing or wrong header is HTTP 401 and does not admit, ensure, register, or status.
 
@@ -73,7 +73,14 @@ Operator-only. An admission credential cannot access this route. Omitted fields 
 {"agent_id":"shop-bot","usd":1.5}
 ```
 
-Crossing the cap pauses the lease. The body `code` is `spend_cap` or `ok`.
+The body `spend_usd` remains this identity’s own reported ledger. In unreleased
+source, each configured cap covers its registered subtree; reaching any ancestor
+cap pauses that budget owner. The body `code` is `spend_cap` if this report reaches
+any such cap, otherwise `ok`. The observed spend event includes `budget_paused`,
+the affected budget-owner IDs. Report each actual cost once at the identity that
+incurred it; do not report it again on a parent. Published rc.1/1.x engines apply
+only the identity’s own cap. This is accounting over trusted reports, not a
+provider billing source or reservation for future/in-flight effects.
 
 ## POST /ensure
 

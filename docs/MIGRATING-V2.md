@@ -82,6 +82,48 @@ only still-live matching members and cannot extend the fixed cutoff. Keep
 operator, admission and supervisor credentials on their documented planes.
 See [deadlines](LEASE-DEADLINES.md) and [supervision](SUPERVISION.md).
 
+## Unreleased HTTP authentication default
+
+Unreleased source also requires private Unix state and an explicit quiesced
+permission migration for old broad-mode DB/events/Witness files and sidecars.
+See [private-state migration](PRIVATE-STATE.md). Kills, grants, credentials,
+deadlines and evidence are retained; files are never silently chmodded.
+
+The new candidate requires an operator token for Unix and TCP sidecar startup.
+Configure `DEADBOLT_TOKEN` privately before starting either listener; the trusted
+server keeps it, and the dispatcher receives only its scoped admission credential.
+Existing anonymous Unix integrations must explicitly choose
+`--legacy-unauthenticated-unix` during a deliberate migration. The legacy flag
+cannot override a configured token, allow tokenless TCP, or erase the store's
+persisted first-credential boundary. It does not restore anonymous access after
+credential expiry/revocation. The Rust option defaults false and complete config
+literals must include it. [HTTP setup](HTTP-AUTHENTICATION.md) provides the recipe.
+Published rc.1/1.x remain unchanged. State and operator CLI access are still OS
+trust boundaries; HTTP credentials do not sandbox same-user code execution.
+
+## Unreleased registered-tree authorization tightening
+
+These source changes are not in the published 2.0.0-rc.1 artifacts. Select a new
+immutable candidate before relying on them. Each descendant admission checks all
+ancestor policies dynamically, including later operator edits. Tool/destination
+ceilings and clips apply together; ancestor review requirements must be satisfied
+by a grant for the actual admitted child. A parent's grant never transfers. Each
+MCP child still needs its own explicitly configured tool allowlist.
+
+A parent's spending cap now includes its registered subtree. Existing ledgers
+are preserved and summed once, including terminal descendants. Review incident
+`spend_usd` (own ledger) and `subtree_spend_usd` (budget scope): old recorded child
+costs may immediately exhaust a parent cap after upgrade. Quiesce dispatch and
+review the intended tree budgets before resuming. Report costs only on the
+identity that incurred them; do not repeat child reports on parents. Resume alone
+cannot reopen an exhausted cap. Accounting remains based on trusted reports,
+without cost reservation or cancellation of in-flight work.
+
+Verify an allowed child effect, a child denied by each ancestor restriction,
+unchanged child grants after denial, and sibling reports reaching a shared cap.
+Do not assume a child's own active status means its full ancestry permits work.
+Older engines cannot preserve these ceilings during rollback.
+
 ## Stop, back up, upgrade, evaluate
 
 1. Stop protected dispatch and the sidecar. Do not let two versions administer

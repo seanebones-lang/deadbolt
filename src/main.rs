@@ -90,11 +90,14 @@ enum Command {
     },
     /// In-process self-check. No API keys.
     Drill,
-    /// Local Unix or token-required loopback TCP sidecar. Refuses public binds.
+    /// Operator-token-required Unix or loopback TCP sidecar. Refuses public binds.
     Serve {
-        /// Socket path or `127.0.0.1:PORT`. TCP requires `DEADBOLT_TOKEN`.
+        /// Socket path or `127.0.0.1:PORT`. Requires `DEADBOLT_TOKEN` by default.
         #[arg(long)]
         bind: Option<PathBuf>,
+        /// Legacy Unix socket-possession authority. Never enables tokenless TCP.
+        #[arg(long)]
+        legacy_unauthenticated_unix: bool,
     },
     /// Export one agent's evidence as JSONL.
     Export {
@@ -465,13 +468,18 @@ fn run() -> Result<(), DeadboltError> {
                 report.swarm_task_ids.len()
             );
         }
-        Command::Serve { bind } => {
+        Command::Serve {
+            bind,
+            legacy_unauthenticated_unix,
+        } => {
             let path = bind.unwrap_or_else(default_bind_path);
             if bind_refused(&path) {
                 return Err(DeadboltError::BindRefused);
             }
             println!("deadbolt serve {}", path.display());
-            serve(&cfg(), &path)?;
+            let mut config = cfg();
+            config.allow_legacy_unauthenticated_unix = legacy_unauthenticated_unix;
+            serve(&config, &path)?;
         }
         Command::Export {
             agent,

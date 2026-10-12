@@ -3,6 +3,23 @@
 Versioned GitHub releases identify publication and the exact source revision.
 The older `v0.1.1-product` tag is not the standalone hardening release.
 
+## Unreleased after 2.0.0-rc.1
+
+- Create Unix core/Witness SQLite and JSONL state privately before SQLite writes;
+  refuse unsafe existing files, sidecars and writable parents. Document explicit
+  quiesced permission migration and continuing OS ownership/Windows ACL limits.
+
+- Require operator authentication for both Unix and loopback TCP sidecar startup.
+  Preserve older Unix socket-possession authority only through the explicit
+  `--legacy-unauthenticated-unix` flag / default-false Rust config. Configured
+  tokens and the persisted scoped-credential boundary always take precedence.
+  Shared HTTP dispatch never infers default operator authority from no token.
+- Validate header field names/values consistently in framing and role selection,
+  so malformed spaced role names cannot fall back to operator/legacy access.
+- Add real Unix listener and extracted-native acceptance for default refusal,
+  scoped role separation and explicit legacy migration. Update setup/operations
+  recipes. Published artifacts keep their original identity and behavior.
+
 ## 2.0.0-rc.1 candidate (publication is a separate gate)
 
 - Select a major Rust engine version and matching Python candidate spelling.

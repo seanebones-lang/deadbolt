@@ -1,7 +1,7 @@
 //! Local sidecar. Not a model tool. Does not change admit semantics.
 //!
 //! Unix sockets stay mode `0600`. TCP accepts only `127.0.0.1` and `::1`,
-//! and only when a token is configured. `kill`, `pause`, `clip`, and `resume`
+//! and only when an operator token is configured by default. `kill`, `pause`, `clip`, and `resume`
 //! stay on the CLI.
 
 #[cfg(unix)]
@@ -85,6 +85,7 @@ fn spawn_worker(
     stream: impl Connection,
     token: &Option<String>,
     active: &Arc<AtomicUsize>,
+    legacy_unauthenticated_unix: bool,
 ) {
     let Some(permit) = WorkerPermit::acquire(active, MAX_WORKERS) else {
         return;
@@ -97,7 +98,13 @@ fn spawn_worker(
         .name("deadbolt-http".into())
         .spawn(move || {
             let _permit = permit;
-            let _ = handle_io(&gate, stream, token.as_deref(), REQUEST_TIMEOUT);
+            let _ = handle_io(
+                &gate,
+                stream,
+                token.as_deref(),
+                REQUEST_TIMEOUT,
+                legacy_unauthenticated_unix,
+            );
         });
 }
 
@@ -194,7 +201,17 @@ pub fn serve(cfg: &DeadboltConfig, bind: &Path) -> Result<(), DeadboltError> {
             }
             listen_tcp(Deadbolt::open(cfg), addr, token)
         }
-        BindKind::Unix => listen(Deadbolt::open(cfg), bind, token),
+        BindKind::Unix => {
+            if token.is_none() && !cfg.allow_legacy_unauthenticated_unix {
+                return Err(DeadboltError::TokenRequired);
+            }
+            listen(
+                Deadbolt::open(cfg),
+                bind,
+                token,
+                cfg.allow_legacy_unauthenticated_unix,
+            )
+        }
         BindKind::Refused => Err(DeadboltError::BindRefused),
     }
 }
@@ -238,12 +255,22 @@ fn resolve_token(cfg: &DeadboltConfig) -> Result<Option<String>, DeadboltError> 
 }
 
 #[cfg(not(unix))]
-fn listen(_gate: Deadbolt, _bind: &Path, _token: Option<String>) -> Result<(), DeadboltError> {
+fn listen(
+    _gate: Deadbolt,
+    _bind: &Path,
+    _token: Option<String>,
+    _legacy_unauthenticated_unix: bool,
+) -> Result<(), DeadboltError> {
     Err(DeadboltError::BindRefused)
 }
 
 #[cfg(unix)]
-fn listen(gate: Deadbolt, bind: &Path, token: Option<String>) -> Result<(), DeadboltError> {
+fn listen(
+    gate: Deadbolt,
+    bind: &Path,
+    token: Option<String>,
+    legacy_unauthenticated_unix: bool,
+) -> Result<(), DeadboltError> {
     if let Some(parent) = bind.parent() {
         if !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent).map_err(|_| DeadboltError::BindRefused)?;
@@ -272,7 +299,7 @@ fn listen(gate: Deadbolt, bind: &Path, token: Option<String>) -> Result<(), Dead
         let Ok(stream) = conn else {
             continue;
         };
-        spawn_worker(&gate, stream, &token, &active);
+        spawn_worker(&gate, stream, &token, &active, legacy_unauthenticated_unix);
     }
     Ok(())
 }
@@ -282,13 +309,14 @@ fn listen_tcp(
     addr: SocketAddr,
     token: Option<String>,
 ) -> Result<(), DeadboltError> {
+    let legacy_unauthenticated_unix = false;
     let listener = TcpListener::bind(addr).map_err(|_| DeadboltError::BindRefused)?;
     let active = Arc::new(AtomicUsize::new(0));
     for conn in listener.incoming() {
         let Ok(stream) = conn else {
             continue;
         };
-        spawn_worker(&gate, stream, &token, &active);
+        spawn_worker(&gate, stream, &token, &active, legacy_unauthenticated_unix);
     }
     Ok(())
 }
@@ -298,6 +326,7 @@ fn handle_io(
     mut stream: impl Connection,
     token: Option<&str>,
     timeout: Duration,
+    legacy_unauthenticated_unix: bool,
 ) -> std::io::Result<()> {
     let deadline = Instant::now() + timeout;
     stream.write_timeout(timeout)?;
@@ -342,7 +371,7 @@ fn handle_io(
         }
     }
     let raw = String::from_utf8_lossy(&buf).to_string();
-    let (status, body) = dispatch_http(gate, &raw, token);
+    let (status, body) = dispatch_http_with_legacy(gate, &raw, token, legacy_unauthenticated_unix);
     let resp = format!(
         "HTTP/1.1 {status}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
         body.len()
@@ -354,8 +383,8 @@ fn handle_io(
 fn unique_header(raw: &str, name: &str) -> Result<Option<String>, ()> {
     let mut found = None;
     let headers = raw.split_once("\r\n\r\n").map(|(h, _)| h).unwrap_or(raw);
-    for line in headers.lines().skip(1) {
-        let (key, value) = line.split_once(':').ok_or(())?;
+    for line in headers.split("\r\n").skip(1) {
+        let (key, value) = header_field(line)?;
         if key.eq_ignore_ascii_case(name) {
             if found.is_some() {
                 return Err(());
@@ -364,6 +393,38 @@ fn unique_header(raw: &str, name: &str) -> Result<Option<String>, ()> {
         }
     }
     Ok(found)
+}
+
+fn header_field(line: &str) -> Result<(&str, &str), ()> {
+    let (key, value) = line.split_once(':').ok_or(())?;
+    // HTTP field names are ASCII tokens. In particular, whitespace before the
+    // colon must not turn a supplied role header into an ignored unknown field.
+    if key.is_empty()
+        || !key.bytes().all(|b| {
+            b.is_ascii_alphanumeric()
+                || matches!(
+                    b,
+                    b'!' | b'#'
+                        | b'$'
+                        | b'%'
+                        | b'&'
+                        | b'\''
+                        | b'*'
+                        | b'+'
+                        | b'-'
+                        | b'.'
+                        | b'^'
+                        | b'_'
+                        | b'`'
+                        | b'|'
+                        | b'~'
+                )
+        })
+        || value.bytes().any(|b| (b < 0x20 && b != b'\t') || b == 0x7f)
+    {
+        return Err(());
+    }
+    Ok((key, value))
 }
 
 fn token_eq(got: &str, expected: &str) -> bool {
@@ -386,8 +447,8 @@ fn find_header_end(buf: &[u8]) -> Option<usize> {
 fn content_length(header: &str) -> std::io::Result<usize> {
     let invalid = || std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid HTTP framing");
     let mut length = None;
-    for line in header.lines().skip(1) {
-        let (key, value) = line.split_once(':').ok_or_else(invalid)?;
+    for line in header.split("\r\n").skip(1) {
+        let (key, value) = header_field(line).map_err(|_| invalid())?;
         if key.eq_ignore_ascii_case("transfer-encoding") {
             return Err(invalid());
         }
@@ -404,7 +465,17 @@ fn content_length(header: &str) -> std::io::Result<usize> {
     Ok(length.unwrap_or(0))
 }
 
+#[cfg(test)]
 fn dispatch_http(gate: &Deadbolt, raw: &str, token: Option<&str>) -> (u16, String) {
+    dispatch_http_with_legacy(gate, raw, token, false)
+}
+
+fn dispatch_http_with_legacy(
+    gate: &Deadbolt,
+    raw: &str,
+    token: Option<&str>,
+    legacy_unauthenticated_unix: bool,
+) -> (u16, String) {
     let mut lines = raw.split("\r\n");
     let Some(req) = lines.next() else {
         return (400, json!({"code":"bad_request"}).to_string());
@@ -457,7 +528,7 @@ fn dispatch_http(gate: &Deadbolt, raw: &str, token: Option<&str>) -> (u16, Strin
         if !operator.is_some_and(|got| token_eq(&got, expected)) {
             return (401, json!({"code":"unauthorized"}).to_string());
         }
-    } else {
+    } else if legacy_unauthenticated_unix {
         // Once scoped credentials exist, socket possession alone cannot confer
         // operator authority. CLI controls remain available to the trusted owner.
         match gate.has_credentials() {
@@ -465,6 +536,8 @@ fn dispatch_http(gate: &Deadbolt, raw: &str, token: Option<&str>) -> (u16, Strin
             Ok(_) => return (401, json!({"code":"unauthorized"}).to_string()),
             Err(_) => return (503, json!({"code":"store_unavailable"}).to_string()),
         }
+    } else {
+        return (401, json!({"code":"unauthorized"}).to_string());
     }
     match (method, path) {
         ("POST", "/admit") => admit(gate, body, false),
@@ -761,6 +834,103 @@ fn err_token(err: &DeadboltError) -> &'static str {
 #[cfg(test)]
 mod credential_tests {
     use super::*;
+
+    #[test]
+    fn default_dispatch_never_infers_operator_authority_from_missing_token() {
+        for enabled in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let gate = Deadbolt::open(&DeadboltConfig {
+                enabled,
+                fail_closed: false,
+                db_path: Some(dir.path().join("db").display().to_string()),
+                events_path: Some(dir.path().join("events").display().to_string()),
+                ..Default::default()
+            });
+            for route in [
+                "/admit",
+                "/admit-action",
+                "/admit-mcp",
+                "/admit-mcp-action",
+                "/ensure",
+                "/issue",
+                "/issue-supervised",
+                "/register_child",
+                "/policy",
+                "/spend",
+            ] {
+                for header in ["", "X-Deadbolt-Token: arbitrary\r\n"] {
+                    assert_eq!(
+                        dispatch_http(&gate, &request("POST", route, header, "{}"), None).0,
+                        401
+                    );
+                }
+            }
+            assert_eq!(
+                dispatch_http(&gate, &request("GET", "/status", "", ""), None).0,
+                401
+            );
+        }
+    }
+
+    #[test]
+    fn malformed_role_headers_never_downgrade_to_operator_or_legacy_access() {
+        let dir = tempfile::tempdir().unwrap();
+        let gate = Deadbolt::open_at(dir.path(), true, 60);
+        for malformed in [
+            "X-Deadbolt-Admission : invalid\r\n",
+            " X-Deadbolt-Admission: invalid\r\n",
+            "X-Deadbolt-Supervisor\t: invalid\r\n",
+            "X-Deadbolt-Admission: invalid\0\r\n",
+        ] {
+            let legacy = request("POST", "/ensure", malformed, r#"{"agent_id":"legacy"}"#);
+            assert_eq!(dispatch_http_with_legacy(&gate, &legacy, None, true).0, 401);
+            let mixed = request(
+                "POST",
+                "/ensure",
+                &format!("X-Deadbolt-Token: operator\r\n{malformed}"),
+                r#"{"agent_id":"operator"}"#,
+            );
+            assert_eq!(dispatch_http(&gate, &mixed, Some("operator")).0, 401);
+            assert!(content_length(legacy.split_once("\r\n\r\n").unwrap().0).is_err());
+        }
+        assert!(gate.status(None).unwrap().is_empty());
+    }
+
+    #[test]
+    fn explicit_legacy_authority_retains_credential_latch_and_token_precedence() {
+        for supervisor in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let gate = Deadbolt::open_at(dir.path(), true, 60);
+            let query = request("GET", "/status", "", "");
+            assert_eq!(dispatch_http_with_legacy(&gate, &query, None, true).0, 200);
+            assert_eq!(
+                dispatch_http_with_legacy(&gate, &query, Some("operator"), true).0,
+                401
+            );
+            let bad = request("GET", "/status", "X-Deadbolt-Token: arbitrary\r\n", "");
+            assert_eq!(dispatch_http_with_legacy(&gate, &bad, None, true).0, 401);
+            let path = dir.path().join("key");
+            if supervisor {
+                gate.issue_supervised_agent("run", None).unwrap();
+                gate.issue_supervisor_credential("run", "key", 60, &path)
+                    .unwrap();
+                gate.revoke_supervisor_credential("key").unwrap();
+            } else {
+                gate.ensure_agent("run").unwrap();
+                gate.issue_credential("run", "key", 60, &path).unwrap();
+                gate.revoke_credential("key").unwrap();
+            }
+            rusqlite::Connection::open(dir.path().join("deadbolt.db"))
+                .unwrap()
+                .execute("UPDATE admission_credentials SET expires_at=0", [])
+                .unwrap();
+            let reopened = Deadbolt::open_at(dir.path(), true, 60);
+            assert_eq!(
+                dispatch_http_with_legacy(&reopened, &query, None, true).0,
+                401
+            );
+        }
+    }
     use std::fs;
 
     fn request(method: &str, path: &str, headers: &str, body: &str) -> String {
@@ -1415,10 +1585,36 @@ mod tests {
         }
     }
 
+    #[test]
+    fn default_unix_startup_requires_token_before_socket_or_store_mutation() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = cfg_at(dir.path());
+        let bind = dir.path().join("preserved.sock");
+        fs::write(&bind, "preserve").unwrap();
+        assert!(matches!(
+            serve(&cfg, &bind),
+            Err(DeadboltError::TokenRequired)
+        ));
+        assert_eq!(fs::read_to_string(&bind).unwrap(), "preserve");
+        assert!(!dir.path().join("deadbolt.db").exists());
+        let mut legacy = cfg;
+        legacy.allow_legacy_unauthenticated_unix = true;
+        for endpoint in ["127.0.0.1:9", "[::1]:9", "::1:9"] {
+            assert!(matches!(
+                serve(&legacy, Path::new(endpoint)),
+                Err(DeadboltError::TokenRequired)
+            ));
+        }
+        assert!(matches!(
+            serve(&legacy, Path::new("0.0.0.0:9")),
+            Err(DeadboltError::BindRefused)
+        ));
+    }
+
     fn start_with(gate: Deadbolt, sock: PathBuf, token: Option<String>) {
         let listen_at = sock.clone();
         thread::spawn(move || {
-            let _ = listen(gate, &listen_at, token);
+            let _ = listen(gate, &listen_at, token, false);
         });
         for _ in 0..50 {
             if sock.exists() {
@@ -1430,13 +1626,13 @@ mod tests {
     }
 
     fn start(gate: Deadbolt, sock: PathBuf) {
-        start_with(gate, sock, None);
+        start_with(gate, sock, Some("test-only-operator".into()));
     }
 
     fn http(sock: &Path, method: &str, path: &str, body: Option<&str>) -> Value {
         let body = body.unwrap_or("");
         let req = format!(
-            "{method} {path} HTTP/1.1\r\nhost: local\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+            "{method} {path} HTTP/1.1\r\nhost: local\r\nx-deadbolt-token: test-only-operator\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
             body.len()
         );
         let mut last = String::new();
@@ -1460,11 +1656,11 @@ mod tests {
         let gate = Deadbolt::open(&cfg_at(&dir));
         let path = dir.join("existing");
         fs::write(&path, "keep").unwrap();
-        assert!(listen(gate.clone(), &path, None).is_err());
+        assert!(listen(gate.clone(), &path, None, false).is_err());
         assert_eq!(fs::read_to_string(&path).unwrap(), "keep");
         let socket = dir.join("live.sock");
         let listener = UnixListener::bind(&socket).unwrap();
-        assert!(listen(gate, &socket, None).is_err());
+        assert!(listen(gate, &socket, None, false).is_err());
         assert!(std::os::unix::net::UnixStream::connect(&socket).is_ok());
         drop(listener);
         let _ = fs::remove_dir_all(dir);
@@ -1479,7 +1675,7 @@ mod tests {
         client
             .set_read_timeout(Some(Duration::from_secs(1)))
             .unwrap();
-        spawn_worker(&gate, server, &None, &active);
+        spawn_worker(&gate, server, &None, &active, false);
         assert_eq!(client.read(&mut [0u8; 1]).unwrap(), 0);
         assert_eq!(active.load(Ordering::Acquire), MAX_WORKERS);
         active.store(0, Ordering::Release);
@@ -1487,7 +1683,7 @@ mod tests {
         client
             .set_read_timeout(Some(Duration::from_secs(1)))
             .unwrap();
-        spawn_worker(&gate, server, &Some("test-token".into()), &active);
+        spawn_worker(&gate, server, &Some("test-token".into()), &active, false);
         client.write_all(b"POST /ensure HTTP/1.1\r\nx-deadbolt-token: test-token\r\ncontent-length: 16\r\n\r\n{\"agent_id\":\"A\"}").unwrap();
         let mut response = String::new();
         client.read_to_string(&mut response).unwrap();
@@ -1523,8 +1719,9 @@ mod tests {
         let gate = Deadbolt::open(&cfg_at(&dir));
         let (mut client, server) = UnixStream::pair().unwrap();
         let started = Instant::now();
-        let worker =
-            thread::spawn(move || handle_io(&gate, server, None, Duration::from_millis(150)));
+        let worker = thread::spawn(move || {
+            handle_io(&gate, server, None, Duration::from_millis(150), false)
+        });
         // Each byte arrives before the old per-read timeout, but the complete
         // request never arrives. The total deadline must still terminate it.
         for _ in 0..6 {
@@ -1551,13 +1748,17 @@ mod tests {
             "content-length: nope",
             "content-length: 16\r\ncontent-length: 16",
             "transfer-encoding: chunked",
+            "content-length: 16\r\nX-Deadbolt-Admission : invalid",
+            "content-length: 16\r\n X-Deadbolt-Admission: invalid",
+            "content-length: 16\r\nX-Deadbolt-Admission\t: invalid",
+            "content-length: 16\r\nX-Deadbolt-Admission: invalid\0",
         ] {
             let (mut client, server) = UnixStream::pair().unwrap();
             let request =
                 format!("POST /ensure HTTP/1.1\r\n{framing}\r\n\r\n{{\"agent_id\":\"A\"}}");
             client.write_all(request.as_bytes()).unwrap();
             client.shutdown(std::net::Shutdown::Write).unwrap();
-            assert!(handle_io(&gate, server, None, Duration::from_secs(1)).is_err());
+            assert!(handle_io(&gate, server, None, Duration::from_secs(1), false).is_err());
             assert!(gate.status(Some("A")).unwrap().is_empty());
         }
         let _ = fs::remove_dir_all(dir);
@@ -1930,6 +2131,7 @@ mod tests {
             .arg(client)
             .args(args)
             .env("DEADBOLT_SOCK", sock)
+            .env("DEADBOLT_TOKEN", "test-only-operator")
             .output()
             .expect("python3");
         assert!(
@@ -1987,6 +2189,7 @@ mod tests {
             .arg(client)
             .args(args)
             .env("DEADBOLT_SOCK", sock)
+            .env("DEADBOLT_TOKEN", "test-only-operator")
             .output()
             .expect("node");
         assert!(
@@ -2057,6 +2260,7 @@ mod tests {
             .arg(&agent)
             .args(["--agent", "samp-a", "--tool", "shell", "--interval", "0.05"])
             .env("DEADBOLT_SOCK", &sock)
+            .env("DEADBOLT_TOKEN", "test-only-operator")
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .spawn()
@@ -2080,6 +2284,7 @@ mod tests {
             .arg(&agent)
             .args(["--agent", "samp-b", "--tool", "shell", "--interval", "0.05"])
             .env("DEADBOLT_SOCK", &sock)
+            .env("DEADBOLT_TOKEN", "test-only-operator")
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .spawn()

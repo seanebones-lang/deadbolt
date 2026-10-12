@@ -11,7 +11,7 @@ environment settings; server/executor/operator paths must match.
 | `DEADBOLT_EVENTS` | CLI/sidecar/MCP JSONL evidence | `~/.deadbolt/deadbolt-events.jsonl` |
 | `DEADBOLT_SOCK` | Python/Node client endpoint | Unix default socket; non-Unix loopback `127.0.0.1:9782` |
 | `DEADBOLT_ADMISSION_TOKEN` | Single-agent dispatcher admission; takes precedence in clients/MCP | No default; issue after trusted setup |
-| `DEADBOLT_TOKEN` | Sidecar/operator authentication | No default; required for TCP |
+| `DEADBOLT_TOKEN` | Sidecar/operator authentication | No default; unreleased source requires it for Unix and TCP |
 | `DEADBOLT_BIN` | Consumer-test executable path | `target/debug/deadbolt` |
 
 `DEADBOLT_SOCK` does not configure the server's bind or the CLI's store: use
@@ -24,11 +24,13 @@ Keep the operator and operator token in trusted infrastructure. Use
 must not choose fresh IDs, alter policy, write the store or bypass the dispatcher.
 Each child needs registration and explicit policy before its runner starts.
 
-Protect every configured state parent with private ownership/modes or ACLs.
-The general Rust/CLI store does not automatically repair existing permissions;
-the Unix socket's 0600 mode does not protect separately located DB/events files.
-Use a private parent (0700 on Unix) and restrictive umask before first startup.
-Review independently configured events, Witness and export paths as well.
+Unreleased source creates new Unix core/Witness state files with mode 0600 and
+new parents with 0700; it refuses unsafe existing files rather than repairing
+them. Quiesce and explicitly migrate older broad modes before opening the store.
+[Private state](PRIVATE-STATE.md) defines ownership, sidecar and path checks.
+Protect every configured parent and separately review exports and secrets.
+Windows ACLs remain operator-managed. The Unix socket's 0600 mode alone does not
+protect separately located state or isolate code running under the same user.
 
 Current source creates the Docker image's state directory with mode 0700.
 Existing named volumes retain their modes; inspect those separately. This
@@ -87,8 +89,11 @@ docker compose -f dist/docker-compose.yml exec deadbolt deadbolt status
 ```
 
 The default Compose sidecar uses a mode-0600 Unix socket and named state volume;
-its operator token is optional only until the first admission credential is issued. If you configure a token,
-supply it to the executor too. Keep `dist/deadbolt.env` private and ignored.
+unreleased source requires its operator token before startup. Supply that token
+only to trusted administration; give the dispatcher a scoped admission credential.
+Published rc.1/1.x have the older Unix optional-token default. Do not opt the
+Compose service into legacy anonymous authority.
+[HTTP authentication](HTTP-AUTHENTICATION.md) explains migration. Keep `dist/deadbolt.env` private and ignored.
 
 Add a trusted executor service to the same Compose project, attach the declared
 `deadbolt-state` volume at `/home/deadbolt/.deadbolt`, run it as UID 10001 and set

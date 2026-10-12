@@ -8,7 +8,7 @@ does not support it.
 | --- | --- | --- |
 | Operator (`DEADBOLT_TOKEN` / `X-Deadbolt-Token`) | Operator routes, including setup, policy, spend and status; no supervisor-only renewal | Trusted setup/administration |
 | Admission (`DEADBOLT_ADMISSION_TOKEN` / `X-Deadbolt-Admission`) | Admission routes for one stored agent ID: `/admit`, `/admit-action`, and the unreleased `/admit-mcp` / `/admit-mcp-action` | Trusted dispatcher for that run |
-| Socket possession without credentials | Legacy operator access only before any scoped credential has ever been issued | Existing Unix integrations only |
+| Socket possession without credentials | No authority by default in unreleased source; explicit Unix legacy mode only before any scoped credential has ever been issued | Legacy compatibility only |
 
 An admission credential cannot ensure/register agents, alter policy, report spend,
 inspect other agents or grant/resume approvals. Kill, pause, approve and credential
@@ -87,8 +87,10 @@ even if the credential is valid. A credential can remain valid across a sidecar
 restart; operator-managed state and output-file backup are your responsibility.
 
 Startup adds an `admission_credentials` table without changing existing leases,
-policies, approvals or evidence. Old Unix integrations keep their behavior until
-the first credential is issued. From then on, anonymous Unix HTTP access is
+policies, approvals or evidence. Published rc.1/1.x Unix integrations keep their behavior until the first
+credential is issued. Unreleased source instead requires an operator token by
+default on both transports. Its explicit Unix legacy flag preserves the old
+behavior only until the first credential is issued. See [HTTP authentication](HTTP-AUTHENTICATION.md). From then on, anonymous Unix HTTP access is
 disabled, including when all credentials are expired/revoked. An absent or invalid
 workload header cannot downgrade to socket-only operator access. Older binaries ignore this role boundary. Do not roll back to an older Unix
 sidecar with anonymous access while workloads can reach it. Quiesce workloads

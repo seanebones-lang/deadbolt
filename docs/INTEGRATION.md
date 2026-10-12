@@ -21,7 +21,8 @@ Use this order in your application:
 
 1. Give the run an executor-assigned ID; create its lease in trusted setup.
 2. Configure the actual tool names, destination policy and sensitive-action review.
-3. Configure each child before dispatch; policy is not inherited automatically.
+3. Register each child and configure its routes before dispatch. Unreleased source
+   also applies every ancestor’s restrictions; a child can narrow that ceiling.
 4. Give the dispatcher only its required authority. The candidate supports a
    [single-agent admission credential](CREDENTIALS.md).
 5. Wrap every protected body, then verify effects after allow, policy denial,
@@ -172,8 +173,13 @@ are available on the library. Register children before starting them and check
 that registration returned `true`. Registration is idempotent for the same
 parent, preserves existing state, and rejects reparenting and self-parenting.
 Missing, killed, paused, or expired parents cannot create new live children.
-Children do not inherit tool, destination, or spend policies: configure each
-child before dispatch. Calling `admit` for a spawn is the executor's job.
+In unreleased source, admissions apply every ancestor’s current tool, destination,
+clip and approval restrictions. A child’s configuration can narrow those limits,
+not widen them. A spending cap covers its registered subtree. Policies and grants
+are not copied: approvals remain bound to the actual child being admitted. Each
+MCP child still needs its own explicit tool allowlist. Published 2.0.0-rc.1 and
+1.x engines require independently configured child policies and do not provide
+these ceilings. Calling `admit` for a spawn is the executor's job.
 
 For an operator CLI to control this store, use these same paths:
 
@@ -192,8 +198,11 @@ Never cache an allow result for later execution.
 
 ## Bolt on: Python, Node, or any HTTP client
 
-Run `deadbolt serve` on macOS/Linux for a mode-0600 Unix socket. On Windows,
-use loopback TCP and `DEADBOLT_TOKEN`. TCP works on macOS/Linux too. Generate
+Run `deadbolt serve` on macOS/Linux for a mode-0600 Unix socket; unreleased
+source also requires an operator token there by default. On Windows, use
+loopback TCP and `DEADBOLT_TOKEN`. TCP works on macOS/Linux too.
+[HTTP authentication](HTTP-AUTHENTICATION.md) describes the version boundary
+and explicit legacy migration option. Generate
 a fresh 256-bit token before exporting it to the server:
 
 ```sh

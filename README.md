@@ -5,6 +5,16 @@ an action, then let policy and operator controls decide whether that action runs
 Embed it in Rust, call its local sidecar from another language, or wrap a trusted
 stdio MCP server. Free under [Apache-2.0](LICENSE).
 
+Keep DeadBolt state and operator controls outside untrusted agent processes.
+
+Unreleased source also creates private Unix state and requires reviewed permission
+migration for older stores; see [private state](docs/PRIVATE-STATE.md).
+A process that can write the database or invoke the operator CLI has operator
+authority; socket credentials cannot contain it. For untrusted tool execution,
+use separate OS/service ownership and a protected dispatcher. Unreleased source
+requires operator authentication for both Unix and TCP sidecars by default.
+[Trust boundary](docs/TRUST.md) · [HTTP setup](docs/HTTP-AUTHENTICATION.md)
+
 [Download MCP bundle 1.1.0](https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v1.1.0/deadbolt-1.1.0.mcpb) · [Try it](docs/QUICKSTART.md) · [Install](docs/INSTALL.md) · [Integrate](docs/INTEGRATION.md) · [Project site](https://nexteleven.dev/deadbolt)
 
 [![CI](https://github.com/seanebones-lang/deadbolt/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/seanebones-lang/deadbolt/actions/workflows/ci.yml)

@@ -10,7 +10,9 @@ Observed. A fact the gate recorded: `ensure`, `register_child`, `kill`, `pause`,
 
 Inferred. A conclusion from premises, not a second observation. `purpose_exceeded`, `lease_expired`, and `no_lease` are inferred. Each row has `class=inferred`, `kind`, `cid`, `tool`, `ts`, and `premises`. Premises are cids, including the attempt that was refused. An inferred row with empty premises is refused on export.
 
-The file also has `agent`, `children`, `first_seen`, and `policy`. Policy is the snapshot: `tools_allow`, `dest_allow`, `spend_cap_usd`, `spend_usd`, `irreversible`. Unset lists are null. That means open, not "we did not look."
+The file also has `agent`, `children`, `first_seen`, and `policy`. Policy is the snapshot: `tools_allow`, `dest_allow`, `spend_cap_usd`, `spend_usd`, `irreversible`. Unreleased source also reports
+`subtree_spend_usd`, the computed total of this identity and its registered
+descendants; `spend_usd` stays the identity’s own ledger. Unset lists are null. That means open, not "we did not look."
 
 ## What we do not log
 
@@ -23,7 +25,7 @@ The operator sends the notice. Deadbolt does not.
 1. `deadbolt incident --agent ID --out incident.json`
 2. Read `killed_at`. The stop is the caller that held `DEADBOLT_TOKEN`, or the in-process gate. The file does not name a person. Do not invent one.
 3. Attach `policy`. That is the blast radius that was set: tools, dest, spend cap, irreversible, and spend already recorded.
-4. Read `children` and each child's own policy and decisions. Children do not inherit policy automatically; lineage alone does not establish identical blast radius.
+4. Read `children` and each child's own policy and decisions. In unreleased source, every ancestor’s current restrictions constrain a child without copying policy or transferring grants. Inspect both the child and its ancestry. Published rc.1/1.x engines apply independently configured child policies. A child’s own status and incident policy are not a fresh admission decision.
 5. Send the JSON. Do not replace it with a rewrite and call the rewrite the record.
 
 If your customer agreement or incident policy requires a 24-hour notice, use that requirement and its actual trigger. Deadbolt does not establish a legal reporting deadline or deliver a notice.

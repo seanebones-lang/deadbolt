@@ -341,7 +341,9 @@ in the candidate too. Use files from the same selected revision as your executab
 
 Embedded Rust needs no sidecar or token. A sidecar defaults to the same-user,
 mode-0600 Unix socket `~/.deadbolt/deadbolt.sock` on macOS/Linux. Windows uses
-loopback TCP and requires a nonempty operator token. TCP is also available on Unix.
+loopback TCP and requires a nonempty operator token. Unreleased source requires
+that token for Unix sidecars as well; [HTTP authentication](HTTP-AUTHENTICATION.md)
+explains the version boundary. TCP is also available on Unix.
 
 For a disposable evaluation, the script configures all of this itself. For your
 application, follow [sidecar setup](INTEGRATION.md#bolt-on-python-node-or-any-http-client), configure

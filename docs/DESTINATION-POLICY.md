@@ -53,8 +53,11 @@ engine upgrade. The migration adds nullable `offline_tools`; existing leases
 receive **no exceptions**. An existing destination policy therefore becomes
 stricter: tools that previously omitted a host may now return
 `purpose_exceeded`. Review real implementations before adding exceptions, and
-configure each child independently. Offline classifications persist across
-restart and do not inherit from a parent.
+configure each child’s real routes. Offline classifications persist across
+restart. Unreleased source also checks all ancestor policies dynamically: a child
+may omit a destination only when each configured destination policy on its
+ancestry permits that tool offline. A child exception cannot widen a parent’s
+rule. Published 2.0.0-rc.1 and 1.x engines do not enforce those ancestor ceilings.
 
 Verify one allowed declared destination, one missing destination on a custom
 tool, one foreign destination, one deliberately offline tool, and clearing the
