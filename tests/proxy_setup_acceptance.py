@@ -135,6 +135,57 @@ def main():
                     call(agent, "write", backend, agent+"-replay", "needs_human", env=env, arguments=action["arguments"])
                     cases.append(agent+"_policy_before_exact_grant")
 
+                # Every proxy backend rejects ambiguous destinations before
+                # spending or consuming a broad/exact approval. The downstream
+                # is an inert marker process, not a real network client.
+                mixed = {"a":{"url":"https://allowed.example"},
+                         "b":{"host":"foreign.example"}}
+                variants = [mixed,
+                            {"url":"https://allowed.example", "host":"foreign.example"},
+                            {"url":"https://allowed.example", "endpoint":"HTTPS://foreign.example"},
+                            {"targets":[{"uri":"https://foreign.example"},
+                                        {"endpoint":"https://allowed.example"}]}]
+                for destination_backend, destination_scoped in [("embedded", False), ("socket", False), ("socket", True)]:
+                    destination_agent = f"dest-{destination_backend}-{destination_scoped}"
+                    require(client.ensure(destination_agent).get("ok") is True, "destination setup")
+                    require(client.policy(destination_agent, tools=["read", "write"],
+                                          dest=["allowed.example"], offline_tools=["read", "write"],
+                                          irreversible=["read"]).get("ok") is True, "destination policy")
+                    destination_env = dict(os.environ)
+                    if destination_scoped:
+                        destination_key = root / (destination_agent+"-key")
+                        operator("credential", "issue", "--agent", destination_agent, "--id", destination_agent,
+                                 "--out", str(destination_key))
+                        destination_env["DEADBOLT_ADMISSION_TOKEN"] = destination_key.read_text()
+                    operator("approve", "--agent", destination_agent, "--tool", "read")
+                    for number, destination_arguments in enumerate(variants):
+                        call(destination_agent, "read", destination_backend,
+                             destination_agent+f"-mixed-{number}", "bad_request", env=destination_env,
+                             arguments=destination_arguments)
+                    call(destination_agent, "read", destination_backend, destination_agent+"-foreign",
+                         "purpose_exceeded", env=destination_env, arguments={"url":"https://foreign.example"})
+                    # The broad approval remains available exactly once.
+                    call(destination_agent, "read", destination_backend, destination_agent+"-broad-allowed",
+                         env=destination_env, arguments={"url":"HTTPS://Allowed.Example", "host":"allowed.example"})
+                    call(destination_agent, "read", destination_backend, destination_agent+"-broad-replay",
+                         "needs_human", env=destination_env, arguments={"url":"https://allowed.example"})
+                    # A legitimate exact grant remains usable after rejection.
+                    destination_action = client.prepare_action(destination_agent, "write", {"body":"reviewed"})
+                    destination_review = root / (destination_agent+"-review.json")
+                    destination_review.write_text(json.dumps(destination_action))
+                    destination_fingerprint = operator("action", "inspect", "--file", str(destination_review)).stdout.splitlines()[0].split("=",1)[1]
+                    operator("action", "approve", "--file", str(destination_review), "--fingerprint", destination_fingerprint)
+                    destination_grant = root / (destination_agent+"-grant.json")
+                    destination_grant.write_text(json.dumps({"write":{key:destination_action[key] for key in ["nonce","expires_at"]}}))
+                    destination_env["DEADBOLT_ACTION_GRANTS"] = str(destination_grant)
+                    call(destination_agent, "write", destination_backend, destination_agent+"-exact-mixed",
+                         "bad_request", env=destination_env, arguments={**destination_action["arguments"], **mixed})
+                    call(destination_agent, "write", destination_backend, destination_agent+"-exact-allowed",
+                         env=destination_env, arguments=destination_action["arguments"])
+                    call(destination_agent, "write", destination_backend, destination_agent+"-exact-replay",
+                         "needs_human", env=destination_env, arguments=destination_action["arguments"])
+                    cases.append(destination_agent+"_ambiguous_denial_preserves_grants")
+
                 # An older sidecar may allow legacy routes, but must not downgrade MCP.
                 paths = []
                 class OldSidecar(BaseHTTPRequestHandler):

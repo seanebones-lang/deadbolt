@@ -199,18 +199,21 @@ pub fn serve(cfg: &DeadboltConfig, bind: &Path) -> Result<(), DeadboltError> {
             if token.is_none() {
                 return Err(DeadboltError::TokenRequired);
             }
-            listen_tcp(Deadbolt::open(cfg), addr, token)
+            let gate = Deadbolt::open(cfg);
+            if cfg.enabled {
+                gate.status(None)?;
+            }
+            listen_tcp(gate, addr, token)
         }
         BindKind::Unix => {
             if token.is_none() && !cfg.allow_legacy_unauthenticated_unix {
                 return Err(DeadboltError::TokenRequired);
             }
-            listen(
-                Deadbolt::open(cfg),
-                bind,
-                token,
-                cfg.allow_legacy_unauthenticated_unix,
-            )
+            let gate = Deadbolt::open(cfg);
+            if cfg.enabled {
+                gate.status(None)?;
+            }
+            listen(gate, bind, token, cfg.allow_legacy_unauthenticated_unix)
         }
         BindKind::Refused => Err(DeadboltError::BindRefused),
     }

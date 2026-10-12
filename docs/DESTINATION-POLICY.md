@@ -48,6 +48,25 @@ authorized operation, not the human who held the operator credential.
 
 ## Migration and recovery
 
+### Unreleased source after RC2: MCP calls declare at most one host
+
+The source proxy inspects every recognized string field (`url`, `uri`, `href`,
+`endpoint`, `host`) throughout nested objects and arrays. Multiple declarations
+of the same host are accepted, comparing host names without ASCII case sensitivity
+and preserving the first declaration's spelling for exact-action fingerprints.
+A call naming different hosts is refused as an MCP `isError` result with
+`bad_request`, before admission, reported-spend updates or approval consumption.
+This applies even if both hosts are allowed, destination policy is unset, or the
+tool is classified offline: the current admission/action contract carries one
+host. Use separate reviewed single-host calls, or a trusted executor with its
+own complete multi-destination policy; the proxy cannot represent that operation
+by silently selecting one host. These malformed calls produce a bounded MCP
+error, not a persisted admission event. No destination or raw argument is echoed.
+
+This change is not in published RC2 artifacts. The convention still does not
+discover arbitrary aliases such as `server`, URL strings in `urls`, hidden
+destinations, redirects or downstream network activity. It is not egress control.
+
 Stop protected dispatch and back up the SQLite store consistently before an
 engine upgrade. The migration adds nullable `offline_tools`; existing leases
 receive **no exceptions**. An existing destination policy therefore becomes

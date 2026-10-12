@@ -348,10 +348,17 @@ pub struct JsonlSqliteSink {
 impl JsonlSqliteSink {
     fn open(db: &Path, events_path: &Path) -> Result<Self, SinkError> {
         let (conn, events) = private_state::open(db, events_path)?;
-        conn.execute_batch(
-            "PRAGMA journal_mode=WAL;
-             PRAGMA busy_timeout=5000;
-             CREATE TABLE IF NOT EXISTS leases (
+        conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;")
+            .map_err(|_| SinkError::Unavailable)?;
+        let tx =
+            rusqlite::Transaction::new_unchecked(&conn, rusqlite::TransactionBehavior::Immediate)
+                .map_err(|_| SinkError::Unavailable)?;
+        validate_store_schema(
+            &tx,
+            events.metadata().map_err(|_| SinkError::Unavailable)?.len(),
+        )?;
+        tx.execute_batch(
+            "CREATE TABLE IF NOT EXISTS leases (
                agent_id TEXT PRIMARY KEY,
                parent_id TEXT,
                state TEXT NOT NULL,
@@ -392,17 +399,20 @@ impl JsonlSqliteSink {
              );",
         )
         .map_err(|_| SinkError::Unavailable)?;
-        migrate_leases(&conn)?;
+        migrate_leases(&tx)?;
         // Existing credentials retain admission-only authority on upgrade.
-        let _ = conn.execute(
+        let _ = tx.execute(
             "ALTER TABLE admission_credentials ADD COLUMN scope TEXT NOT NULL DEFAULT 'admission'",
             [],
         );
-        conn.execute_batch(
+        tx.execute_batch(
             "CREATE TABLE IF NOT EXISTS event_sequence (id INTEGER PRIMARY KEY CHECK(id=1), seq INTEGER NOT NULL);
              INSERT INTO event_sequence (id, seq) SELECT 1, COALESCE(MAX(seq), 0) FROM events WHERE true
              ON CONFLICT(id) DO UPDATE SET seq=MAX(event_sequence.seq, excluded.seq);"
         ).map_err(|_| SinkError::Unavailable)?;
+        tx.pragma_update(None, "user_version", 1)
+            .map_err(|_| SinkError::Unavailable)?;
+        tx.commit().map_err(|_| SinkError::Unavailable)?;
         Ok(Self {
             inner: Mutex::new(StoreInner { conn, events }),
         })
@@ -411,6 +421,51 @@ impl JsonlSqliteSink {
     fn lock(&self) -> Result<std::sync::MutexGuard<'_, StoreInner>, SinkError> {
         self.inner.lock().map_err(|_| SinkError::Unavailable)
     }
+}
+
+// Initialize only an empty store, or migrate a complete known historical
+// schema. Persist the schema generation atomically with all DDL, so a later
+// missing table is damage, not a request to erase/recreate lease history.
+fn validate_store_schema(conn: &Connection, events_len: u64) -> Result<(), SinkError> {
+    let version: i64 = conn
+        .pragma_query_value(None, "user_version", |r| r.get(0))
+        .map_err(|_| SinkError::Unavailable)?;
+    let mut query = conn
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+        .map_err(|_| SinkError::Unavailable)?;
+    let tables: BTreeSet<String> = query
+        .query_map([], |r| r.get(0))
+        .map_err(|_| SinkError::Unavailable)?
+        .collect::<Result<_, _>>()
+        .map_err(|_| SinkError::Unavailable)?;
+    if version == 0 && tables.is_empty() && events_len == 0 {
+        return Ok(());
+    }
+    let base = ["leases", "events", "event_sequence"];
+    let added = [
+        "exact_action_requirements",
+        "action_grants",
+        "admission_credentials",
+    ];
+    let complete_base = base.iter().all(|name| tables.contains(*name));
+    let complete_added = added.iter().all(|name| tables.contains(*name));
+    let old_base_only = added.iter().all(|name| !tables.contains(*name));
+    if !complete_base
+        || !matches!(version, 0 | 1)
+        || !(complete_added || (version == 0 && old_base_only))
+    {
+        return Err(SinkError::Unavailable);
+    }
+    // Validate the immutable base columns before migration; ALTER ADD COLUMN
+    // is not a repair for missing leases, evidence or base identity fields.
+    for sql in [
+        "SELECT agent_id,parent_id,state,expires_at,clips,clip_cids,swarm_task_id,updated_at FROM leases LIMIT 0",
+        "SELECT seq,cid,payload_sha256,class,kind,payload,premises,ts FROM events LIMIT 0",
+        "SELECT id,seq FROM event_sequence LIMIT 0",
+    ] {
+        conn.prepare(sql).map_err(|_| SinkError::Unavailable)?;
+    }
+    Ok(())
 }
 
 impl EvidenceSink for JsonlSqliteSink {
@@ -652,6 +707,7 @@ impl Deadbolt {
         {
             return Ok(());
         }
+        refuse_historical_identity(&tx, agent_id)?;
         let exp = now_secs().saturating_add(self.ttl as i64);
         save_lease(
             &tx,
@@ -740,6 +796,7 @@ impl Deadbolt {
             {
                 return Err(DeadboltError::BadRequest);
             }
+            refuse_historical_identity(tx, agent_id)?;
             let expires_at = bounded_expiry(now, self.ttl, hard_deadline_at);
             save_lease(
                 tx,
@@ -805,6 +862,7 @@ impl Deadbolt {
                 && now_secs() < existing.expires_at
                 && !deadline_reached(&existing, now_secs()));
         }
+        refuse_historical_identity(&tx, child)?;
         let parent_lease =
             { load_lease(&tx, parent).map_err(|_| DeadboltError::StoreUnavailable)? };
         let parent_dead = match &parent_lease {
@@ -2340,6 +2398,21 @@ fn migrate_leases(conn: &Connection) -> Result<(), SinkError> {
         let _ = conn.execute(sql, []);
     }
     Ok(())
+}
+
+fn refuse_historical_identity(conn: &Connection, agent_id: &str) -> Result<(), DeadboltError> {
+    let seen: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM events WHERE json_extract(payload,'$.agent_id')=?1)",
+            [agent_id],
+            |row| row.get(0),
+        )
+        .map_err(|_| DeadboltError::StoreUnavailable)?;
+    if seen {
+        Err(DeadboltError::BadRequest)
+    } else {
+        Ok(())
+    }
 }
 
 fn deadline_reached(lease: &Lease, now: i64) -> bool {
