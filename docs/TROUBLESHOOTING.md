@@ -45,6 +45,7 @@ version may be shared by several unreleased commits.
 | `spend_cap` | Reported cumulative spend crossed cap | Inspect spend and policy; resume alone leaves spend/cap policy in place |
 | `purpose_exceeded` | Tool clip/allow-list or destination check denied | Inspect tool name, clips, explicit host and stored policy; use your tool's real name |
 | `needs_human` | Required approval is missing, changed, expired or already consumed | Inspect policy; legacy approval covers run/tool only. For candidate exact-only tools review a new [exact-action envelope](ACTION-APPROVALS.md), not broad `approve`. Other policy must still allow the action |
+| `deadline_exceeded` | Current-source run reached its fixed deadline | Stop dispatch; inspect operator status/evidence. Issue a fresh run ID only after review; resume and ensure cannot extend the cutoff |
 | `store_unavailable` | Store/evidence/transport failed or response was unusable | Check service, endpoint, writable state, free disk, deadlines and logs; retain denial while diagnosing |
 | Kill seems to do nothing | Different database/agent or dispatch skipped admit | Match DB/events paths, UID and ID; inspect the dispatch path; do not cache allow results |
 | Sample exits with code 2 | Expected denial path | Read the emitted code; after kill, this is success for the demonstration |

@@ -138,7 +138,7 @@ impl Deadbolt {
             }
             let lease=load_lease(tx,&action.agent_id).map_err(|_|DeadboltError::StoreUnavailable)?.ok_or(DeadboltError::NotFound)?;
             if lease.state=="killed" { return Err(DeadboltError::Killed); }
-            if now>=lease.expires_at { return Err(DeadboltError::BadRequest); }
+            if deadline_reached(&lease, now) || now>=lease.expires_at { return Err(DeadboltError::BadRequest); }
             tx.execute("INSERT INTO action_grants (agent_id,nonce,tool,fingerprint,expires_at,created_at) VALUES (?1,?2,?3,?4,?5,?6)",params![action.agent_id,action.nonce,action.tool,fingerprint,action.expires_at,now])
                 .map_err(|e|match e {rusqlite::Error::SqliteFailure(ref detail,_) if detail.code==rusqlite::ErrorCode::ConstraintViolation=>DeadboltError::BadRequest,_=>DeadboltError::StoreUnavailable})?;
             tx.execute("INSERT OR IGNORE INTO exact_action_requirements (agent_id,tool) VALUES (?1,?2)",params![action.agent_id,action.tool]).map_err(|_|DeadboltError::StoreUnavailable)?;

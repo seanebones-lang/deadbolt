@@ -3,6 +3,22 @@
 Versioned GitHub releases identify publication and the exact source revision.
 The older `v0.1.1-product` tag is not the standalone hardening release.
 
+## Unreleased source additions
+
+- Add immutable operator-issued `hard_deadline_at` for fresh root leases through
+  Rust `issue_agent`, CLI `issue` and HTTP `/issue`. Deadline denials are distinct
+  from idle expiry and happen before TTL renewal or approval consumption.
+  Registered children inherit the fixed cutoff; restart preserves it. Existing
+  leases stay idle-only, and no setup/resume/policy endpoint extends a deadline.
+- Record deadline issuance in Observed evidence and include it in status,
+  exports and incidents. Roll back root/child issuance on failed primary evidence
+  with the default sink. Validate time after writer-lock acquisition and exercise
+  installed Python/Node callbacks on three CI platforms.
+- These source additions are not in existing registry engines or plugin bundles.
+  They stop new admissions; the executor still owns in-flight cancellation,
+  host clock trust and process/egress confinement. Supervisor-only renewal is
+  separate future work. See [fixed lease deadlines](docs/LEASE-DEADLINES.md).
+
 ## 1.1.0-rc.1
 
 Developer-evaluation prerelease. Native archives and the Python wheel/sdist are

@@ -1060,6 +1060,25 @@ mod tests {
     }
 
     #[test]
+    fn mcp_fixed_deadline_denies_without_forwarding_effect() {
+        let (dir, gate) = temp_gate();
+        gate.issue_agent("shop-bot", crate::now_secs() + 600)
+            .unwrap();
+        rusqlite::Connection::open(dir.join("deadbolt.db"))
+            .unwrap()
+            .execute("UPDATE leases SET hard_deadline_at=0", [])
+            .unwrap();
+        let (seen, out) = drive(
+            &gate,
+            &[r#"{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"shell"}}"#],
+        );
+        assert!(seen.is_empty());
+        assert!(out.iter().any(|line| line.contains("deadline_exceeded")));
+        drop(gate);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn mcp_proxy_list_tools_still_works_after_kill() {
         let (dir, gate) = temp_gate();
         gate.ensure_agent("shop-bot").unwrap();

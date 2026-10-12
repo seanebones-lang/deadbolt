@@ -150,6 +150,9 @@ or perform a separate admission before a one-shot dispatch helper.
 
 - Tool allow-lists, destination tokens, reported-spend caps, pause and clips.
 - Leases with a default 60-second sliding TTL; killed IDs stay killed.
+- Current unreleased source adds [fixed operator-issued deadlines](docs/LEASE-DEADLINES.md)
+  for new runs and their children. This blocks new admissions, with no automatic
+  cancellation of already running work; published engine/plugin downloads do not yet include it.
 - Operator kill blocks subsequent actions for an ID and its registered descendants.
 - Broad one-shot approval for classified irreversible tools; the candidate adds
   [review of exact arguments](docs/ACTION-APPROVALS.md), including recipient/body/amount.
