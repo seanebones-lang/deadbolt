@@ -5,6 +5,7 @@ Only disposable markers and credentials are used. SQL expiry fixtures isolate
 ancestor liveness without a long sleep; they do not test resistance to store edits.
 """
 import argparse
+from contextlib import closing, ExitStack
 import json
 import os
 from pathlib import Path
@@ -46,7 +47,7 @@ def main():
     cases = []
     server = None
     try:
-        with tempfile.TemporaryDirectory(prefix="deadbolt-ancestor-consumer-") as directory:
+        with tempfile.TemporaryDirectory(prefix="deadbolt-ancestor-consumer-") as directory, ExitStack() as cleanup:
             root = Path(directory)
             for key in list(os.environ):
                 if key.startswith("DEADBOLT_"):
@@ -65,6 +66,9 @@ def main():
 
             server = subprocess.Popen([str(binary), "serve", "--bind", endpoint],
                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            # Release SQLite handles before deleting state; Windows does not
+            # allow unlinking an open database, including on assertion failure.
+            cleanup.callback(stop, server)
             for _ in range(100):
                 require(server.poll() is None, "sidecar exited")
                 if client.status("readiness").get("agents") == []:
@@ -134,7 +138,7 @@ def main():
                 operator("resume", "--agent", parent)
                 for backend in ["embedded", "socket"]:
                     mcp_call("resumed", backend)
-                with sqlite3.connect(root / "state.db") as sql:
+                with closing(sqlite3.connect(root / "state.db")) as sql, sql:
                     sql.execute("UPDATE leases SET expires_at=0 WHERE agent_id=?", (parent,))
                 require(client.status(grandchild)["agents"][0]["state"] == "active", "status is own-lease state")
                 for backend in ["embedded", "socket"]:
