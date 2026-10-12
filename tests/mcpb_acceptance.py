@@ -59,6 +59,7 @@ def main():
         config = w / 'config.json'
         config.write_text(json.dumps(c))
         launcher = bundle / manifest['server']['entry_point']
+        assert b'\r\n' not in launcher.read_bytes(), 'packaged launcher must have canonical LF bytes on every host'
         resolver = r'''
 const fs = require('node:fs');
 const {getMcpConfigForManifest} = require(process.argv[1]);

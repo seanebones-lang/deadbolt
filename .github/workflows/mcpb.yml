@@ -2,7 +2,7 @@ name: MCP bundle
 
 on:
   pull_request:
-    paths: ['dist/mcpb/**', 'dist/build_mcpb.py', 'tests/mcpb_acceptance.py', '.github/workflows/mcpb.yml']
+    paths: ['.gitattributes', 'dist/mcpb/**', 'dist/build_mcpb.py', 'tests/mcpb_acceptance.py', '.github/workflows/mcpb.yml']
   workflow_dispatch:
 
 permissions:
