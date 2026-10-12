@@ -1,35 +1,35 @@
-# Migrating to the 2.0 developer candidates
+# Migrating to stable 2.0.0
 
-This candidate consolidates explicit destination exceptions, immutable run
-deadlines, optional supervisor-only liveness and a Python owned-process reference.
-It is a developer-evaluation prerelease. Stable v1.0.3, the original
-v1.1.0-rc.1 packages and MCPB/plugin bundles remain distinct immutable artifacts.
-A source merge does not upgrade a package, running sidecar or editor plugin.
+Version 2 consolidates explicit destination exceptions, immutable run deadlines,
+supervisor-owned liveness, scoped sidecar credentials and the Python owned-process
+reference. It is a major upgrade; historical releases remain immutable. A source
+merge does not upgrade a package, running sidecar or editor plugin.
 
 ## Choose a matching engine and client
 
-The corrected published pair is engine `2.0.0-rc.2` and Python `2.0.0rc2`.
-Select matching files from the [immutable release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.2).
-Verify the native ZIP and wheel against `SHA256SUMS`, then install the reviewed
-wheel in your virtual environment and the native engine separately:
+The published stable pair is engine `2.0.0` and Python client `2.0.0`.
+Select matching files from the [immutable native release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0)
+or install the [published PyPI client](https://pypi.org/project/n11-deadbolt-client/2.0.0/).
+Verify native archives and manual wheel downloads against `SHA256SUMS`:
 
 ```sh
-python -m pip install /absolute/path/to/n11_deadbolt_client-2.0.0rc2-py3-none-any.whl
+python -m pip install 'n11-deadbolt-client==2.0.0'
 /absolute/path/to/deadbolt --version
 /absolute/path/to/deadbolt drill
 ```
 
-Expected engine: `deadbolt 2.0.0-rc.2`. The Homebrew preview also supplies RC2.
-PyPI supplies matching client `2.0.0rc2`; crates.io supplies the matching
-`2.0.0-rc.2` Rust CLI and library. [Select the exact Cargo preview](INSTALL.md#cargo-registry-cli-and-embedded-rust)
-or [build the RC2 source pair](PYPI.md#evaluate-the-corrected-source-candidate).
-Do not assume an older registry engine includes RC2 guarantees.
-Actual GUI/model acceptance and the independent rerun remain separate
-stable-release gates. No old package or tag is overwritten.
+Expected engine: `deadbolt 2.0.0`. The stable Homebrew cask supplies that engine.
+The matching [MCP bundle](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.0)
+contains the engine and version 2 launcher. Select the exact
+[Cargo registry version when available](INSTALL.md#cargo-registry-cli-and-embedded-rust)
+or use the [pinned stable source](INSTALL.md#build-the-pinned-source).
+Do not substitute an older registry engine for version 2 guarantees. Prior RC3
+GUI/model receipts and stable installed-artifact checks have separate scopes;
+see [compatibility](COMPATIBILITY.md). No old package or tag is overwritten.
 
 ## Rust source changes
 
-Published RC2 changes **fresh** `ensure_agent`/`issue_agent` roots
+Version 2 changes **fresh** `ensure_agent`/`issue_agent` roots
 to supervisor-only renewal, also through CLI `ensure`/`issue` and HTTP setup.
 Existing rows keep their original mode and timestamps. Provision a separate
 supervisor credential and job-scoped heartbeat before initial idle expiry; see
@@ -40,7 +40,7 @@ the strict keyword `activity_renewal=True`; Node uses `{activityRenewal: true}`.
 The client alone cannot change an older engine's behavior. The bundle retains
 its explicit mode selection for both original rc.1 and corrected engines.
 
-RC2 adds `DeadboltError::FingerprintMismatch` for a changed CLI
+Version 2 adds `DeadboltError::FingerprintMismatch` for a changed CLI
 action review. Update exhaustive operator-error matches when adopting that
 source; its string token is `fingerprint_mismatch` and it never grants permission.
 It also adds `DeadboltError::ChildInactive` for unsuccessful CLI child
@@ -109,7 +109,7 @@ permission migration for old broad-mode DB/events/Witness files and sidecars.
 See [private-state migration](PRIVATE-STATE.md). Kills, grants, credentials,
 deadlines and evidence are retained; files are never silently chmodded.
 
-The new candidate requires an operator token for Unix and TCP sidecar startup.
+Version 2 requires an operator token for Unix and TCP sidecar startup.
 Configure `DEADBOLT_TOKEN` privately before starting either listener; the trusted
 server keeps it, and the dispatcher receives only its scoped admission credential.
 Existing anonymous Unix integrations must explicitly choose
@@ -121,9 +121,9 @@ literals must include it. [HTTP setup](HTTP-AUTHENTICATION.md) provides the reci
 Published rc.1/1.x remain unchanged. State and operator CLI access are still OS
 trust boundaries; HTTP credentials do not sandbox same-user code execution.
 
-## RC2 registered-tree authorization tightening
+## Version 2 registered-tree authorization tightening
 
-These source changes are not in the published 2.0.0-rc.1 artifacts. Use the immutable RC2 candidate before relying on them. Each descendant admission checks all
+These source changes are not in the published 2.0.0-rc.1 artifacts. Use stable 2.0.0 before relying on them. Each descendant admission checks all
 ancestor policies dynamically, including later operator edits. Tool/destination
 ceilings and clips apply together; ancestor review requirements must be satisfied
 by a grant for the actual admitted child. A parent's grant never transfers. Each
