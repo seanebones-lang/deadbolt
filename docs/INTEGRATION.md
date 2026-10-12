@@ -15,7 +15,7 @@ result other than a fresh explicit `allow`.
 
 **Version rule:** v1.0.3 supports the manual admission examples below. Callback
 helpers, installable Python/SDK integration, scoped credentials and exact-action
-review require the 1.1.0-rc.1 prerelease. [Select and install the right source](INSTALL.md).
+review are available in the 2.0.0-rc.1 prerelease (and the older 1.1 candidate). [Select and install the right source](INSTALL.md).
 
 Use this order in your application:
 
@@ -27,7 +27,7 @@ Use this order in your application:
 5. Wrap every protected body, then verify effects after allow, policy denial,
    kill, expiry, approval replay and unavailable gate. [Record route coverage](PILOT.md).
 
-## Optional fixed run deadline (current source, unreleased)
+## Optional fixed run deadline (2.0 prerelease)
 
 In trusted setup, use `deadbolt issue --agent FRESH_RUN_ID --hard-deadline-at
 FUTURE_UNIX_SECONDS`, `gate.issue_agent` in embedded Rust, or operator
@@ -35,15 +35,17 @@ FUTURE_UNIX_SECONDS`, `gate.issue_agent` in embedded Rust, or operator
 slide. Registered children inherit it. Existing `ensure` integrations stay
 idle-only unless setup opts in with a fresh ID. [Full setup and trust
 limits](LEASE-DEADLINES.md) include restart, rollback and wall-clock behavior.
-This addition is not in published engine or plugin downloads; build reviewed
-source and record its commit. The normal Python/Node admission response already
+This addition ships in engine 2.0.0-rc.1; the older editor/MCP bundles do not
+include it. Select the matching release and record its identity. The normal Python/Node admission response already
 carries a denial code; keep callbacks uncalled on every denial.
 
-## Current-source dispatch helpers (1.1.0-rc.1 prerelease)
+<a id="current-source-dispatch-helpers-110-rc1-prerelease"></a>
+
+## Dispatch helpers (2.0 prerelease)
 
 The current source adds helpers that take your actual tool callback and check
 immediately before invoking it. They are not in the published v1.0.3 archives.
-Select the `1.1.0-rc.1` registry crate or reviewed source tag for these APIs;
+Select the `2.0.0-rc.1` registry crate or reviewed source tag for these APIs;
 install the matching Python release wheel/source package, or copy its Node
 source client as described below.
 
@@ -118,8 +120,8 @@ checkout to inspect real allowed/blocked effects without an AI account.
 source, the Cargo registry and Python release packages. The Rust package is
 `n11-deadbolt`, its library is `deadbolt`, and its executable is `deadbolt`.
 Pin the reviewed registry version or a full Git revision for a deployment.
-The prerelease Python client is on [PyPI](https://pypi.org/project/n11-deadbolt-client/1.1.0rc1/):
-`python -m pip install 'n11-deadbolt-client==1.1.0rc1'`. Install the matching
+The prerelease Python client is on [PyPI](https://pypi.org/project/n11-deadbolt-client/2.0.0rc1/):
+`python -m pip install 'n11-deadbolt-client==2.0.0rc1'`. Install the matching
 candidate engine separately; see [Python setup](PYTHON.md). Node remains a source client.
 
 ## Build in: Rust executor
@@ -132,7 +134,7 @@ deadbolt = { package = "n11-deadbolt", version = "=1.0.3" }
 ```
 
 That dependency uses the **published v1.0.3 API**. For the candidate helpers,
-replace the version value with `"=1.1.0-rc.1"`, or use a reviewed adjacent checkout:
+replace the version value with `"=2.0.0-rc.1"`, or use a reviewed adjacent checkout:
 
 ```toml
 [dependencies]
@@ -356,12 +358,12 @@ nonces persist after use/revocation. Existing unconfigured integrations retain
 their behavior. This is available in 1.1.0-rc.1. Older binaries cannot enforce these new
 requirements; quiesce protected dispatch before any rollback.
 
-## Optional supervised idle expiry (unreleased source)
+## Optional supervised idle expiry (2.0 prerelease)
 
 [Supervisor-only renewal](SUPERVISION.md) is a separate opt-in control for fresh
 root runs. Admissions do not refresh those leases; a separate root-bound
 credential maintains only still-live members. A fixed deadline remains immutable
 and wins even during heartbeat activity. The explicit Python renewal call never
-uses operator/workload environment authentication. Existing published artifacts
-do not include this feature; source, migration and release gates apply. Running
+uses operator/workload environment authentication. Engine 2.0.0-rc.1 includes
+this feature; older 1.x artifacts do not. Review the migration guide. Running
 work still needs executor-owned cancellation and OS isolation where appropriate.

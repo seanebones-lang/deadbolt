@@ -64,8 +64,10 @@ dispatcher's behavior, not containment of every tool an agent can access.
 
 ## Explicitly select the prerelease
 
-The separate preview cask installs engine **1.1.0-rc.1**, including callback
-dispatch helpers, scoped admission credentials and exact-action approvals.
+The separate preview cask installs engine **2.0.0-rc.1**, including callback
+dispatch helpers, scoped admission credentials, exact-action approvals, immutable
+run deadlines, supervisor-only renewal and explicit offline destination exceptions.
+Read [the 2.0 migration guide](MIGRATING-V2.md) before upgrading.
 These features are not in stable 1.0.3 or MCP bundle 1.1.0. Use the preview
 for developer evaluation before stable promotion.
 
@@ -75,17 +77,17 @@ deadbolt --version
 deadbolt drill
 ```
 
-Expected version: `deadbolt 1.1.0-rc.1`. If required, trust only
+Expected version: `deadbolt 2.0.0-rc.1`. If required, trust only
 `seanebones-lang/tap/n11-deadbolt-preview` using the same steps above.
 For its included evaluation:
 
 ```sh
-DEADBOLT_RELEASE="$(brew --caskroom)/n11-deadbolt-preview/1.1.0-rc.1/deadbolt-1.1.0-rc.1-$(uname -m | sed 's/arm64/aarch64/')-apple-darwin"
+DEADBOLT_RELEASE="$(brew --caskroom)/n11-deadbolt-preview/2.0.0-rc.1/deadbolt-2.0.0-rc.1-$(uname -m | sed 's/arm64/aarch64/')-apple-darwin"
 python3 "$DEADBOLT_RELEASE/examples/evaluate.py" --binary "$DEADBOLT_RELEASE/deadbolt"
 ```
 
 The [PyPI client](PYTHON.md#install-from-pypi) is separately installed as
-`n11-deadbolt-client==1.1.0rc1`. Its version spelling differs from the engine.
+`n11-deadbolt-client==2.0.0rc1`. Its version spelling differs from the engine.
 Installing either cask does not install the optional OpenAI Agents SDK extra.
 
 ## Update, switch channels or remove
