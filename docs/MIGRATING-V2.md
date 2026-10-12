@@ -82,6 +82,20 @@ only still-live matching members and cannot extend the fixed cutoff. Keep
 operator, admission and supervisor credentials on their documented planes.
 See [deadlines](LEASE-DEADLINES.md) and [supervision](SUPERVISION.md).
 
+## Unreleased HTTP authentication default
+
+The new candidate requires an operator token for Unix and TCP sidecar startup.
+Configure `DEADBOLT_TOKEN` privately before starting either listener; the trusted
+server keeps it, and the dispatcher receives only its scoped admission credential.
+Existing anonymous Unix integrations must explicitly choose
+`--legacy-unauthenticated-unix` during a deliberate migration. The legacy flag
+cannot override a configured token, allow tokenless TCP, or erase the store's
+persisted first-credential boundary. It does not restore anonymous access after
+credential expiry/revocation. The Rust option defaults false and complete config
+literals must include it. [HTTP setup](HTTP-AUTHENTICATION.md) provides the recipe.
+Published rc.1/1.x remain unchanged. State and operator CLI access are still OS
+trust boundaries; HTTP credentials do not sandbox same-user code execution.
+
 ## Unreleased registered-tree authorization tightening
 
 These source changes are not in the published 2.0.0-rc.1 artifacts. Select a new

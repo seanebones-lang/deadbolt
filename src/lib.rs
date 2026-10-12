@@ -57,12 +57,17 @@ pub struct DeadboltConfig {
     /// Append-only JSONL path. Default `~/.deadbolt/deadbolt-events.jsonl`.
     #[serde(default)]
     pub events_path: Option<String>,
-    /// Env var that holds the sidecar token. TCP requires a nonempty resolved token.
+    /// Env var that holds the operator token. Sidecars require a nonempty token
+    /// unless the Unix-only legacy compatibility option is explicitly selected.
     #[serde(default)]
     pub token_env: Option<String>,
     /// Token file. Used only when mode is `0600` and `token_env` is empty.
     #[serde(default)]
     pub token_file: Option<String>,
+    /// Explicit legacy Unix socket-possession authority before any scoped
+    /// credential has been issued. Never permits tokenless TCP. Default off.
+    #[serde(default)]
+    pub allow_legacy_unauthenticated_unix: bool,
     /// Write a second Witness-shaped store. Default off. Drill stays JSONL-only.
     #[serde(default)]
     pub witness: bool,
@@ -89,6 +94,7 @@ impl Default for DeadboltConfig {
             events_path: None,
             token_env: None,
             token_file: None,
+            allow_legacy_unauthenticated_unix: false,
             witness: false,
             witness_db: None,
         }
@@ -167,7 +173,7 @@ pub enum DeadboltError {
     /// Bind was not loopback. `0.0.0.0` is refused.
     #[error("deadbolt:bind_refused")]
     BindRefused,
-    /// TCP serve needs an operator token, or an admission credential is invalid.
+    /// Sidecar serve needs an operator token, or a scoped credential is invalid.
     #[error("deadbolt:token_required")]
     TokenRequired,
     /// Export refused. The string is a code token, not prose.

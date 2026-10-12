@@ -36,6 +36,17 @@ for the same one-shot dispatch. Never reuse a previous allow as current permissi
 
 ## Versions and upgrades
 
+The unreleased HTTP authentication candidate requires a nonempty operator token
+for Unix sidecar startup as well as TCP. `DeadboltConfig` adds default-false
+`allow_legacy_unauthenticated_unix`; complete Rust struct literals must add it or
+use `..Default::default()`. Explicit `serve --legacy-unauthenticated-unix` preserves
+older Unix access only before any scoped credential has ever been issued. A
+configured token always wins; TCP remains token-required. The shared HTTP handler
+also refuses missing authentication by default, regardless of enforcement mode.
+This major-version default change does not change local CLI/library authority
+or existing credential scope. Published rc.1/1.x retain their prior behavior.
+[Setup and migration](HTTP-AUTHENTICATION.md) cover the changed startup contract.
+
 The unreleased 2.0 MCP setup candidate removes runtime provisioning from the raw
 proxy and requires an explicit tool allowlist in all MCP admission paths. Trusted
 setup can use the new `deadbolt ensure --agent ID` command for legacy idle-only

@@ -198,8 +198,11 @@ Never cache an allow result for later execution.
 
 ## Bolt on: Python, Node, or any HTTP client
 
-Run `deadbolt serve` on macOS/Linux for a mode-0600 Unix socket. On Windows,
-use loopback TCP and `DEADBOLT_TOKEN`. TCP works on macOS/Linux too. Generate
+Run `deadbolt serve` on macOS/Linux for a mode-0600 Unix socket; unreleased
+source also requires an operator token there by default. On Windows, use
+loopback TCP and `DEADBOLT_TOKEN`. TCP works on macOS/Linux too.
+[HTTP authentication](HTTP-AUTHENTICATION.md) describes the version boundary
+and explicit legacy migration option. Generate
 a fresh 256-bit token before exporting it to the server:
 
 ```sh

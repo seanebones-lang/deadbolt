@@ -116,6 +116,9 @@ jobs:
       - name: Installed client and MCP backends recheck all registered ancestors
         run: python tests/ancestor_client_acceptance.py --binary target/debug/deadbolt.exe
         if: runner.os == 'Windows'
+      - name: Unix HTTP operator authority is explicit
+        run: python tests/unix_authority_acceptance.py --binary target/debug/deadbolt
+        if: runner.os != 'Windows'
       - name: Raw MCP proxy requires explicit lease and policy setup
         run: python tests/proxy_setup_acceptance.py --binary target/debug/deadbolt
         if: runner.os != 'Windows'

@@ -54,7 +54,11 @@ A live activity-mode admit, allow or policy deny, renews the requested lease's i
 ## Agent id
 
 The operator token `DEADBOLT_TOKEN` authenticates full HTTP authority and can
-assert any agent ID. The current candidate also accepts single-agent admission
+assert any agent ID. Unreleased source requires this token for Unix and TCP
+sidecar startup by default. Explicit `--legacy-unauthenticated-unix` opts into
+older socket-possession authority only until any scoped credential has been
+issued; a configured token always wins, and TCP never becomes tokenless.
+[HTTP authentication](HTTP-AUTHENTICATION.md) covers migration and tests. The current candidate also accepts single-agent admission
 credentials: their stored hash, agent binding, fixed expiry and revocation are
 checked in the same writer transaction as lease/policy evaluation. These
 credentials authorize only admission routes, including the unreleased MCP routes, not setup or control routes. See

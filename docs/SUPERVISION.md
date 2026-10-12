@@ -191,8 +191,9 @@ That protocol test does not replace a graphical model rerun of a new bundle.
   authorize continuation even when represented as HTTP 200 with `ok:false`.
 - A supervisor header on any other route returns 403. An admission header cannot
   renew; a full operator header alone has no renewal route (404). Mixed or
-  duplicate role headers return 401. Anonymous Unix authority is disabled after
-  **any** scoped credential issuance, including supervisor-only issuance; it
+  duplicate role headers return 401. Unreleased source requires an operator token
+  for Unix startup by default. In explicit legacy Unix mode, anonymous authority
+  is disabled after **any** scoped credential issuance, including supervisor-only issuance; it
   stays disabled after all credentials expire or are revoked.
 
 Status and incident output include nullable `supervision_root`. Root issuance
