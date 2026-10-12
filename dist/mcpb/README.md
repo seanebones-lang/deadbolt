@@ -1,6 +1,6 @@
 # DeadBolt local MCP bundle
 
-This **2.0.0-rc.1 preview bundle** includes the checksum-pinned published DeadBolt 2.0.0-rc.1 executable and a dependency-free Node.js launcher. It is a separately versioned candidate; existing stable 1.x bundles keep their original engine and behavior. Use disposable integration tests before connecting real effects.
+This **2.0.0-rc.2 preview bundle** includes the checksum-pinned published DeadBolt 2.0.0-rc.2 executable and a dependency-free Node.js launcher. It is a separately versioned candidate; existing stable 1.x bundles keep their original engine and behavior. Use disposable integration tests before connecting real effects.
 
 ## Try read-only setup first
 
@@ -21,7 +21,7 @@ The engine's default idle TTL is 60 seconds. In `activity` mode, live admissions
 
 Bundle 1.0.1 supports ordinary Node and hosted runtimes that import the entry point and bridge message streams, including Claude Desktop's built-in Node. It fixes bundle 1.0.0's startup stall in that runtime. The trusted downstream server still needs its own executable/runtime; the host's embedded Node executable is not a general-purpose Node command.
 
-If the client says the server failed to start, inspect its developer logs and verify the private configuration, existing state directory and downstream executable. If a connected tool returns a generic connector error, inspect the local evidence or `incident --agent ID` with the configured state paths to distinguish policy denial, expired lease and setup/transport failure. Claude Desktop's own **Allow once** permits an attempt; it does not grant DeadBolt operator approval. Do not retry denied effects or clear a kill to hide a failure.
+If the client says the server failed to start, inspect its developer logs and verify the private configuration, existing state directory and downstream executable. Policy denials return a tool result with `isError: true`, a short `DeadBolt denied: CODE` message and stable reason/retry metadata. `killed`, `lease_expired` and `deadline_exceeded` are final for that run; `paused` requires operator resumption before another attempt. Protocol or setup failures remain separate errors. If your host still hides the tool result, inspect local evidence or `incident --agent ID` using the configured state paths; do not guess the cause. Claude Desktop's own **Allow once** permits an attempt; it does not grant DeadBolt operator approval. Do not retry denied effects or clear a kill to hide a failure.
 
 ## Operator controls
 
