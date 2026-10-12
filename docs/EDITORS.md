@@ -1,5 +1,8 @@
 # Use DeadBolt with VS Code and Cursor
 
+Evaluating the corrected 2.0 preview? Use the [separate RC2 editor guide](EDITORS-V2.md)
+and its pinned helper. This stable guide and helper retain their original artifact.
+
 Start with two read-only setup tools, then test a disposable downstream server.
 The setup connection verifies the bundled executable and explains integration;
 it provides **no active protection**. A configured proxy gates only downstream
