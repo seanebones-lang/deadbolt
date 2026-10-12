@@ -121,6 +121,19 @@ class ExecutorAcceptance(unittest.TestCase):
         self.assert_stopped(marker)
 
     @unittest.skipUnless(supervisor.supported(), 'POSIX waitid required')
+    def test_term_failure_still_attempts_kill_and_reports_failure(self):
+        marker=self.root/'cleanup-failure'; original=supervisor._signal_group
+        signals=[]
+        def signal_group(pid,sig):
+            signals.append(sig)
+            if sig == 15: raise PermissionError('synthetic TERM failure')
+            original(pid,sig)
+        with patch.object(supervisor,'_signal_group',side_effect=signal_group):
+            with self.assertRaises(PermissionError): self.run_body(self.writer(marker),max_secs=.3)
+        self.assertEqual(signals,[15,9])
+        self.assert_stopped(marker)
+
+    @unittest.skipUnless(supervisor.supported(), 'POSIX waitid required')
     def test_status_exception_cancels_running_work(self):
         marker=self.root/'unavailable'
         def status(_):

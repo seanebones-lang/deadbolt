@@ -91,11 +91,23 @@ while True:
 def _cleanup(process, grace_secs, ready):
     # The anchor ignores TERM and stays alive until this final group KILL.
     # No poll()/wait() before the last signal; do not expose its PID to callers.
+    failure = None
     if ready:
-        _signal_group(process.pid, signal.SIGTERM)
+        try:
+            _signal_group(process.pid, signal.SIGTERM)
+        except OSError as error:
+            failure = error
         time.sleep(grace_secs)
-    _signal_group(process.pid, signal.SIGKILL)
-    return process.wait(timeout=5)
+    try:
+        _signal_group(process.pid, signal.SIGKILL)
+    except OSError as error:
+        failure = failure or error
+    # Try the final signal and direct-child reap even after a failed TERM.
+    # Report the failure rather than claiming that cancellation succeeded.
+    code = process.wait(timeout=5)
+    if failure is not None:
+        raise failure
+    return code
 
 
 def run_owned(agent_id, tool, argv, *, admit, status, dest=None, child_env=None,
