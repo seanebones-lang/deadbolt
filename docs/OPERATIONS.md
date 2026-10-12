@@ -33,6 +33,13 @@ new parents with 0700; it refuses unsafe existing files rather than repairing
 them. Quiesce and explicitly migrate older broad modes before opening the store.
 [Private state](PRIVATE-STATE.md) defines ownership, sidecar and path checks.
 Protect every configured parent and separately review exports and secrets.
+Malformed persisted policy/approval/clip JSON, unknown lease states and invalid
+spend values fail as `store_unavailable` in corrected unreleased source. DeadBolt
+does not repair these rows automatically. Stop connected workloads and restore
+reviewed private state from a known backup; do not erase a kill or grant to make
+a failing run appear healthy. This is corruption handling, not detection of
+valid edits by someone with operator filesystem access.
+
 Windows ACLs remain operator-managed. The Unix socket's 0600 mode alone does not
 protect separately located state or isolate code running under the same user.
 

@@ -5,6 +5,11 @@ The older `v0.1.1-product` tag is not the standalone hardening release.
 
 ## Unreleased after 2.0.0-rc.1
 
+- Refuse malformed persisted policy, approval and clip JSON, unknown lease
+  states and invalid spend values rather than treating them as open defaults.
+  SQL NULL remains an unset optional policy; an empty list remains deny-all.
+  This detects malformed state, not valid operator edits or same-user tampering.
+
 - Default fresh Rust, CLI and HTTP roots to supervisor-only idle renewal;
   preserve existing persisted modes and offer explicit legacy activity setup.
   Strict HTTP mode parsing rejects duplicate, unknown and nonboolean options.

@@ -2311,8 +2311,18 @@ fn usd_token(usd: f64) -> String {
     }
 }
 
-fn opt_list(raw: Option<String>) -> Option<Vec<String>> {
-    raw.and_then(|s| serde_json::from_str(&s).ok())
+fn opt_list(raw: Option<String>) -> Result<Option<Vec<String>>, rusqlite::Error> {
+    // SQL NULL is an unset policy. JSON null, invalid JSON and wrong types are
+    // corrupted state, not permission to remove an existing restriction.
+    raw.map(|s| serde_json::from_str(&s).map_err(|_| rusqlite::Error::InvalidQuery))
+        .transpose()
+}
+
+fn json_column<T: serde::de::DeserializeOwned>(
+    row: &rusqlite::Row<'_>,
+    index: usize,
+) -> Result<T, rusqlite::Error> {
+    serde_json::from_str(&row.get::<_, String>(index)?).map_err(|_| rusqlite::Error::InvalidQuery)
 }
 
 fn migrate_leases(conn: &Connection) -> Result<(), SinkError> {
@@ -2403,27 +2413,35 @@ fn load_all(conn: &Connection) -> Result<Vec<Lease>, rusqlite::Error> {
 }
 
 fn lease_from_row(r: &rusqlite::Row<'_>) -> Result<Lease, rusqlite::Error> {
-    let clips: Vec<String> = serde_json::from_str(&r.get::<_, String>(4)?).unwrap_or_default();
-    let clip_cids: BTreeMap<String, String> =
-        serde_json::from_str(&r.get::<_, String>(5)?).unwrap_or_default();
+    let clips: Vec<String> = json_column(r, 4)?;
+    let clip_cids: BTreeMap<String, String> = json_column(r, 5)?;
+    let state: String = r.get(2)?;
+    let spend_cap_usd: Option<f64> = r.get(9)?;
+    let spend_usd: f64 = r.get(10)?;
+    if !matches!(state.as_str(), "active" | "paused" | "killed")
+        || !spend_usd.is_finite()
+        || spend_usd < 0.0
+        || spend_cap_usd.is_some_and(|cap| !cap.is_finite() || cap < 0.0)
+    {
+        return Err(rusqlite::Error::InvalidQuery);
+    }
     Ok(Lease {
         agent_id: r.get(0)?,
         parent_id: r.get(1)?,
-        state: r.get(2)?,
+        state,
         expires_at: r.get(3)?,
         hard_deadline_at: r.get(14)?,
         supervision_root: r.get(15)?,
         clips,
         clip_cids,
         swarm_task_id: r.get(6)?,
-        tools_allow: opt_list(r.get(7)?),
-        dest_allow: opt_list(r.get(8)?),
-        offline_tools: opt_list(r.get(13)?),
-        spend_cap_usd: r.get(9)?,
-        spend_usd: r.get(10)?,
-        irreversible: opt_list(r.get(11)?),
-        approvals: serde_json::from_str(&r.get::<_, String>(12).unwrap_or_else(|_| "[]".into()))
-            .unwrap_or_default(),
+        tools_allow: opt_list(r.get(7)?)?,
+        dest_allow: opt_list(r.get(8)?)?,
+        offline_tools: opt_list(r.get(13)?)?,
+        spend_cap_usd,
+        spend_usd,
+        irreversible: opt_list(r.get(11)?)?,
+        approvals: json_column(r, 12)?,
     })
 }
 
