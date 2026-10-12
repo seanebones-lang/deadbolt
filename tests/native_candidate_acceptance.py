@@ -52,7 +52,8 @@ def main():
             z.extractall(root)
         binary=root/archive.stem/executable
         binary.chmod(0o755)
-        env={**os.environ,'DEADBOLT_BIN':str(binary)}
+        env={key:value for key,value in os.environ.items() if key not in ('GH_TOKEN','GITHUB_TOKEN')}
+        env['DEADBOLT_BIN']=str(binary)
         for key in list(env):
             if key.startswith('DEADBOLT_') and key!='DEADBOLT_BIN': del env[key]
         result=subprocess.run([str(binary),'--version'],env=env,capture_output=True,text=True,check=True,timeout=10)
@@ -72,7 +73,7 @@ def main():
         if args.published_upgrades:
             result=subprocess.run([sys.executable,str(ROOT/'tests/published_upgrade_acceptance.py'),
                                    '--binary',str(binary),'--target',meta['target']],
-                                  cwd=root,env=env,capture_output=True,text=True,timeout=300)
+                                  cwd=root,env={**os.environ,'DEADBOLT_BIN':str(binary)},capture_output=True,text=True,timeout=300)
             if result.returncode:
                 raise RuntimeError('published upgrades failed:\n'+(result.stdout+result.stderr)[-3000:])
             upgrade_report=json.loads(result.stdout)

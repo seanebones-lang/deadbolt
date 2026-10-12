@@ -42,6 +42,20 @@ artifact download; distribute the versioned ZIP and its checksum, not the outer
 Actions wrapper. After merge, run against the exact candidate source revision so
 the release's source identity is unambiguous.
 
+For the 2.0 candidate, the native matrix also builds and installs the matching
+Python wheel from an unpacked sdist. `tests/native_candidate_acceptance.py`
+extracts the selected ZIP and verifies version, source revision, binary hash,
+client payload and migration documentation, then exercises that executable's
+client, deadline, supervisor and owned-process behavior. Its published-upgrade
+mode downloads checksum-pinned v1.0.3 and v1.1.0-rc.1 archives and preserves
+legacy lease/kill/policy/evidence state and, where supported, old credentials
+and pending/consumed exact-action approvals. Disposable runtime fixtures do not
+inherit the GitHub download token. Review `native-candidate.json` for each target.
+Windows validates refusal of unsupported executor cancellation, not POSIX cleanup.
+The separate Rust consumer fixture checks v1 compilation, expected unmigrated
+v2 compiler errors, and successful migrated compilation. These are release gates,
+not a claim that any registry or plugin already contains this candidate.
+
 Windows packaging requests static C-runtime linkage to reduce runtime installation
 requirements; the native job still needs to pass. This does not remove the need
 to validate your Windows edition and any OS-managed DLL dependencies.
@@ -56,8 +70,8 @@ Mac after retrieving the exact-source candidate ZIPs from CI:
 ```sh
 security find-identity -v -p codesigning
 python3 dist/sign_macos_archive.py \
-  --input release-artifacts/deadbolt-1.1.0-rc.1-aarch64-apple-darwin.zip \
-  --output signed/deadbolt-1.1.0-rc.1-aarch64-apple-darwin.zip \
+  --input release-artifacts/deadbolt-2.0.0-rc.1-aarch64-apple-darwin.zip \
+  --output signed/deadbolt-2.0.0-rc.1-aarch64-apple-darwin.zip \
   --identity DEVELOPER_ID_APPLICATION_SHA1
 ```
 
@@ -72,7 +86,7 @@ evidence; do not publish them as the signed downloads.
 Submit **each final signed ZIP**, not a smaller test ZIP, to Apple:
 
 ```sh
-xcrun notarytool submit signed/deadbolt-1.1.0-rc.1-aarch64-apple-darwin.zip \
+xcrun notarytool submit signed/deadbolt-2.0.0-rc.1-aarch64-apple-darwin.zip \
   --keychain-profile DeadboltNotarization --wait --output-format json
 xcrun notarytool log SUBMISSION_ID \
   --keychain-profile DeadboltNotarization --output-format json

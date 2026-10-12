@@ -40,7 +40,8 @@ def main():
                 assert hashlib.sha256(z.read(prefix+exe)).hexdigest()==meta['binary_sha256']
                 z.extractall(destination)
             old=destination/archive.stem/exe;old.chmod(0o755)
-            result=subprocess.run([sys.executable,str(ROOT/'tests/upgrade_acceptance.py'),'--old-binary',str(old),'--new-binary',str(binary)],capture_output=True,text=True,timeout=90)
+            result=subprocess.run([sys.executable,str(ROOT/'tests/upgrade_acceptance.py'),'--old-binary',str(old),'--new-binary',str(binary)],env={key:value for key,value in os.environ.items() if key not in ('GH_TOKEN','GITHUB_TOKEN')},
+                                  capture_output=True,text=True,timeout=90)
             if result.returncode:
                 raise RuntimeError('upgrade from '+version+' failed:\n'+(result.stdout+result.stderr)[-3000:])
             reports.append({'old_version':version,'old_archive_sha256':expected,'result':json.loads(result.stdout)})
