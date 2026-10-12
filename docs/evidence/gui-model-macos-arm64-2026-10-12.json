@@ -1,0 +1,88 @@
+{
+  "version": "2.0.0-rc.2",
+  "engine_source": "d166c7b039800bbd6d8acb1bc5c66f9add472f5f",
+  "bundle_sha256": "a0634e69da89c6e2c38bf72b8c1a1b8ed75e30e77df218841692808998c7b95e",
+  "engine_sha256": "d0fb13d2fb8f85de2817b3cac11127241b230059ec9e381413ebf7a1005b3ea0",
+  "operated_by": "NextEleven",
+  "independent": false,
+  "date": "2026-10-12",
+  "platform": "macOS ARM64",
+  "scope": "Actual model-mediated MCP tool calls in disposable local graphical client fixtures",
+  "hosts": {
+    "cursor": {
+      "application_version": "3.24.12",
+      "model": "Auto for policy/lifecycle calls; setup initially used Grok4.6 Medium, displayed Grok4.7 High",
+      "gated_model_calls": 18,
+      "allows": 7,
+      "denials": 11,
+      "effects": 7,
+      "codes": {
+        "ok": 7,
+        "purpose_exceeded": 4,
+        "needs_human": 2,
+        "paused": 1,
+        "killed": 1,
+        "lease_expired": 1,
+        "store_unavailable": 1,
+        "deadline_exceeded": 1
+      },
+      "setup_model_tools": 2,
+      "connection_restart_refuses_killed_run": true,
+      "actual_app_restart_tested": false,
+      "setup_invalid_route_calls": 1
+    },
+    "vscode": {
+      "application_version": "1.141.0",
+      "model": "Auto; completed calls displayed MAI-Code-1.1-Flash",
+      "gated_model_calls": 17,
+      "allows": 5,
+      "denials": 12,
+      "effects": 5,
+      "codes": {
+        "ok": 5,
+        "purpose_exceeded": 4,
+        "needs_human": 2,
+        "paused": 1,
+        "killed": 1,
+        "lease_expired": 2,
+        "store_unavailable": 1,
+        "deadline_exceeded": 1
+      },
+      "setup_model_tools": 2,
+      "connection_restart_refuses_killed_run": true,
+      "actual_app_restart_tested": false
+    }
+  },
+  "claude_desktop": {
+    "application_version": "2.31226.1",
+    "model": "Opus 5.5 High",
+    "gated_model_calls": 19,
+    "allows": 6,
+    "denials": 13,
+    "effects": 6,
+    "setup_model_tools": 2,
+    "actual_app_restart_tested": true,
+    "independent": false
+  },
+  "limits": [
+    "NextEleven-operated, not independent evidence",
+    "Only macOS ARM64 and named client versions",
+    "All downstream tools were disposable marker fixtures; no real accounts or documents",
+    "Only routed MCP tools/call requests are gated; no OS egress or whole-agent containment",
+    "Broad one-shot tool grant; not exactly-once external transactions",
+    "After the injected store outage the heartbeat helper stopped; the final deadline probe validates deadline precedence after both bounds elapsed. Claude Desktop separately exercised a live heartbeat clamped to its deadline.",
+    "Cursor had two early expiry probes before TTL elapsed; both correctly allowed; confirmed expiry later denied without extra effects",
+    "Cursor built-in/Origin routes were not invoked or covered",
+    "Native MCP reload/restart tested in editors; full app quit/reopen was tested separately in Claude Desktop",
+    "Read-only setup calls used host defaults; all dummy calls manually approved once",
+    "Python renewal helper maps rejected non-2xx responses to store_unavailable; expired run remained denied"
+  ],
+  "cleanup": {
+    "connections_removed": true,
+    "supervisor_keys_removed": true,
+    "operator_processes_stopped": true,
+    "private_evidence_retained": true,
+    "no_real_accounts_connected": true
+  },
+  "stable_promoted": false
+}
