@@ -280,9 +280,13 @@ Destination discovery examines `url`, `uri`, `href`, `endpoint`, and `host`
 arguments. Spend discovery examines numeric `amount`, `usd`, and `cost`.
 These are conventions, not authoritative network or billing measurements.
 Configure policies for the server's actual tool names; explicitly classify
-irreversible tools. With a destination allow-list, only recognized network
-classes (`http`, `fetch`, `browser`, `web_search`) require a missing destination.
-Custom network tool names need an executor adapter with a known destination.
+irreversible tools. In current source, a destination allow-list requires every
+tool to declare an allowed destination unless the operator explicitly classifies
+it in per-lease `offline_tools`. Missing-destination exceptions are never inferred
+from tool names. The original released engines use the older name-based rule;
+see the [migration guide](DESTINATION-POLICY.md). A declared host is not proof of
+the network route: general code execution still needs trusted routing and OS
+egress controls.
 See [trust boundaries](TRUST.md).
 
 ## Linux service
