@@ -149,7 +149,7 @@ Replacing an existing Cargo binary requires intentional `--force` after backup.
 
 ## Python and Node
 
-When the matching 2.0.0 package is visible on PyPI, in your application's environment:
+Install the [published 2.0.0 client](https://pypi.org/project/n11-deadbolt-client/2.0.0/) in your application's environment:
 
 ```sh
 python3 -m venv .venv
@@ -181,8 +181,7 @@ deadbolt --version
 deadbolt drill
 ```
 
-Check the [tap guide](HOMEBREW.md) and cask version before installing; promotion
-is separate from GitHub publication. The preview cask remains a distinct channel
+The [stable tap](HOMEBREW.md) installs version 2.0.0; check the cask version before upgrading. The preview cask remains a distinct channel
 and cannot coexist with the stable cask. Installation does not start a service.
 
 ## Choose the transport and authority

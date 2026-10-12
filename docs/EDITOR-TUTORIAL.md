@@ -1,5 +1,10 @@
 # Put a permission gate between your agent and its tools
 
+This recorded tutorial uses historical bundle 1.1.0 / engine 1.0.3. For a new
+installation, start with [the stable 2.0.0 editor guide](EDITORS-V2.md). The
+recording and commands below keep their original versions and test scope.
+
+
 An agent can understand a task and still attempt an action you did not authorize.
 The useful place to decide whether that action may run is the dispatcher that
 actually performs it. A prompt can explain the rules; a dispatcher can enforce

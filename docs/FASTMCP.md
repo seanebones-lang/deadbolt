@@ -1,9 +1,9 @@
 # Build DeadBolt into a FastMCP tool
 
-The current recipe accepts the matching 2.0 candidate engine/client pair and the
+The current recipe accepts the matching stable 2.0.0 engine/client pair and the
 original 1.1 prerelease pair. It rejects mixed engine/client versions. Existing
 1.1 registry commands below retain their original scope; use the
-[2.0 migration guide](MIGRATING-V2.md) for the new candidate.
+[2.0 migration guide](MIGRATING-V2.md) before upgrading.
 
 [Step-by-step local walkthrough](https://seanebones-lang.github.io/deadbolt/fastmcp-tutorial.html)
 with pinned lab commands and effect checks.
@@ -104,7 +104,7 @@ process. The disposable demo shows that separation in code; it is not an
 operator service for real accounts.
 
 The published 1.1/2.0 RC1 demonstration pairs use an admission-renewed idle
-lease. Fresh corrected RC2 source runs default to supervisor renewal; for an
+lease. Fresh 2.0.0 runs default to supervisor renewal; for an
 ongoing server, provision a separate trusted [heartbeat](SUPERVISION.md) before
 initial expiry, or explicitly opt into activity mode during operator setup.
 This server never calls `ensure` and cannot revive a dead identity. Idle expiry

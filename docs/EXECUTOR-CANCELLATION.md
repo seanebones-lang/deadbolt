@@ -1,6 +1,6 @@
 # Stop work owned by a trusted executor
 
-The **2.0 candidate** supplies `deadbolt_supervisor.run_owned` in its matching
+Stable **2.0.0** supplies `deadbolt_supervisor.run_owned` in its matching
 Python wheel. The published `n11-deadbolt-client==1.1.0rc1` wheel
 predates it. Follow the [2.0 migration guide](MIGRATING-V2.md) and [Python build instructions](PYTHON.md).
 A source check does not upgrade an existing native binary, plugin or registry package.
@@ -84,7 +84,7 @@ and its argument mapping as part of that review.
 Read-only status never renews idle TTL or spends another approval. A long command
 can therefore expire while running: choose the lease's operator-provisioned TTL
 for the intended job and provision the separate trusted liveness supervisor.
-[Supervisor-only renewal](SUPERVISION.md) is the default for fresh RC2 roots;
+[Supervisor-only renewal](SUPERVISION.md) is the default for fresh 2.0.0 roots;
 RC1 requires explicit supervisor setup, and existing activity-mode runs retain
 their original mode. Arrange the heartbeat independently in trusted lifecycle code;
 this helper does not silently enable it or renew from status callbacks.

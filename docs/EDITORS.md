@@ -1,7 +1,9 @@
 # Use DeadBolt with VS Code and Cursor
 
-Evaluating the corrected 2.0 preview? Use the [separate RC2 editor guide](EDITORS-V2.md)
-and its pinned helper. This stable guide and helper retain their original artifact.
+For new installations use [the stable 2.0.0 guide](EDITORS-V2.md) and its
+version-matched helper. This page retains the historical bundle 1.1.0 / engine
+1.0.3 instructions; these older bytes do not include the later version 2 fixes.
+
 
 Start with two read-only setup tools, then test a disposable downstream server.
 The setup connection verifies the bundled executable and explains integration;

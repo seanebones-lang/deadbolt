@@ -1,8 +1,8 @@
 # Sidecar protocol
 
-HTTP/1.1 over a Unix socket or loopback TCP. `0.0.0.0`, `[::]`, and any non-loopback host are refused. Default socket: `~/.deadbolt/deadbolt.sock` (mode `0600`). TCP bind: `deadbolt serve --bind 127.0.0.1:PORT` or `[::1]:PORT`. `DEADBOLT_TOKEN` is required to start both transports in RC2. Published rc.1/1.x require it only for TCP. RC2 `--legacy-unauthenticated-unix` explicitly permits the older Unix socket-possession authority only while the store has never issued a scoped credential (admission or supervisor); a configured token always wins. See [HTTP authentication](HTTP-AUTHENTICATION.md). Clients treat `DEADBOLT_SOCK` as loopback HTTP when it is `127.0.0.1:PORT`, `[::1]:PORT`, or `http://127.0.0.1:PORT`. A Unix path still uses the socket.
+HTTP/1.1 over a Unix socket or loopback TCP. `0.0.0.0`, `[::]`, and any non-loopback host are refused. Default socket: `~/.deadbolt/deadbolt.sock` (mode `0600`). TCP bind: `deadbolt serve --bind 127.0.0.1:PORT` or `[::1]:PORT`. `DEADBOLT_TOKEN` is required to start both transports in 2.0.0. Published rc.1/1.x require it only for TCP. 2.0.0 `--legacy-unauthenticated-unix` explicitly permits the older Unix socket-possession authority only while the store has never issued a scoped credential (admission or supervisor); a configured token always wins. See [HTTP authentication](HTTP-AUTHENTICATION.md). Clients treat `DEADBOLT_SOCK` as loopback HTTP when it is `127.0.0.1:PORT`, `[::1]:PORT`, or `http://127.0.0.1:PORT`. A Unix path still uses the socket.
 
-Operator requests use `X-Deadbolt-Token: <value>` when configured. Workload requests instead use `X-Deadbolt-Admission: <secret>`; this header authorizes admission routes for its bound agent, including the RC2 MCP routes below. Mixed or duplicated authentication headers are refused. Unknown, revoked, expired or wrong-agent credentials return 401; workload control routes return 403. Neither status can grant admission. See [credential setup and migration](CREDENTIALS.md). TCP serve refuses to start when that token is missing. A missing or wrong header is HTTP 401 and does not admit, ensure, register, or status.
+Operator requests use `X-Deadbolt-Token: <value>` when configured. Workload requests instead use `X-Deadbolt-Admission: <secret>`; this header authorizes admission routes for its bound agent, including the 2.0.0 MCP routes below. Mixed or duplicated authentication headers are refused. Unknown, revoked, expired or wrong-agent credentials return 401; workload control routes return 403. Neither status can grant admission. See [credential setup and migration](CREDENTIALS.md). TCP serve refuses to start when that token is missing. A missing or wrong header is HTTP 401 and does not admit, ensure, register, or status.
 
 ```http
 HTTP/1.1 401
@@ -34,7 +34,7 @@ MCP routes below, which deny an unset allowlist.
 {"decision":"deny","code":"killed"}
 ```
 
-`decision` is `allow` or `deny`. `code` is present only on deny. Tokens: `killed`, `paused`, `purpose_exceeded`, `lease_expired`, `store_unavailable`, `no_lease`, `spend_cap`, `needs_human`; the 2.0 candidates add `deadline_exceeded`. Optional `dest` is a host token. If `dest_allow` is unset, `dest` is ignored. A present dest not on the list is `purpose_exceeded`. Current source also denies a missing destination for every tool unless the operator explicitly lists it in `offline_tools`; 1.x engines retain the earlier name-based classification. See [destination policy and version boundary](DESTINATION-POLICY.md). HTTP status on a parsed admit is 200. The deny is in `decision`, not the status line.
+`decision` is `allow` or `deny`. `code` is present only on deny. Tokens: `killed`, `paused`, `purpose_exceeded`, `lease_expired`, `store_unavailable`, `no_lease`, `spend_cap`, `needs_human`; stable 2.0.0 add `deadline_exceeded`. Optional `dest` is a host token. If `dest_allow` is unset, `dest` is ignored. A present dest not on the list is `purpose_exceeded`. Current source also denies a missing destination for every tool unless the operator explicitly lists it in `offline_tools`; 1.x engines retain the earlier name-based classification. See [destination policy and version boundary](DESTINATION-POLICY.md). HTTP status on a parsed admit is 200. The deny is in `decision`, not the status line.
 
 ## POST /admit-action (1.1.0-rc.1 prerelease)
 
@@ -48,7 +48,7 @@ Malformed/oversized/duplicate-key envelopes return 400; authentication returns
 401/403; gate/storage failure returns 503. None authorize execution. An old
 sidecar lacking this route must fail closed; never retry through `/admit`.
 
-## MCP admission routes (RC2)
+## MCP admission routes (2.0.0)
 
 `POST /admit-mcp` takes the same payload as `/admit`; `/admit-mcp-action`
 takes the same exact envelope as `/admit-action`. Both require an existing live
@@ -81,7 +81,7 @@ Report usage from trusted infrastructure, not a model-controlled worker.
 {"agent_id":"shop-bot","usd":1.5}
 ```
 
-The body `spend_usd` remains this identity’s own reported ledger. In RC2, each configured cap covers its registered subtree; reaching any ancestor
+The body `spend_usd` remains this identity’s own reported ledger. In 2.0.0, each configured cap covers its registered subtree; reaching any ancestor
 cap pauses that budget owner. The body `code` is `spend_cap` if this report reaches
 any such cap, otherwise `ok`. The observed spend event includes `budget_paused`,
 the affected budget-owner IDs. Report each actual cost once at the identity that
@@ -101,7 +101,7 @@ provider billing source or reservation for future/in-flight effects.
 
 Failure: `{"ok":false,"code":"<token>"}`.
 
-Published RC2 creates a supervisor-renewed root for an absent
+Stable 2.0.0 creates a supervisor-renewed root for an absent
 identity. Existing identities retain their mode, timestamps, lineage and state;
 success is not acknowledgement that an existing run is supervised. Inspect
 status and provision a separate renewal credential before initial idle expiry.
@@ -109,7 +109,7 @@ Explicit legacy activity setup sends `"activity_renewal":true`. The field must
 be a JSON boolean; duplicate and unknown fields are refused. Published rc.1
 and 1.x retain their previous activity default.
 
-## POST /issue (2.0 candidate)
+## POST /issue (2.0.0)
 
 Operator-only. Requires a fresh ID and a fixed future integer Unix timestamp:
 
@@ -125,7 +125,7 @@ by registered children; `/ensure` cannot change it. See [deadline setup and
 limits](LEASE-DEADLINES.md). New admissions deny `deadline_exceeded` at the
 fixed cutoff, before idle expiry. No in-flight cancellation is performed.
 
-Published RC2 defaults this fresh root to supervisor renewal.
+Stable 2.0.0 defaults this fresh root to supervisor renewal.
 Explicit legacy activity mode adds `"activity_renewal":true`, a strict boolean.
 Either mode remains bounded by the immutable deadline.
 
@@ -137,7 +137,7 @@ Either mode remains bounded by the immutable deadline.
 
 `swarm_task_id` is optional. Success: `{"live":true}` or `{"live":false}` when the child is recorded killed. Failure: `{"ok":false,"code":"<token>"}`.
 
-RC2 operator CLI equivalent: `deadbolt register-child --parent P
+2.0.0 operator CLI equivalent: `deadbolt register-child --parent P
 --agent C --swarm-task-id task-1`. Its inactive result exits 1 with
 `deadbolt:child_inactive`; HTTP retains its existing boolean response contract.
 The global CLI `--lease-ttl-secs` selects a 1..86400-second idle window (default
@@ -146,7 +146,7 @@ processes; it does not rewrite existing expiry timestamps.
 
 The live result describes the child's stored state at registration, not permission
 to execute. It does not recheck all ancestors or apply their tool policies.
-Published RC2 rechecks the complete registered ancestor chain for
+Stable 2.0.0 rechecks the complete registered ancestor chain for
 regular and exact-action admission, with either operator or workload credentials.
 Inactive ancestors deny before TTL refresh or grant consumption; malformed,
 missing or cyclic lineage fails closed with `store_unavailable`.
@@ -173,7 +173,7 @@ status query, including one reporting expiry, is not permission to execute.
 
 <a id="mcp-admission-denials-unreleased-source"></a>
 
-## MCP admission denials (RC2)
+## MCP admission denials (2.0.0)
 
 Well-formed denied `tools/call` requests receive a normal JSON-RPC result with
 `isError: true`, rather than a protocol error. For example:
@@ -194,7 +194,7 @@ does not forward the denied call or weaken its admission decision.
 Malformed envelopes and tool-call parameters remain JSON-RPC protocol errors.
 This follows [MCP's tool error distinction](https://modelcontextprotocol.io/specification/2025-11-25/server/tools#error-handling).
 The published 2.0.0-rc.1 and 1.x engines still use JSON-RPC errors for denials;
-select RC2 for the corrected tool-result response.
+select stable 2.0.0 for the tool-result response.
 
 ## Errors
 
@@ -206,7 +206,7 @@ select RC2 for the corrected tool-result response.
 
 `kill`, `pause`, `clip`, and `resume` are CLI only. They are not HTTP routes.
 
-## Supervisor-only renewal (2.0 candidate)
+## Supervisor-only renewal (2.0.0)
 
 `POST /issue-supervised` is operator-only fresh-run issuance with `agent_id` and
 an optional integral future `hard_deadline_at`. Duplicate/unknown fields and

@@ -51,7 +51,7 @@ jobs:
           path: build/editor-acceptance.json
           if-no-files-found: warn
 
-  rc2-consumer:
+  v2-consumer:
     timeout-minutes: 10
     strategy:
       fail-fast: false
@@ -67,14 +67,14 @@ jobs:
         with:
           node-version: '22'
       - name: Download immutable published bundle
-        run: gh release download mcpb-v2.0.0-rc.2 --repo seanebones-lang/deadbolt --pattern deadbolt-2.0.0-rc.2.mcpb --dir build/downloads
+        run: gh release download mcpb-v2.0.0 --repo seanebones-lang/deadbolt --pattern deadbolt-2.0.0.mcpb --dir build/downloads
         env:
           GH_TOKEN: ${{ github.token }}
       - name: Verify external-consumer setup and effects
-        run: python tests/editor_v2_acceptance.py --bundle build/downloads/deadbolt-2.0.0-rc.2.mcpb --out build/editor-rc2-acceptance.json
+        run: python tests/editor_v2_acceptance.py --bundle build/downloads/deadbolt-2.0.0.mcpb --out build/editor-v2-acceptance.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
-          name: editor-rc2-${{ matrix.os }}
-          path: build/editor-rc2-acceptance.json
+          name: editor-v2-${{ matrix.os }}
+          path: build/editor-v2-acceptance.json
           if-no-files-found: warn
