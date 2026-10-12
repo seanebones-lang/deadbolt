@@ -17,7 +17,11 @@ environment settings; server/executor/operator paths must match.
 `DEADBOLT_SOCK` does not configure the server's bind or the CLI's store: use
 `serve --bind` and matching DB/events paths. Embedded Rust uses its
 `DeadboltConfig` or `open_at` arguments; it does not automatically adopt every
-CLI environment variable. The CLI has no general config-file/TTL option.
+CLI environment variable. Unreleased source exposes the global
+`--lease-ttl-secs 1..86400` option (default 60). Use the same window for operator
+setup and the running sidecar. This does not modify existing expiry timestamps;
+supervision remains separate from any fixed deadline. There is no general CLI
+config-file option.
 
 Keep the operator and operator token in trusted infrastructure. Use
 [scoped admission credentials](CREDENTIALS.md) for dispatchers. Model-controlled code

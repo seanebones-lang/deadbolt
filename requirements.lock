@@ -1,3 +1,4 @@
 # Optional SDK and developer-build dependency snapshot; the base client has no runtime dependencies.
-# The fully pinned closure lives in one place and is audited by CI.
+# The complete version/hash-pinned closure lives in one place and is audited by CI.
+# Install this file with pip --require-hashes; see docs/DEPENDENCY-LOCKS.md.
 -r tests/openai-agents-requirements.txt
