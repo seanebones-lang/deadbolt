@@ -45,7 +45,9 @@ which still denies subsequent admissions rather than cancelling running bodies.
 
 `ensure` issues the lease. Default TTL is 60 seconds. Every admit rechecks it. Expiry is deny `lease_expired`.
 
-A live admit, allow or deny, renews the TTL inside `evaluate` before the deny return. `killed` and `lease_expired` return before that update and are not slid. Silence does not renew. This is an idle timer, not an absolute deadline or a supervisor dead-man switch. A stream of denied requests can keep a live lease active. Scoped admission credentials have a separate fixed expiry and cannot renew it; choose a bounded credential lifetime for workload access. Absolute run lifetime and supervisor-only lease renewal are not implemented.
+A live admit, allow or deny, renews the idle TTL before the policy deny return. Silence does not renew. A stream of denied requests can keep an idle-only lease active. Scoped admission credentials have their own fixed expiry, which activity cannot renew.
+
+**Current source, unreleased:** operator `issue` creates a fresh run with an immutable `hard_deadline_at`. New admissions at or after that timestamp deny `deadline_exceeded` before idle TTL evaluation or renewal. Child leases inherit the deadline; restart preserves it; `ensure`, resume and policy cannot extend it. Killed leases still deny `killed`. [Deadline setup, migration, clock and cancellation limits](LEASE-DEADLINES.md) distinguish this guarantee from an absolute runtime limit on already admitted work. The published engines and plugin bundles do not yet include it. Supervisor-only idle renewal is not implemented.
 
 ## Agent id
 

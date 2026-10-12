@@ -27,6 +27,18 @@ Use this order in your application:
 5. Wrap every protected body, then verify effects after allow, policy denial,
    kill, expiry, approval replay and unavailable gate. [Record route coverage](PILOT.md).
 
+## Optional fixed run deadline (current source, unreleased)
+
+In trusted setup, use `deadbolt issue --agent FRESH_RUN_ID --hard-deadline-at
+FUTURE_UNIX_SECONDS`, `gate.issue_agent` in embedded Rust, or operator
+`POST /issue`. This creates a new run with a deadline that activity cannot
+slide. Registered children inherit it. Existing `ensure` integrations stay
+idle-only unless setup opts in with a fresh ID. [Full setup and trust
+limits](LEASE-DEADLINES.md) include restart, rollback and wall-clock behavior.
+This addition is not in published engine or plugin downloads; build reviewed
+source and record its commit. The normal Python/Node admission response already
+carries a denial code; keep callbacks uncalled on every denial.
+
 ## Current-source dispatch helpers (1.1.0-rc.1 prerelease)
 
 The current source adds helpers that take your actual tool callback and check

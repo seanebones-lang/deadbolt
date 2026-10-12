@@ -22,6 +22,14 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Issue a fresh run with a fixed Unix-seconds deadline. Operator-only.
+    Issue {
+        #[arg(long)]
+        agent: String,
+        /// Absolute Unix seconds; never extended. Existing agent IDs are refused.
+        #[arg(long)]
+        hard_deadline_at: i64,
+    },
     /// Review, approve and revoke exact actions. Operator-only.
     Action {
         #[command(subcommand)]
@@ -323,15 +331,23 @@ fn run() -> Result<(), DeadboltError> {
                     row.clips.join(",")
                 };
                 println!(
-                    "agent={} state={} expires_at={} parent={} clips={} swarm_task={}",
+                    "agent={} state={} expires_at={} parent={} clips={} swarm_task={} hard_deadline_at={}",
                     row.agent_id,
                     row.state,
                     row.expires_at,
                     row.parent_id.as_deref().unwrap_or("-"),
                     clips,
-                    row.swarm_task_id.as_deref().unwrap_or("-")
+                    row.swarm_task_id.as_deref().unwrap_or("-"),
+                    row.hard_deadline_at.map(|v| v.to_string()).unwrap_or_else(|| "-".into())
                 );
             }
+        }
+        Command::Issue {
+            agent,
+            hard_deadline_at,
+        } => {
+            db.issue_agent(&agent, hard_deadline_at)?;
+            println!("agent={agent} hard_deadline_at={hard_deadline_at}");
         }
         Command::Pause { agent } => {
             db.pause(&agent)?;

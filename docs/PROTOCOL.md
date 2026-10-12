@@ -29,7 +29,7 @@ Send one request per connection with a valid `Content-Length` when there is a bo
 {"decision":"deny","code":"killed"}
 ```
 
-`decision` is `allow` or `deny`. `code` is present only on deny. Tokens: `killed`, `paused`, `purpose_exceeded`, `lease_expired`, `store_unavailable`, `no_lease`, `spend_cap`, `needs_human`. Optional `dest` is a host token. If `dest_allow` is unset, `dest` is ignored. A present dest not on the list is `purpose_exceeded`. A missing dest is `purpose_exceeded` only for a network-class tool. HTTP status on a parsed admit is 200. The deny is in `decision`, not the status line.
+`decision` is `allow` or `deny`. `code` is present only on deny. Tokens: `killed`, `paused`, `purpose_exceeded`, `lease_expired`, `store_unavailable`, `no_lease`, `spend_cap`, `needs_human`; current unreleased source adds `deadline_exceeded`. Optional `dest` is a host token. If `dest_allow` is unset, `dest` is ignored. A present dest not on the list is `purpose_exceeded`. Current source also denies a missing destination for every tool unless the operator explicitly lists it in `offline_tools`; published engines still use the earlier name-based classification. See [destination policy and version boundary](DESTINATION-POLICY.md). HTTP status on a parsed admit is 200. The deny is in `decision`, not the status line.
 
 ## POST /admit-action (1.1.0-rc.1 prerelease)
 
@@ -71,6 +71,22 @@ Crossing the cap pauses the lease. The body `code` is `spend_cap` or `ok`.
 
 Failure: `{"ok":false,"code":"<token>"}`.
 
+## POST /issue (current source, unreleased)
+
+Operator-only. Requires a fresh ID and a fixed future integer Unix timestamp:
+
+```json
+{"agent_id":"my-run-002","hard_deadline_at":1791766800}
+```
+
+Supply your actual future timestamp; the value above is illustrative. Success
+is `{"ok":true}`. Existing IDs, past/unsafe timestamps and malformed requests
+return 400 `bad_request`; duplicate/unknown fields are refused. Workload
+credentials cannot issue or extend a run. The deadline is immutable and inherited
+by registered children; `/ensure` cannot change it. See [deadline setup and
+limits](LEASE-DEADLINES.md). New admissions deny `deadline_exceeded` at the
+fixed cutoff, before idle expiry. No in-flight cancellation is performed.
+
 ## POST /register_child
 
 ```json
@@ -84,10 +100,10 @@ Failure: `{"ok":false,"code":"<token>"}`.
 `GET /status` lists every lease. `GET /status?agent=shop-bot` lists one.
 
 ```json
-{"agents":[{"agent_id":"shop-bot","state":"active","parent_id":null,"expires_at":0,"clips":[],"swarm_task_id":null}]}
+{"agents":[{"agent_id":"shop-bot","state":"active","parent_id":null,"expires_at":0,"hard_deadline_at":null,"clips":[],"swarm_task_id":null}]}
 ```
 
-`state` is `active`, `paused`, or `killed`. Expiration is checked at admission; a stored active row may already have a past `expires_at`.
+`state` is `active`, `paused`, or `killed`. Expiration is checked at admission; a stored active row may already have a past `expires_at` or (in current source) `hard_deadline_at`.
 
 ## Errors
 

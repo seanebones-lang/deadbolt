@@ -93,3 +93,19 @@ legacy admission. Approval enables exact-only policy for that run/tool;
 nonces persist after use/revocation. Existing unconfigured integrations retain
 their behavior. This is available in 1.1.0-rc.1. Older binaries cannot enforce these new
 requirements; quiesce protected dispatch before any rollback.
+
+## Fixed lease deadline source addition
+
+Current unreleased source adds a nullable SQLite `hard_deadline_at` column,
+operator-only `issue`/`POST /issue`, a status field and `deadline_exceeded`.
+Existing rows migrate to idle-only leases with no fixed deadline. New deadline
+runs require fresh IDs; setup cannot attach or change one in place. Child
+registration inherits it. JSONL/text issuance exports and incident output include
+the timestamp. Rust `AgentStatus` and `ExportRow` add public fields; downstream
+struct literals must supply them. Clients must withhold effects on every denial,
+including codes they have not seen before.
+
+Published engine/MCPB/plugin versions do not include this addition. Older
+executables ignore the column, so rollback does not preserve the guarantee.
+Quiesce protected dispatch before changing binaries. See
+[deadline setup, evidence and limits](LEASE-DEADLINES.md).

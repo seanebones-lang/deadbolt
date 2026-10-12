@@ -452,6 +452,7 @@ fn dispatch_http(gate: &Deadbolt, raw: &str, token: Option<&str>) -> (u16, Strin
         ("POST", "/admit") => admit(gate, body),
         ("POST", "/admit-action") => admit_action(gate, body, None),
         ("POST", "/ensure") => ensure(gate, body),
+        ("POST", "/issue") => issue(gate, body),
         ("POST", "/register_child") => register_child(gate, body),
         ("POST", "/policy") => policy(gate, body),
         ("POST", "/spend") => spend(gate, body),
@@ -588,12 +589,33 @@ fn ensure(gate: &Deadbolt, body: &str) -> (u16, String) {
     let Ok(v) = serde_json::from_str::<Value>(body) else {
         return (400, json!({"code":"bad_request"}).to_string());
     };
+    // Never acknowledge a requested fixed deadline while creating an idle-only lease.
+    if v.get("hard_deadline_at").is_some() {
+        return (400, json!({"code":"bad_request"}).to_string());
+    }
     let Some(agent_id) = v.get("agent_id").and_then(|x| x.as_str()) else {
         return (400, json!({"code":"bad_request"}).to_string());
     };
     match gate.ensure_agent(agent_id) {
         Ok(()) => (200, json!({"ok":true}).to_string()),
         Err(e) => (200, json!({"ok":false,"code": err_token(&e)}).to_string()),
+    }
+}
+
+fn issue(gate: &Deadbolt, body: &str) -> (u16, String) {
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Request {
+        agent_id: String,
+        hard_deadline_at: i64,
+    }
+    let Ok(request) = serde_json::from_str::<Request>(body) else {
+        return (400, json!({"code":"bad_request"}).to_string());
+    };
+    match gate.issue_agent(&request.agent_id, request.hard_deadline_at) {
+        Ok(()) => (200, json!({"ok":true}).to_string()),
+        Err(DeadboltError::BadRequest) => (400, json!({"code":"bad_request"}).to_string()),
+        Err(e) => (200, json!({"ok":false,"code":err_token(&e)}).to_string()),
     }
 }
 
@@ -633,6 +655,7 @@ fn status(gate: &Deadbolt, query: &str) -> (u16, String) {
                         "state": row.state,
                         "parent_id": row.parent_id,
                         "expires_at": row.expires_at,
+                        "hard_deadline_at": row.hard_deadline_at,
                         "clips": row.clips,
                         "swarm_task_id": row.swarm_task_id,
                     })
@@ -666,6 +689,101 @@ mod credential_tests {
 
     fn request(method: &str, path: &str, headers: &str, body: &str) -> String {
         format!("{method} {path} HTTP/1.1\r\nhost: localhost\r\n{headers}content-length: {}\r\n\r\n{body}", body.len())
+    }
+
+    #[test]
+    fn operator_deadline_route_validates_exact_integer_and_never_extends_existing_run() {
+        let dir = tempfile::tempdir().unwrap();
+        let gate = Deadbolt::open_at(dir.path(), true, 60);
+        let header = "X-Deadbolt-Token: operator\r\n";
+        for body in [
+            r#"{"agent_id":"run"}"#,
+            r#"{"agent_id":"run","hard_deadline_at":null}"#,
+            r#"{"agent_id":"run","hard_deadline_at":"9007199254740991"}"#,
+            r#"{"agent_id":"run","hard_deadline_at":9007199254740991.0}"#,
+            r#"{"agent_id":"run","hard_deadline_at":9007199254740992}"#,
+            r#"{"agent_id":"run","hard_deadline_at":0}"#,
+            r#"{"agent_id":"run","hard_deadline_at":1,"hard_deadline_at":9007199254740991}"#,
+            r#"{"agent_id":"run","hard_deadline_at":9007199254740991,"unknown":true}"#,
+        ] {
+            assert_eq!(
+                dispatch_http(
+                    &gate,
+                    &request("POST", "/issue", header, body),
+                    Some("operator")
+                )
+                .0,
+                400,
+                "{body}"
+            );
+        }
+        assert!(gate.status(Some("run")).unwrap().is_empty());
+        let body = r#"{"agent_id":"run","hard_deadline_at":9007199254740991}"#;
+        assert_eq!(
+            dispatch_http(
+                &gate,
+                &request("POST", "/ensure", header, body),
+                Some("operator")
+            )
+            .0,
+            400
+        );
+        assert!(gate.status(Some("run")).unwrap().is_empty());
+        assert_eq!(
+            dispatch_http(
+                &gate,
+                &request("POST", "/issue", "", body),
+                Some("operator")
+            )
+            .0,
+            401
+        );
+        assert_eq!(
+            dispatch_http(
+                &gate,
+                &request("POST", "/issue", header, body),
+                Some("operator")
+            )
+            .0,
+            200
+        );
+        assert_eq!(
+            dispatch_http(
+                &gate,
+                &request("POST", "/issue", header, body),
+                Some("operator")
+            )
+            .0,
+            400
+        );
+        let (_, status) = dispatch_http(
+            &gate,
+            &request("GET", "/status?agent=run", header, ""),
+            Some("operator"),
+        );
+        let status: Value = serde_json::from_str(&status).unwrap();
+        assert_eq!(
+            status["agents"][0]["hard_deadline_at"],
+            9_007_199_254_740_991_i64
+        );
+        rusqlite::Connection::open(dir.path().join("deadbolt.db"))
+            .unwrap()
+            .execute("UPDATE leases SET hard_deadline_at=0", [])
+            .unwrap();
+        let (_, body) = dispatch_http(
+            &gate,
+            &request(
+                "POST",
+                "/admit",
+                header,
+                r#"{"agent_id":"run","tool":"write"}"#,
+            ),
+            Some("operator"),
+        );
+        assert_eq!(
+            serde_json::from_str::<Value>(&body).unwrap(),
+            json!({"decision":"deny","code":"deadline_exceeded"})
+        );
     }
 
     #[test]
@@ -821,6 +939,11 @@ mod credential_tests {
             assert_eq!(dispatch_http(&gate, &wrong, operator).0, 401);
             for (method, path, body) in [
                 ("POST", "/ensure", r#"{"agent_id":"new"}"#),
+                (
+                    "POST",
+                    "/issue",
+                    r#"{"agent_id":"new","hard_deadline_at":9007199254740991}"#,
+                ),
                 ("POST", "/policy", r#"{"agent_id":"A","tools":["send"]}"#),
                 ("POST", "/spend", r#"{"agent_id":"A","usd":-1}"#),
                 ("POST", "/register_child", r#"{"parent":"A","child":"new"}"#),

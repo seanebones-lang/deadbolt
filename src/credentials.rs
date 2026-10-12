@@ -74,7 +74,7 @@ impl Deadbolt {
                 if lease.state == "killed" {
                     return Err(DeadboltError::Killed);
                 }
-                if now_secs() >= lease.expires_at {
+                if deadline_reached(&lease, now_secs()) || now_secs() >= lease.expires_at {
                     return Err(DeadboltError::BadRequest);
                 }
                 tx.execute(

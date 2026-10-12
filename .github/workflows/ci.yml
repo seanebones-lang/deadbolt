@@ -68,6 +68,15 @@ jobs:
       - name: Offline one-command SDK integration demo
         run: python examples/openai_agents_demo.py --binary target/debug/deadbolt.exe
         if: runner.os == 'Windows'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Installed Python and Node callbacks respect fixed lease deadlines
+        run: python tests/deadline_client_acceptance.py --binary target/debug/deadbolt
+        if: runner.os != 'Windows'
+      - name: Installed Python and Node callbacks respect fixed lease deadlines
+        run: python tests/deadline_client_acceptance.py --binary target/debug/deadbolt.exe
+        if: runner.os == 'Windows'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: python-client-${{ matrix.os }}
