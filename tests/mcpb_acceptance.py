@@ -181,7 +181,12 @@ import(pathToFileURL(entry).href).catch(()=>process.exit(1));
             response = rpc('tools/call', {'name': tool, 'arguments': arguments or {}})
             after = effects.read_text() if effects.exists() else ''
             if deny:
-                assert deny in response['error']['message'], response
+                if 'error' in response:  # Published rc.1 engine compatibility.
+                    assert response['error']['message'] == deny, response
+                else:
+                    assert response['result']['isError'] is True, response
+                    assert response['result']['_meta']['io.github.seanebones-lang/deadbolt']['code'] == deny, response
+                    assert response['result']['content'][0]['text'].startswith('DeadBolt denied: '+deny+'.'), response
                 assert before == after, 'denied body ran'
             else:
                 assert 'result' in response, response

@@ -15,12 +15,15 @@ import socket
 import subprocess
 import tempfile
 import time
+import sys
+import sysconfig
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from threading import Thread
 
 import deadbolt_client as client
+from deadbolt_supervisor import SupervisorHeartbeat, HeartbeatLost
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -99,6 +102,25 @@ def main():
             cases.append("private_separate_credential")
             operator("credential", "issue", "--agent", "run", "--id", "worker", "--ttl-secs", "600", "--out", str(root / "worker"))
             worker = (root / "worker").read_text()
+            def mcp_call(label, denied=None):
+                effect=root / (label+'-mcp-effect')
+                child="import sys,json,pathlib; " \
+                      "[(pathlib.Path(sys.argv[1]).write_text('ran'), print(json.dumps({'jsonrpc':'2.0','id':json.loads(line)['id'],'result':{'content':[{'type':'text','text':'ran read'}]}}),flush=True)) for line in sys.stdin]"
+                frame={'jsonrpc':'2.0','id':label,'method':'tools/call','params':{'name':'read','arguments':{}}}
+                result=subprocess.run([str(binary),'mcp-proxy','--agent','run','--serve-sock',endpoint,'--',
+                                       sys.executable,'-c',child,str(effect)],
+                                      env={**os.environ,'DEADBOLT_ADMISSION_TOKEN':worker},
+                                      input=json.dumps(frame)+'\n',capture_output=True,text=True,timeout=10)
+                require(result.returncode==0, 'MCP process completes')
+                reply=json.loads(result.stdout)
+                require(reply['id']==label and 'error' not in reply, 'tool result preserves request id')
+                if denied:
+                    require(reply['result']['isError'] is True, 'denial is model-facing tool result')
+                    require(reply['result']['_meta']['io.github.seanebones-lang/deadbolt']=={'code':denied,'retry':'never'}, 'terminal denial hint')
+                    require(reply['result']['content'][0]['text']=='DeadBolt denied: '+denied+'. Do not retry this run.', 'exact model reason')
+                    require(not effect.exists(), 'denied MCP body withheld')
+                else:
+                    require(effect.read_text()=='ran' and not reply['result'].get('isError',False), 'live MCP effect')
             initial = client.status("run")["agents"][0]["expires_at"]
             os.environ["DEADBOLT_ADMISSION_TOKEN"] = worker
             require(client.renew_supervised("run", secret).get("ok") is True, "explicit supervisor auth with both environment tokens")
@@ -126,6 +148,10 @@ def main():
             require(client.renew_supervised("run", secret).get("ok") is True, "credential persists after restart")
             expiry = client.status("run")["agents"][0]["expires_at"]
             cases.append("mode_and_credential_survive_restart")
+            with SupervisorHeartbeat('run',secret,should_continue=lambda:True,interval_secs=.1) as heartbeat:
+                heartbeat.check()
+                mcp_call('s1')
+            expiry = client.status("run")["agents"][0]["expires_at"]
             os.environ["DEADBOLT_ADMISSION_TOKEN"] = worker
             while time.time() < expiry:
                 decision = client.admit("run", "read")
@@ -137,7 +163,10 @@ def main():
                 result = client.dispatch(agent,"write",lambda:effect.write_text("wrong"))
                 require(not result["executed"] and result["decision"]["code"] == "lease_expired" and not effect.exists(), "lost supervisor withholds effect")
             cases.extend(["busy_agent_cannot_refresh_idle_ttl", "expired_root_and_child_effects_withheld"])
+            mcp_call('s2','lease_expired')
             require(client.renew_supervised("run", secret).get("ok") is False, "no expired revival")
+            mcp_call('s3','lease_expired')
+            cases.append("s1_s2_s3_model_readable_mcp_results_and_withheld_effects")
             operator("resume", "--agent", "run", expect_ok=False)
             operator("supervise", "--agent", "run", expect_ok=False)
             cases.append("expired_identity_cannot_be_renewed_resumed_or_reissued")
@@ -168,6 +197,45 @@ def main():
             stop(server)
             require(client.renew_supervised("fresh",fresh_secret).get("ok") is False, "sidecar loss")
             cases.append("sidecar_loss_cannot_report_liveness")
+            # The installed helper scopes renewal to a trusted finite job.
+            server = start()
+            operator("supervise", "--agent", "helper")
+            operator("supervisor", "issue", "--agent", "helper", "--id", "helper-sup", "--out", str(root / "helper-sup"))
+            helper_secret = (root / "helper-sup").read_text()
+            marker = root / "helper-effect"
+            try:
+                with SupervisorHeartbeat("helper", helper_secret, should_continue=lambda:True, interval_secs=.05) as heartbeat:
+                    heartbeat.check()
+                    result=client.dispatch("helper","read",lambda:marker.write_text("ok"))
+                    require(result["executed"] and marker.read_text()=="ok", "helper permits live admitted marker")
+                    operator("supervisor", "revoke", "--id", "helper-sup")
+                    require(heartbeat._lost.wait(5), "helper detects revoked credential")
+                    heartbeat.check()
+            except HeartbeatLost:
+                require(not heartbeat._thread.is_alive(), "helper thread cleaned up")
+            else:
+                raise RuntimeError("helper allowed continuation after renewal loss")
+            stopped_count=len([json.loads(line) for line in operator("export","--agent","helper").splitlines()
+                               if json.loads(line).get("kind")=="supervisor_renew"])
+            time.sleep(.1)
+            require(len([json.loads(line) for line in operator("export","--agent","helper").splitlines()
+                         if json.loads(line).get("kind")=="supervisor_renew"])==stopped_count, "helper has no detached renewals")
+            cli_run=subprocess.run([str(Path(sysconfig.get_path('scripts')) / ('deadbolt-supervisor-heartbeat.exe' if os.name=='nt' else 'deadbolt-supervisor-heartbeat')),
+                                    "--agent","helper","--credential-file",str(root / "helper-sup"),"--max-secs","1"],
+                                   capture_output=True,text=True,timeout=10)
+            require(cli_run.returncode!=0 and helper_secret not in cli_run.stdout+cli_run.stderr, "finite CLI refuses revoked secret without printing it")
+            operator("supervise", "--agent", "helper-cli")
+            operator("supervisor", "issue", "--agent", "helper-cli", "--id", "helper-cli-sup", "--out", str(root / "helper-cli-sup"))
+            cli_secret=(root / "helper-cli-sup").read_text()
+            cli_run=subprocess.run([str(Path(sysconfig.get_path('scripts')) / ('deadbolt-supervisor-heartbeat.exe' if os.name=='nt' else 'deadbolt-supervisor-heartbeat')),
+                                    "--agent","helper-cli","--credential-file",str(root / "helper-cli-sup"),"--max-secs",".2","--interval-secs",".05"],
+                                   capture_output=True,text=True,timeout=10)
+            require(cli_run.returncode==0 and cli_secret not in cli_run.stdout+cli_run.stderr, "finite CLI maintains live run privately")
+            before_cli=operator("export","--agent","helper-cli")
+            require('supervisor_renew' in before_cli, "finite CLI performs renewal")
+            time.sleep(.15)
+            require(operator("export","--agent","helper-cli")==before_cli, "finite CLI stops without detached heartbeat")
+            cases.append("installed_heartbeat_job_scope_and_revocation")
             # A malformed or misleading success body cannot renew the supervisor's view.
             response = [b'{"ok":true}']
             observed = []

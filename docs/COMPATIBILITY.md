@@ -36,6 +36,17 @@ for the same one-shot dispatch. Never reuse a previous allow as current permissi
 
 ## Versions and upgrades
 
+The unreleased 2.0 feedback candidate changes MCP admission denials from JSON-RPC
+errors to `isError: true` tool results, reports effective status expiry without
+mutating state, and makes a named missing CLI status query exit 1. Consumers must
+check `result.isError` as well as protocol errors; it never means the body ran.
+Evidence decisions use the actual `purpose_exceeded` token rather than the old
+`clipped` alias. Stored prior evidence is preserved, including its old labels.
+The 2.0 preview launcher accepts the exact not-found response only during fresh
+operator setup; it does not treat arbitrary errors as a missing lease. Published
+rc.1 and stable artifacts retain their bytes and prior behavior. Release these
+changes as a new candidate and repeat host validation before a stable promotion.
+
 After 1.0, compatible bug fixes use patch versions, compatible additions use minor
 versions, and incompatible public API/protocol/configuration behavior needs a
 major version. Security fixes may tighten acceptance of malformed inputs; document

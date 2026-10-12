@@ -23,6 +23,7 @@ Documentation = "https://github.com/seanebones-lang/deadbolt/blob/main/docs/PYTH
 
 [project.scripts]
 deadbolt-client = "deadbolt_client:cli"
+deadbolt-supervisor-heartbeat = "deadbolt_supervisor:heartbeat_cli"
 
 [tool.setuptools]
 py-modules = ["deadbolt_client", "deadbolt_openai_agents", "deadbolt_supervisor"]

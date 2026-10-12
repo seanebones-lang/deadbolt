@@ -222,7 +222,11 @@ def verify(out):
                 response = session.rpc("tools/call", {"name": name, "arguments": {}})
                 after = effects.read_text() if effects.exists() else ""
                 if denied:
-                    require(denied in response.get("error", {}).get("message", ""), "Expected denial: " + denied)
+                    if "error" in response:  # Stable 1.x uses protocol errors.
+                        require(response["error"]["message"] == denied, "Expected denial: " + denied)
+                    else:
+                        result = response.get("result", {})
+                        require(result.get("isError") is True and result.get("_meta", {}).get("io.github.seanebones-lang/deadbolt", {}).get("code") == denied, "Expected tool denial: " + denied)
                     require(after == before, "A denied tool body ran")
                 else:
                     require("result" in response, "Expected admitted tool result")

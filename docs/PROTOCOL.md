@@ -100,10 +100,43 @@ fixed cutoff, before idle expiry. No in-flight cancellation is performed.
 `GET /status` lists every lease. `GET /status?agent=shop-bot` lists one.
 
 ```json
-{"agents":[{"agent_id":"shop-bot","state":"active","parent_id":null,"expires_at":0,"hard_deadline_at":null,"clips":[],"swarm_task_id":null}]}
+{"agents":[{"agent_id":"shop-bot","state":"killed","parent_id":null,"expires_at":0,"hard_deadline_at":null,"supervision_root":null,"clips":[],"swarm_task_id":null}]}
 ```
 
-`state` is `active`, `paused`, or `killed`. Expiration is checked at admission; a stored active row may already have a past `expires_at` or (in current source) `hard_deadline_at`.
+Current source reports read-only effective `state`: `active`, `paused`, `killed`,
+`expired`, or `deadline_exceeded`. Kill wins; otherwise the fixed deadline wins
+over idle expiry, including for paused leases. Status never rewrites the lease
+or records an admission. It describes that lease's own state and clocks, not a
+complete tool/ancestor-policy admission decision. Check fresh admission before
+every effect. Published 2.0.0-rc.1 and 1.x binaries still report stored state.
+
+The HTTP enumeration contract remains an empty `agents` list for a missing ID.
+In current source the operator CLI `deadbolt status --agent <missing>` exits 1
+with `deadbolt:not_found`; an empty unfiltered inventory exits 0. A successful
+status query, including one reporting expiry, is not permission to execute.
+
+## MCP admission denials (unreleased source)
+
+Well-formed denied `tools/call` requests receive a normal JSON-RPC result with
+`isError: true`, rather than a protocol error. For example:
+
+```json
+{"jsonrpc":"2.0","id":7,"result":{"isError":true,"content":[{"type":"text","text":"DeadBolt denied: lease_expired. Do not retry this run."}],"_meta":{"io.github.seanebones-lang/deadbolt":{"code":"lease_expired","retry":"never"}}}}
+```
+
+The namespaced metadata contains stable `code` and `retry` tokens. Text also
+contains the code and guidance so clients can show it to the model without
+exposing metadata. Terminal kill/idle expiry/deadline denials say `never`;
+pause says `after_operator_resume`; storage failure says `after_service_recovery`;
+other denials require `after_operator_intervention`. No automatic retry occurs.
+Unknown sidecar reason strings become `store_unavailable`. No arguments,
+allowlists, credentials or renewal instructions are reflected. This response
+does not forward the denied call or weaken its admission decision.
+
+Malformed envelopes and tool-call parameters remain JSON-RPC protocol errors.
+This follows [MCP's tool error distinction](https://modelcontextprotocol.io/specification/2025-11-25/server/tools#error-handling).
+The published 2.0.0-rc.1 and 1.x engines still use JSON-RPC errors for denials;
+these source changes require a separately validated new release.
 
 ## Errors
 

@@ -61,8 +61,12 @@ function environment(c) {
   const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.toUpperCase().startsWith('DEADBOLT_')));
   return { ...env, DEADBOLT_DB: c.database, DEADBOLT_EVENTS: c.events };
 }
-function runOperator(exe, c, args) {
+function runOperator(exe, c, args, allowMissingStatus = false) {
   const r = spawnSync(exe, args, { env: environment(c), encoding: 'utf8', timeout: 10000, maxBuffer: 1048576, windowsHide: true, shell: false });
+  // A named missing lease is not successful readiness. Only the initial,
+  // operator-owned setup query may interpret its exact not-found response.
+  if (!r.error && allowMissingStatus && r.status === 1 &&
+      r.stdout.trim() === 'deadbolt status none' && r.stderr.trim() === 'deadbolt:not_found') return r.stdout;
   if (r.error || r.status !== 0) fail('operator_setup_failed');
   return r.stdout;
 }
@@ -70,7 +74,7 @@ function start(root, file) {
   const c = readConfig(file), exe = binary(root), env = environment(c);
   // Read-only status distinguishes a fresh ID from existing terminal state.
   // Never slide a deadline, migrate an old idle-only lease, or change renewal mode.
-  const status = runOperator(exe, c, ['status', '--agent', c.agent]).trim();
+  const status = runOperator(exe, c, ['status', '--agent', c.agent], true).trim();
   if (status === 'deadbolt status none') {
     runOperator(exe, c, [c.renewal_mode === 'supervisor' ? 'supervise' : 'issue',
       '--agent', c.agent, '--hard-deadline-at', String(c.hard_deadline_at)]);
