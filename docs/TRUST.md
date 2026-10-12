@@ -79,7 +79,7 @@ No frontier shutdown. No shadow-agent discovery. No fleet halt. No proof that a 
 
 Unset policy is open. A set `tools_allow` denies `purpose_exceeded` for tools outside the list.
 
-**Unreleased MCP setup candidate:** raw proxy runtime does not create a lease.
+**Published RC2 MCP setup:** raw proxy runtime does not create a lease.
 Every MCP tool admission requires an existing live lease and an explicitly set
 tool allowlist, including exact grants and scoped calls. Missing policy denies
 `policy_required` before target TTL renewal or approval consumption. An empty
@@ -88,7 +88,7 @@ unset-policy behavior above. MCP enforcement always fails closed and its new
 sidecar routes cannot downgrade to older admission routes. Downstream startup
 and non-tool methods are still outside the tool-call gate.
 
-**Current source tightens destination policy:** when `dest_allow` is set, every tool must declare an allowed destination unless the operator explicitly lists it in the per-lease `offline_tools`. A present foreign destination is denied even for an offline-classified tool. Empty `offline_tools` clears the exceptions. This replaces name-based classification; arbitrary names such as `shell`, `python`, `curl` and custom MCP tools no longer receive an implicit missing-destination exception. Existing destination policies migrate to no offline exceptions. Published RC2 additionally evaluates each ancestor’s destination rule: an offline exception on a child cannot override a missing exception on its parent. Configure each child’s actual routes; older published engines apply only the child’s own policy.
+**Published RC2 destination policy:** when `dest_allow` is set, every tool must declare an allowed destination unless the operator explicitly lists it in the per-lease `offline_tools`. A present foreign destination is denied even for an offline-classified tool. Empty `offline_tools` clears the exceptions. This replaces name-based classification; arbitrary names such as `shell`, `python`, `curl` and custom MCP tools no longer receive an implicit missing-destination exception. Existing destination policies migrate to no offline exceptions. Published RC2 additionally evaluates each ancestor’s destination rule: an offline exception on a child cannot override a missing exception on its parent. Configure each child’s actual routes; older published engines apply only the child’s own policy.
 
 The new behavior is not in stable 1.0.3 or the original 1.1.0-rc.1 release. Review the [destination migration guide](DESTINATION-POLICY.md) before upgrading. This is admission policy over executor-declared tokens, **not network egress enforcement**: it cannot verify DNS, redirects, sockets, subprocess networking or a dishonest caller's declared host. Derive destinations from trusted execution parameters and pair sensitive workloads with OS/container egress controls. Never classify general code execution as offline merely because its tool name sounds local.
 
@@ -110,9 +110,10 @@ requirements; quiesce protected dispatch before any rollback.
 
 ## Optional supervised idle expiry (2.0 candidate)
 
-[Supervisor-only renewal](SUPERVISION.md) is a separate opt-in control for fresh
-root runs. Admissions do not refresh those leases; a separate root-bound
-credential maintains only still-live members. A fixed deadline remains immutable
+[Supervisor-only renewal](SUPERVISION.md) is the default for fresh RC2
+root runs. RC1 requires explicit supervisor setup; existing activity-mode runs
+retain their original renewal mode. Admissions do not refresh those leases; a
+separate root-bound credential maintains only still-live members. A fixed deadline remains immutable
 and wins even during heartbeat activity. The explicit Python renewal call never
 uses operator/workload environment authentication. Published 1.x artifacts
 do not include this feature; source, migration and release gates apply. Running

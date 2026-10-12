@@ -230,9 +230,10 @@ callback wrappers and does not turn them into cancellable processes.
 
 ## Optional supervised idle expiry (2.0 candidate)
 
-[Supervisor-only renewal](SUPERVISION.md) is a separate opt-in control for fresh
-root runs. Admissions do not refresh those leases; a separate root-bound
-credential maintains only still-live members. A fixed deadline remains immutable
+[Supervisor-only renewal](SUPERVISION.md) is the default for fresh RC2
+root runs. RC1 requires explicit supervisor setup; existing activity-mode runs
+retain their original renewal mode. Admissions do not refresh those leases; a
+separate root-bound credential maintains only still-live members. A fixed deadline remains immutable
 and wins even during heartbeat activity. The explicit Python renewal call never
 uses operator/workload environment authentication. Published 1.x artifacts
 do not include this feature; source, migration and release gates apply. Running
