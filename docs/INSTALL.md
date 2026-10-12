@@ -36,8 +36,9 @@ On macOS, the signed preview engine is also available without a Rust build:
 brew install --cask seanebones-lang/tap/n11-deadbolt-preview
 ```
 
-The stable commands below deliberately retain 1.0.3. Editor/MCPB bundles keep
-their own versions and pinned engine identity; they do not yet package engine 2.0.
+The stable commands below deliberately retain 1.0.3. The separately published
+[MCPB 2.0 preview](#mcpb-20-preview) packages engine 2.0 with new operator
+configuration; stable MCPB/editor artifacts retain their older pinned engines.
 
 Choose a published native executable for a quick evaluation, or a reviewed source
 candidate for the new APIs. The Python client connects to a **separately installed
@@ -123,6 +124,18 @@ OS download policy. CI artifacts are unsigned candidates, not those published
 Mac downloads. See [release verification](RELEASING.md#install-an-archive).
 Linux arm64, Windows arm64 and Alpine/musl are outside the native asset matrix.
 
+## MCPB 2.0 preview
+
+[Download the 2.0.0-rc.1 preview bundle](https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v2.0.0-rc.1/deadbolt-2.0.0-rc.1.mcpb), or inspect its [release, checksums and four-host acceptance reports](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.0-rc.1). Bundle SHA-256:
+
+```text
+ee984aaead77f4cc5df4f586c0c4709f967fcf8de667bdcecb253cad743de1e7
+```
+
+This is a separate preview, not a silent update of stable bundle 1.1.0. Read the [version 2 configuration and migration guide](../dist/mcpb/README.md), use a fresh run ID, set a fixed future integer Unix deadline, choose activity or separately operated supervisor renewal, and review offline exceptions (default empty). Old configuration is refused. Restart cannot extend a deadline or revive expired/killed state. Destination declarations are policy, not OS egress enforcement; this gate does not cancel already running effects. Its irreversible tool approvals remain broad one-shot approvals; the launcher does not provision exact-action grants.
+
+Node.js 20+ and the same four native targets are required. Blank configuration provides only read-only setup and no protection. Four-host tests exercised actual disposable allow/deny effects and startup/restart refusal; graphical client installation of this preview and independent outside-adopter reproduction remain open. The stable instructions below use their own versioned configuration.
+
 ## Local MCP bundle (MCPB)
 
 For VS Code and Cursor, use [the editor installation kit](EDITORS.md): verify and
@@ -131,10 +144,10 @@ and test disposable effects before connecting a real server.
 
 [Download bundle 1.1.0 directly from GitHub](https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v1.1.0/deadbolt-1.1.0.mcpb)
 without signing in. [Release notes and SHA256SUMS](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v1.1.0)
-are published alongside the bundle. It is also available through
+are published alongside the bundle. For catalog discovery, see
 [Smithery](https://smithery.ai/servers/seanebones/deadbolt) and listed in the
 [official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.seanebones-lang%2Fdeadbolt&limit=10)
-as `io.github.seanebones-lang/deadbolt`.
+as `io.github.seanebones-lang/deadbolt`. Catalogs now advertise the separate 2.0 preview; use the direct stable download above when selecting 1.1.0.
 Clients download it and run it on their own computer; these listings are not
 public DeadBolt operator APIs. Your selected client may require its own account.
 DeadBolt itself requires no model key or hosted service for local operation.
