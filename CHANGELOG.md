@@ -3,7 +3,12 @@
 Versioned GitHub releases identify publication and the exact source revision.
 The older `v0.1.1-product` tag is not the standalone hardening release.
 
-## Unreleased source after RC2
+## 2.0.0-rc.3 — candidate source
+
+Corrected developer preview candidate, not stable qualification. The Rust/core
+version is `2.0.0-rc.3` and the matching Python version is `2.0.0rc3`.
+Publication, exact artifact hashes and graphical/model acceptance are separate
+gates. Published RC2 archives, packages and bundles retain their original bytes.
 
 - Refuse routed MCP arguments declaring multiple distinct recognized destination
   hosts, before admission, grant consumption or forwarding. Repeated declarations
