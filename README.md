@@ -39,17 +39,21 @@ not an engine or sidecar. [Read the migration guide](docs/MIGRATING-V2.md) befor
 The [Homebrew preview](docs/HOMEBREW.md#explicitly-select-the-prerelease) and
 [local MCPB RC2](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.0-rc.2)
 are available. [Use the RC2 editor helper](docs/EDITORS-V2.md) for Cursor/VS Code.
-PyPI now supplies the matching `2.0.0rc2` client. Cargo remains on RC1 until its
-separate corrected publication is verified. Use the RC2
-native download, verified GitHub wheel or immutable source tag now:
+PyPI supplies the matching `2.0.0rc2` client, and crates.io supplies the
+checksum-verified `2.0.0-rc.2` Rust CLI and library. Select the preview explicitly:
 
 ```sh
-git clone --branch v2.0.0-rc.2 --depth 1 https://github.com/seanebones-lang/deadbolt.git
-cd deadbolt
-cargo install --path . --locked --bin deadbolt
+cargo install n11-deadbolt --version 2.0.0-rc.2 --locked --bin deadbolt
+deadbolt --version
+deadbolt drill
 # In your application's virtual environment:
 python -m pip install 'n11-deadbolt-client==2.0.0rc2'
 ```
+
+For an embedded Rust application, pin
+`deadbolt = { package = "n11-deadbolt", version = "=2.0.0-rc.2" }`.
+[Cargo, source and upgrade instructions](docs/INSTALL.md#cargo-registry-cli-and-embedded-rust)
+explain dependency locks and preserving existing installations.
 
 ## Try it before connecting an agent
 

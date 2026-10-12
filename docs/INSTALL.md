@@ -23,10 +23,10 @@ checksum-verified release wheel. Install the matching native engine separately:
 python -m pip install /absolute/path/to/n11_deadbolt_client-2.0.0rc2-py3-none-any.whl
 ```
 
-PyPI now offers matching client `2.0.0rc2`. Cargo remains on RC1 until its
-separate corrected publication is verified. That earlier engine does not include every RC2 correction. For the
-corrected Rust CLI or library, use [the RC2 source tag](#reviewed-source-candidate)
-or a native download. The stable routes below retain 1.0.3. The separately
+PyPI offers matching client `2.0.0rc2`, and crates.io offers the
+checksum-verified `2.0.0-rc.2` Rust CLI and library. Select that exact preview
+version, [the RC2 source tag](#reviewed-source-candidate), or a native download.
+The stable routes below retain 1.0.3. The separately
 published [MCPB RC2 preview](#mcpb-20-preview) includes the matching engine;
 [the RC2 editor guide](EDITORS-V2.md) exports Cursor/VS Code configurations without
 overwriting the stable helper or existing installations.
@@ -41,7 +41,7 @@ executable**; installing the client does not start a sidecar.
 | [Homebrew tap](HOMEBREW.md) | macOS Apple Silicon or Intel and Homebrew | Signed prebuilt stable CLI or explicitly selected preview; no Rust build |
 | Local MCP bundle (MCPB) | Compatible local MCP client, Node.js 20+ and a trusted downstream stdio server | Bundle 1.1.0 with stable v1.0.3 binaries and a configuration-file launcher |
 | [Docker stdio MCP](DOCKER-MCP.md) | Git and a running Docker Linux engine, ARM64 or AMD64 | Source-built package 1.0.0 with stable engine 1.0.3; catalog review pending |
-| Cargo registry CLI / embedded Rust | Rust 1.85+, native C compiler/linker for bundled SQLite | Stable 1.0.3 or older RC1; corrected RC2 uses the source-tag route |
+| Cargo registry CLI / embedded Rust | Rust 1.85+, native C compiler/linker for bundled SQLite | Stable 1.0.3 or explicitly selected corrected preview 2.0.0-rc.2 |
 | Source binary / embedded Rust | Git, Rust 1.85+, native C compiler/linker for bundled SQLite | APIs at your selected tag or exact commit |
 | Python source installation | Python 3.10+, pip and a reviewed checkout | Base client with no third-party runtime dependencies |
 | Python package | Python 3.9+ and pip; pinned PyPI wheel or reviewed `.whl` | Prerelease client; engine installed separately; no Rust needed for the wheel |
@@ -243,11 +243,32 @@ Cargo does not use a dependency's lockfile when resolving your application.
 See the [dispatch-boundary example](INTEGRATION.md#build-in-rust-executor).
 [Stable Rust API reference](https://docs.rs/n11-deadbolt/1.0.3/deadbolt/).
 
-The Cargo registry's earlier candidate `2.0.0-rc.1` remains available, but
-it does not include every corrected RC2 guarantee. Use the [RC2 source tag](#reviewed-source-candidate)
-until a matching registry update is published and verified. Packaged registry
-READMEs are frozen release snapshots; this current guide tracks available routes.
-Node remains a bundled source client.
+To evaluate the corrected preview, select it explicitly:
+
+```sh
+cargo install n11-deadbolt --version 2.0.0-rc.2 --locked --bin deadbolt
+deadbolt --version
+deadbolt drill
+```
+
+Expected version: `deadbolt 2.0.0-rc.2`; expected drill: `deadbolt drill ok`.
+For an embedded library, pin the exact preview in your application's manifest:
+
+```toml
+[dependencies]
+deadbolt = { package = "n11-deadbolt", version = "=2.0.0-rc.2" }
+```
+
+The published crate's SHA-256 is
+`b7a54a6eb15dc151018ed859d11da51054a59a84c2c2b910ac078777092d91a7`,
+matching the immutable GitHub release. [Registry download and consumer evidence](evidence/cargo-registry-rc2-2026-10-12.json)
+records the NextEleven-operated Rust 1.85 CLI and embedded-application checks.
+`--locked` uses the package's dependency
+lock for CLI installation; an embedded application needs its own committed lock.
+Read [the major-version migration guide](MIGRATING-V2.md) before upgrading.
+Earlier RC1 remains available but does not include every RC2 correction.
+Packaged registry READMEs are frozen release snapshots; this current guide tracks
+available routes. Node remains a bundled source client.
 
 ## Published source
 
@@ -287,7 +308,7 @@ an archive. Replacing an existing Cargo-installed binary requires an intentional
 cargo install --git https://github.com/seanebones-lang/deadbolt.git --tag v2.0.0-rc.2 --locked --bin deadbolt
 ```
 
-RC2 Cargo registry publication remains separate. For an embedded source dependency,
+The matching RC2 registry package is also available above. For an embedded source dependency,
 pin the exact reviewed release revision:
 
 ```toml

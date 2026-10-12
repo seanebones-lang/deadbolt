@@ -20,9 +20,11 @@ python -m pip install /absolute/path/to/n11_deadbolt_client-2.0.0rc2-py3-none-an
 ```
 
 Expected engine: `deadbolt 2.0.0-rc.2`. The Homebrew preview also supplies RC2.
-PyPI now supplies matching client `2.0.0rc2`. Cargo remains on RC1 until separately
-published and verified; do not assume an older registry engine includes RC2 guarantees. [Build the RC2 source pair](PYPI.md#evaluate-the-corrected-source-candidate)
-if needed. Actual GUI/model acceptance and the independent rerun remain separate
+PyPI supplies matching client `2.0.0rc2`; crates.io supplies the matching
+`2.0.0-rc.2` Rust CLI and library. [Select the exact Cargo preview](INSTALL.md#cargo-registry-cli-and-embedded-rust)
+or [build the RC2 source pair](PYPI.md#evaluate-the-corrected-source-candidate).
+Do not assume an older registry engine includes RC2 guarantees.
+Actual GUI/model acceptance and the independent rerun remain separate
 stable-release gates. No old package or tag is overwritten.
 
 ## Rust source changes

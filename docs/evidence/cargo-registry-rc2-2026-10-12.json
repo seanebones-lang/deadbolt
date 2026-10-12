@@ -1,0 +1,104 @@
+{
+  "verified_at": "2026-10-12T17:14:18.876842+00:00",
+  "version": "2.0.0-rc.2",
+  "published_checksum": "b7a54a6eb15dc151018ed859d11da51054a59a84c2c2b910ac078777092d91a7",
+  "download_sha256": "b7a54a6eb15dc151018ed859d11da51054a59a84c2c2b910ac078777092d91a7",
+  "matches_github_release": true,
+  "source_commit": "d166c7b039800bbd6d8acb1bc5c66f9add472f5f",
+  "yanked": false,
+  "rust_version": "1.85",
+  "operator": "NextEleven",
+  "independent_review": false,
+  "cli_install": {
+    "source": "crates.io",
+    "toolchain": "Rust 1.85.0",
+    "version_flag": "2.0.0-rc.2",
+    "locked": true,
+    "installed_version": "deadbolt 2.0.0-rc.2",
+    "drill": "passed",
+    "binary_sha256": "4b860db72a61e369e4c5e5866f768064fa770d91979c6b3ec1a109ea1049fc41"
+  },
+  "effect_evaluation": {
+    "passed": true,
+    "binary_version": "deadbolt 2.0.0-rc.2",
+    "binary_sha256": "4b860db72a61e369e4c5e5866f768064fa770d91979c6b3ec1a109ea1049fc41",
+    "integration": "Python HTTP client with temporary file dispatcher",
+    "checks": [
+      {
+        "case": "allowed.txt",
+        "decision": "allow",
+        "body_ran": true
+      },
+      {
+        "case": "off-policy.txt",
+        "decision": "purpose_exceeded",
+        "body_ran": false
+      },
+      {
+        "case": "unapproved.txt",
+        "decision": "needs_human",
+        "body_ran": false
+      },
+      {
+        "case": "approved-once.txt",
+        "decision": "allow",
+        "body_ran": true
+      },
+      {
+        "case": "approval-consumed.txt",
+        "decision": "needs_human",
+        "body_ran": false
+      },
+      {
+        "case": "killed-parent.txt",
+        "decision": "killed",
+        "body_ran": false
+      },
+      {
+        "case": "killed-child.txt",
+        "decision": "killed",
+        "body_ran": false
+      },
+      {
+        "case": "unrelated.txt",
+        "decision": "allow",
+        "body_ran": true
+      },
+      {
+        "case": "outage.txt",
+        "decision": "store_unavailable",
+        "body_ran": false
+      },
+      {
+        "case": "restart-revoked.txt",
+        "decision": "killed",
+        "body_ran": false
+      },
+      {
+        "case": "restart-unrelated.txt",
+        "decision": "allow",
+        "body_ran": true
+      }
+    ],
+    "scope": "This demonstration dispatcher only; no model or whole-agent containment."
+  },
+  "embedded_consumer": {
+    "source": "crates.io",
+    "dependency": "n11-deadbolt = =2.0.0-rc.2",
+    "application_lockfile": true,
+    "toolchain": "Rust 1.85.0",
+    "cases": [
+      "missing run denied",
+      "one allowed callback",
+      "off-policy callback denied",
+      "killed callback denied",
+      "reopened killed run denied"
+    ],
+    "allowed_effects": 1,
+    "passed": true
+  },
+  "credential_cleanup": {
+    "temporary_token_revoked": true,
+    "temporary_file_removed": true
+  }
+}
