@@ -146,16 +146,29 @@ A fresh admission happens before the callback. A denial leaves the body uncalled
 transport and error handling. Wrap every protected route; never cache an allow
 or perform a separate admission before a one-shot dispatch helper.
 
+## 2.0 release candidate in this source
+
+This checkout prepares **engine 2.0.0-rc.1** and **Python client 2.0.0rc1**.
+It consolidates strict destination policy, immutable run deadlines, optional
+supervisor-only liveness and the owned-process cancellation reference. Existing
+1.x packages and MCPB/plugin bundles stay separately versioned. Publication and
+installation checks are separate from a source merge.
+
+[Migration and source compatibility](docs/MIGRATING-V2.md) explains the major Rust
+version, changed destination policy and preservation of existing runs. Use a
+reviewed candidate checkout or its verified versioned artifacts; the 1.x registry
+commands above do not install these new controls. See [local data/privacy](docs/PRIVACY.md).
+
 ## Controls you can build on
 
 - Tool allow-lists, destination tokens, reported-spend caps, pause and clips.
 - Leases with a default 60-second sliding TTL; killed IDs stay killed.
-- Current unreleased source adds [supervisor-only liveness](docs/SUPERVISION.md):
+- The 2.0 candidate adds [supervisor-only liveness](docs/SUPERVISION.md):
   a separate root-bound credential maintains live runs and children; agent
   activity cannot renew them. Optional fixed deadlines still win.
-- Current unreleased source adds [fixed operator-issued deadlines](docs/LEASE-DEADLINES.md)
+- The 2.0 candidate adds [fixed operator-issued deadlines](docs/LEASE-DEADLINES.md)
   for new runs and their children. This blocks new admissions, with no automatic
-  cancellation of already running work; published engine/plugin downloads do not yet include it.
+  cancellation of already running work; published 1.x engine/plugin downloads do not include it.
 - Operator kill blocks subsequent actions for an ID and its registered descendants.
 - Broad one-shot approval for classified irreversible tools; the candidate adds
   [review of exact arguments](docs/ACTION-APPROVALS.md), including recipient/body/amount.

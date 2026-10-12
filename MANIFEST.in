@@ -1,3 +1,2 @@
-include LICENSE NOTICE Cargo.toml
-include docs/PYTHON.md docs/ACTION-APPROVALS.md docs/CREDENTIALS.md
-include docs/EXECUTOR-CANCELLATION.md
+include LICENSE NOTICE Cargo.toml SECURITY.md
+recursive-include docs *.md

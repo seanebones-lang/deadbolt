@@ -1,5 +1,16 @@
 # Install DeadBolt
 
+## New 2.0 candidate
+
+The current checkout prepares engine `2.0.0-rc.1` and Python client `2.0.0rc1`.
+Use [the migration guide](MIGRATING-V2.md) for reviewed-source/wheel installation,
+new controls, state preservation and rollback limits. Versioned candidate files
+become downloadable only after release validation and publication. Published 1.x
+commands below remain valid for their original artifacts and do not include the
+new deadline/supervision/destination behavior. Editor/MCPB bundles keep their own
+versions and pinned engine identity.
+
+
 Choose a published native executable for a quick evaluation, or a reviewed source
 candidate for the new APIs. The Python client connects to a **separately installed
 executable**; installing the client does not start a sidecar.

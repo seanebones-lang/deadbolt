@@ -30,6 +30,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--install-sdk", action="store_true",
                         help="Install the verified wheel plus its SDK extra into this Python environment")
+    parser.add_argument("--install-wheel", action="store_true",
+                        help="Install the verified base wheel into this Python environment")
     args = parser.parse_args()
     cargo = tomllib.loads((ROOT / "Cargo.toml").read_text())["package"]["version"]
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
@@ -46,6 +48,12 @@ def main():
         with tarfile.open(sdist) as archive:
             archive.extractall(unpacked, filter="data")
         source = unpacked / ("n11_deadbolt_client-" + version)
+        # Ship the guides referenced by migration/privacy, rather than broken
+        # relative links in an otherwise installable source distribution.
+        for document in ("SECURITY.md", "docs/MIGRATING-V2.md", "docs/PRIVACY.md",
+                         "docs/TRUST.md", "docs/OPERATIONS.md", "docs/DESTINATION-POLICY.md",
+                         "docs/LEASE-DEADLINES.md", "docs/SUPERVISION.md", "docs/EXECUTOR-CANCELLATION.md"):
+            assert (source/document).read_bytes() == (ROOT/document).read_bytes(), document
         wheels = temp / "wheel"
         run([sys.executable, "-m", "build", "--wheel", "--outdir", str(wheels)], cwd=source,
             stdout=subprocess.DEVNULL)
@@ -84,14 +92,15 @@ print("installed base wheel: import, fail-closed body, no SDK dependency passed"
         report = {"version": version, "cargo_version": cargo, "base_runtime_dependencies": [],
                   "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),
                   "sdist_sha256": hashlib.sha256(sdist.read_bytes()).hexdigest(),
-                  "checks": ["sdist-to-wheel outside checkout", "license and notice",
+                  "checks": ["sdist-to-wheel outside checkout", "complete migration and privacy guides", "license and notice",
                              "isolated install without dependencies", "import without SDK",
                              "unavailable sidecar leaves body untouched", "installed CLI"]}
         (OUT / "package-acceptance.json").write_text(json.dumps(report, indent=2) + "\n")
         print(json.dumps(report, indent=2))
-        if args.install_sdk:
+        if args.install_sdk or args.install_wheel:
             run([sys.executable, "-m", "pip", "install", "--force-reinstall", "--no-deps",
                  str(OUT / wheel.name)], cwd=temp)
+        if args.install_sdk:
             run([sys.executable, "-m", "pip", "install", "-r", str(ROOT / "tests/openai-agents-requirements.txt")], cwd=temp)
 
 

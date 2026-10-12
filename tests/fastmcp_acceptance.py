@@ -31,7 +31,9 @@ def main():
         for filename in ("fastmcp_demo.py", "fastmcp_server.py"):
             shutil.copyfile(ROOT / "examples" / filename, consumer / filename)
         completed = subprocess.run([sys.executable, str(consumer / "fastmcp_demo.py"), "--binary", str(binary)],
-                                   cwd=consumer, env=clean_env, check=True, capture_output=True, text=True, timeout=90)
+                                   cwd=consumer, env=clean_env, capture_output=True, text=True, timeout=90)
+        if completed.returncode:
+            raise RuntimeError("outside-checkout recipe failed:\n" + (completed.stdout + completed.stderr)[-3000:])
         report = json.loads(completed.stdout)
         if report.get("passed") is not True or report.get("count") != 17:
             raise RuntimeError("not all stdio effect cases passed")

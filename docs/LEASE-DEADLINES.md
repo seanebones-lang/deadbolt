@@ -1,4 +1,4 @@
-# Fixed lease deadlines (current source, unreleased)
+# Fixed lease deadlines (2.0 candidate)
 
 The operator can issue a fresh run with a fixed Unix-seconds deadline. At or
 after that timestamp, new protected admissions deny `deadline_exceeded`, even
@@ -6,11 +6,11 @@ if the agent keeps making allowed or denied requests. This is separate from
 the default 60-second idle timer, which still slides on activity before the
 deadline. Idle expiry can deny earlier with `lease_expired`.
 
-This feature is in current source, **not** the published v1.0.3 engine,
-1.1.0-rc.1 registry engine, or existing MCPB/plugin downloads. Build reviewed
-source with `cargo build --release --locked`; record the source commit as well
-as the binary version. Do not assume a shared Cargo version identifies these
-new guarantees.
+This feature belongs to the reviewed 2.0 candidate, **not** the published
+v1.0.3 engine, 1.1.0-rc.1 registry engine, or existing 1.x MCPB/plugin downloads.
+Follow [2.0 migration and artifact verification](MIGRATING-V2.md). Record the
+source commit, binary version and checksums; installing a newer client alone
+does not upgrade the engine.
 
 ## Issue in trusted setup
 
@@ -102,7 +102,7 @@ not atomic: a callback admitted just before the deadline may start or continue
 after it. No running process is automatically terminated. The executor must
 implement cancellation, process confinement and OS egress controls where
 required. `wait_until_revoked` currently watches operator kill only, not this
-deadline. Optional [supervisor-only idle renewal](SUPERVISION.md) is a separate unreleased
+deadline. Optional [supervisor-only idle renewal](SUPERVISION.md) is a separate 2.0 candidate
 source control; its heartbeat also cannot extend the fixed deadline.
 
 Run `cargo test --test deadline` for real-time allow/deny loops, withheld file
@@ -115,12 +115,12 @@ with Node 22+ to check real loopback Python/Node file effects and scoped access.
 CI runs this acceptance on Linux, macOS and Windows. No provider key or real
 account is needed.
 
-## Optional supervised idle expiry (unreleased source)
+## Optional supervised idle expiry (2.0 candidate)
 
 [Supervisor-only renewal](SUPERVISION.md) is a separate opt-in control for fresh
 root runs. Admissions do not refresh those leases; a separate root-bound
 credential maintains only still-live members. A fixed deadline remains immutable
 and wins even during heartbeat activity. The explicit Python renewal call never
-uses operator/workload environment authentication. Existing published artifacts
+uses operator/workload environment authentication. Published 1.x artifacts
 do not include this feature; source, migration and release gates apply. Running
 work still needs executor-owned cancellation and OS isolation where appropriate.

@@ -47,7 +47,7 @@ which still denies subsequent admissions rather than cancelling running bodies.
 
 A live admit, allow or deny, renews the idle TTL before the policy deny return. Silence does not renew. A stream of denied requests can keep an idle-only lease active. Scoped admission credentials have their own fixed expiry, which activity cannot renew.
 
-**Current source, unreleased:** operator `issue` creates a fresh run with an immutable `hard_deadline_at`. New admissions at or after that timestamp deny `deadline_exceeded` before idle TTL evaluation or renewal. Child leases inherit the deadline; restart preserves it; `ensure`, resume and policy cannot extend it. Killed leases still deny `killed`. [Deadline setup, migration, clock and cancellation limits](LEASE-DEADLINES.md) distinguish this guarantee from an absolute runtime limit on already admitted work. The published engines and plugin bundles do not yet include it. Optional [supervisor-only idle renewal](SUPERVISION.md) is another unreleased source addition with a separate root-bound credential; its heartbeat cannot extend that deadline.
+**2.0 candidate:** operator `issue` creates a fresh run with an immutable `hard_deadline_at`. New admissions at or after that timestamp deny `deadline_exceeded` before idle TTL evaluation or renewal. Child leases inherit the deadline; restart preserves it; `ensure`, resume and policy cannot extend it. Killed leases still deny `killed`. [Deadline setup, migration, clock and cancellation limits](LEASE-DEADLINES.md) distinguish this guarantee from an absolute runtime limit on already admitted work. Published 1.x engines and plugin bundles do not include it. Optional [supervisor-only idle renewal](SUPERVISION.md) is another 2.0 candidate addition with a separate root-bound credential; its heartbeat cannot extend that deadline.
 
 ## Agent id
 
@@ -93,12 +93,12 @@ nonces persist after use/revocation. Existing unconfigured integrations retain
 their behavior. This is available in 1.1.0-rc.1. Older binaries cannot enforce these new
 requirements; quiesce protected dispatch before any rollback.
 
-## Optional supervised idle expiry (unreleased source)
+## Optional supervised idle expiry (2.0 candidate)
 
 [Supervisor-only renewal](SUPERVISION.md) is a separate opt-in control for fresh
 root runs. Admissions do not refresh those leases; a separate root-bound
 credential maintains only still-live members. A fixed deadline remains immutable
 and wins even during heartbeat activity. The explicit Python renewal call never
-uses operator/workload environment authentication. Existing published artifacts
+uses operator/workload environment authentication. Published 1.x artifacts
 do not include this feature; source, migration and release gates apply. Running
 work still needs executor-owned cancellation and OS isolation where appropriate.

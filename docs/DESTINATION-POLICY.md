@@ -1,9 +1,10 @@
 # Destination policy: explicit offline tools
 
-This is **unreleased current-source behavior**, added after stable 1.0.3 and the
+This is **2.0 candidate behavior**, added after stable 1.0.3 and the
 original 1.1.0-rc.1 archives, crate and MCP bundle. Those published binaries still
 use the older name-based missing-destination rule. Updating documentation or the
 Python client alone cannot change an installed engine's admission behavior.
+Follow [the 2.0 migration guide](MIGRATING-V2.md) for the versioned candidate.
 
 ## Admission rule
 

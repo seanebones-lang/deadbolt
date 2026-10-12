@@ -206,6 +206,10 @@ jobs:
       - run: cargo doc --locked --no-deps
         env:
           RUSTDOCFLAGS: '-D warnings'
+      - name: Exclude ignored local build files from Cargo packages
+        run: python tests/crate_contents.py
       - run: cargo package --locked
       - name: Verify an outside-checkout embedded consumer
         run: python tests/packaged_consumer.py
+      - name: Compile original v1 and migrated v2 Rust consumers
+        run: python tests/rust_api_migration.py

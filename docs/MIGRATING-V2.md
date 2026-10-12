@@ -1,0 +1,111 @@
+# Migrating to the 2.0.0-rc.1 candidate
+
+This candidate consolidates explicit destination exceptions, immutable run
+deadlines, optional supervisor-only liveness and a Python owned-process reference.
+It is a developer-evaluation prerelease. Stable v1.0.3, the original
+v1.1.0-rc.1 packages and MCPB/plugin bundles remain distinct immutable artifacts.
+A source merge does not upgrade a package, running sidecar or editor plugin.
+
+## Choose a matching engine and client
+
+Rust uses `2.0.0-rc.1`; the Python wheel uses `2.0.0rc1`. Install a reviewed
+candidate wheel in your own virtual environment and install its engine separately:
+
+```sh
+python -m pip install /absolute/path/to/n11_deadbolt_client-2.0.0rc1-py3-none-any.whl
+/absolute/path/to/deadbolt --version
+/absolute/path/to/deadbolt drill
+```
+
+Expected engine version: `deadbolt 2.0.0-rc.1`. Before publication, build the
+reviewed candidate checkout with `cargo build --release --locked` and build
+its wheel from the sdist. After publication, verify the selected native archive
+checksum and its `BUILD.json` source revision. Existing registry commands pinned
+to 1.x still install 1.x. Do not mix newer documentation with an older binary
+and assume the guarantee exists. No old package/tag is overwritten.
+
+## Rust source changes
+
+A new enum variant and added public fields require a major Rust version. This is
+not a drop-in minor upgrade for applications using exhaustive matches or struct
+literals. Change an exhaustive denial match to include the fixed-deadline case:
+
+```rust
+match code {
+    deadbolt::DenyCode::DeadlineExceeded => stop_the_protected_action(),
+    // Keep the existing denial branches; every denial withholds the body.
+    other => handle_existing_denial(other),
+}
+```
+
+The two application functions above are placeholders for your trusted routing.
+If you only need the machine token, `code.as_str()` handles every shipped variant
+without reconstructing a match. Unknown HTTP/client denial codes must remain
+refusals, never permission.
+
+`AgentStatus` adds `hard_deadline_at: Option<i64>` and
+`supervision_root: Option<String>`. `ExportRow` adds `offline_tools`,
+`hard_deadline_at`, `supervision_root`, `expires_at` and `renewed` optional fields.
+Update test/mock literals with `None` when representing an unchanged legacy row.
+Prefer reading values returned by `status` and `export` in application code.
+Do not synthesize status to authorize an executor. The candidate's downstream
+migration fixture compiles an original v1.0.3 consumer, demonstrates the expected
+E0004/E0063 errors against the candidate, and compiles the migrated consumer.
+
+## Destination policy becomes explicit
+
+When a lease has `dest_allow`, every tool needs an executor-supplied allowed
+host, unless the operator explicitly lists it in that lease's `offline_tools`.
+Tool names no longer decide whether destination checks apply. Unconfigured
+leases retain open destination policy. Migrated destination policies default to
+an empty exception list: a previously accepted `shell` without a destination can
+now deny `purpose_exceeded`.
+
+Inventory actual protected routes before upgrading. Declare their true
+network destinations or explicitly review a genuinely offline implementation;
+do not exempt general shell/Python execution as an expedient. The setting is
+policy, not interception. Pair it with OS egress isolation where needed. See
+[destination setup](DESTINATION-POLICY.md) and [trust boundaries](TRUST.md).
+
+## Preserve existing run modes deliberately
+
+Existing rows migrate to admission-renewed idle leases, without a hard deadline
+or supervision root. Old admission credentials preserve their scope. Existing
+identities, policies, approvals, evidence, spend and terminal kills are retained.
+Child registration preserves lineage. Migration never silently enables a new
+run guarantee.
+
+A fixed deadline requires fresh operator `issue`/`POST /issue`. Supervised
+liveness requires fresh operator `supervise`/`POST /issue-supervised`. Registered
+children inherit the fixed deadline and supervision root. A heartbeat maintains
+only still-live matching members and cannot extend the fixed cutoff. Keep
+operator, admission and supervisor credentials on their documented planes.
+See [deadlines](LEASE-DEADLINES.md) and [supervision](SUPERVISION.md).
+
+## Stop, back up, upgrade, evaluate
+
+1. Stop protected dispatch and the sidecar. Do not let two versions administer
+   the same store concurrently.
+2. Back up SQLite with its backup API or the quiescent procedure in
+   [operations](OPERATIONS.md); preserve JSONL, optional Witness state and
+   credential files in operator-protected storage. Backups contain authority.
+3. Install the selected candidate, verify its version/hash/source identity,
+   and restart using the same protected state paths. Check existing killed
+   IDs, policies, child lineage and credentials before reconnecting workloads.
+4. Reproduce harmless allowed and denied marker effects through your actual
+   dispatch paths. Validate missing destinations, replayed approvals, kill,
+   store loss and any deadline/supervision modes you provision.
+5. Restore dispatch only after those checks pass. Keep an explicit route
+   inventory: successful source tests do not protect an unconnected tool.
+
+Older engines ignore the new fields and do not enforce these guarantees.
+Quiesce execution before rollback; reconcile all kills/revocations recorded after
+any backup. Restoring an old snapshot must not resurrect a revoked identity.
+A successful migration test is not permission to run older code on a new store.
+
+The gate blocks new admissions. In-flight cancellation belongs to an executor
+that owns the work. The [Python reference](EXECUTOR-CANCELLATION.md) is POSIX-only;
+Linux and macOS with Python 3.13+ support its required wait interface. It refuses
+unsupported hosts before execution. Windows native gate support does not imply
+Windows process-group cancellation support. OS sandboxing and authoritative
+provider cost collection remain separate integration responsibilities.
