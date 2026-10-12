@@ -5,6 +5,26 @@ The older `v0.1.1-product` tag is not the standalone hardening release.
 
 ## Unreleased after 2.0.0-rc.1
 
+- Default fresh Rust, CLI and HTTP roots to supervisor-only idle renewal;
+  preserve existing persisted modes and offer explicit legacy activity setup.
+  Strict HTTP mode parsing rejects duplicate, unknown and nonboolean options.
+  Keep the bundle's deliberate mode choice across old and corrected engines.
+
+- Add exact-byte native CI build attestations and repository/workflow/source
+  verification after the full main-branch packaging matrix succeeds. Existing
+  releases and later locally signed macOS bytes remain separate proof gates.
+
+- Add operator CLI child registration and a bounded global idle-TTL option.
+  Inactive registrations exit unsuccessfully; setup never refreshes existing
+  identities. Separate supervisor revocation from the provisioning example.
+
+- Require distribution hashes for the complete OpenAI Agents, Hermes and FastMCP
+  Python acceptance dependency sets, retaining their tested versions and adding
+  missing conditional platform dependencies.
+
+- Report changed operator action reviews with the nonsecret
+  `fingerprint_mismatch` error, without granting permission or echoing arguments.
+
 - Create Unix core/Witness SQLite and JSONL state privately before SQLite writes;
   refuse unsafe existing files, sidecars and writable parents. Document explicit
   quiesced permission migration and continuing OS ownership/Windows ACL limits.

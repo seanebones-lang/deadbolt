@@ -75,6 +75,7 @@ class ClientContract(unittest.TestCase):
         stale = subprocess.run([str(BINARY), "action", "approve", "--file", str(file), "--fingerprint", fingerprint],
                                env=self.env, capture_output=True, text=True)
         self.assertNotEqual(stale.returncode, 0)
+        self.assertEqual(stale.stderr.strip(), "deadbolt:fingerprint_mismatch")
         self.assertEqual(client.admit("agent", "send")["code"], "needs_human")
         self.assertEqual(client.admit_action(changed)["code"], "needs_human")
         subprocess.run([str(BINARY), "credential", "issue", "--agent", "agent", "--id", "key",

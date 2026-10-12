@@ -1,7 +1,9 @@
 # Supervisor-only liveness (2.0 candidate)
 
-Use this optional mode when the trusted supervisor's continued participation,
-not the agent's activity, should keep a run live. Use the reviewed 2.0 candidate
+Use supervisor liveness when the trusted supervisor's continued participation,
+not the agent's activity, should keep a run live. Unreleased corrected source
+defaults fresh `ensure`/`issue` runs to this mode through Rust, CLI and HTTP.
+Published 2.0.0-rc.1 still requires explicit supervisor setup. Use the reviewed 2.0 candidate
 engine and matching `2.0.0rc1` client wheel. The published 1.x engines, PyPI
 packages, MCPB bundles and editor plugins do **not** contain this addition.
 The separately published [MCPB 2.0 preview](INSTALL.md#mcpb-20-preview) supports
@@ -18,7 +20,12 @@ Two independent controls answer different questions:
 | Idle TTL, supervised mode | Time since issuance or a valid supervisor heartbeat | A separate renewal credential, while still live |
 | Optional fixed `hard_deadline_at` | The latest time a run may receive a new admission | Nothing; a new run requires a fresh operator-issued ID |
 
-The default CLI idle TTL is 60 seconds. Embedded Rust hosts configure
+The default CLI idle TTL is 60 seconds. Unreleased source accepts the global
+`--lease-ttl-secs 1..86400` option; use the same value for trusted issuance,
+registration and the running sidecar. It sets the window for future issuance
+and renewal; it does not rewrite a persisted expiry or revive a run. A longer
+setup window trades slower detection of a lost supervisor for more setup time.
+Embedded Rust hosts configure
 `DeadboltConfig.lease_ttl_secs`. Both modes deny at idle expiry. `deadline_exceeded`
 is checked before `lease_expired`; neither condition consumes an exact-action
 approval. Neither admission, setup, resume, policy nor renewal changes a fixed
@@ -44,8 +51,21 @@ deadbolt supervisor issue --agent review-run-002 --id review-supervisor-002 \
 deadbolt credential issue --agent review-run-002 --id review-worker-002 \
   --ttl-secs 600 --out "$HOME/.deadbolt/credentials/review-worker-002"
 deadbolt supervisor list
-deadbolt supervisor revoke --id review-supervisor-002
 ```
+
+In unreleased source, register children from the same operator shell:
+
+```sh
+deadbolt register-child --parent review-run-002 --agent review-child-002 \
+  --swarm-task-id task-002
+```
+
+Configure the child before starting it. Registration reports `live=true` or
+`live=false`; the latter exits unsuccessfully with `child_inactive`. The result
+does not replace fresh admission checks for ancestor liveness and policy. Stop
+renewal explicitly when finished: `deadbolt supervisor revoke --id
+review-supervisor-002`. Revocation prevents future renewal; use `kill` when new
+admissions must stop immediately.
 
 Configure policy and register children before handing admission access to the
 trusted dispatcher. Supervisor credentials can be issued only for a live
@@ -57,8 +77,14 @@ admission IDs share an immutable namespace; revoked IDs cannot be reused.
 
 Issuance cannot convert an existing lease's mode. Rust exposes
 `issue_supervised_agent(agent_id, optional_deadline)`; trusted HTTP setup uses
-`POST /issue-supervised`. `ensure` remains legacy setup and cannot acknowledge
-requested supervision. A fresh registered child inherits its parent's
+`POST /issue-supervised`. In unreleased corrected source, `ensure_agent` and
+`issue_agent` also create supervised roots. CLI `ensure`/`issue` default likewise;
+explicit activity renewal uses `--activity-renewal`. Rust compatibility callers
+use `ensure_activity_agent`/`issue_activity_agent`, and HTTP setup uses the
+strict boolean `activity_renewal: true`. Neither generic `ensure` variant
+converts an existing row: inspect its persisted `supervision_root` before
+assuming an old identity uses supervision. Use a fresh identity for a new mode.
+A fresh registered child inherits its parent's
 `supervision_root` and deadline, starts no later than its parent's idle expiry,
 and keeps a separate policy and approval ledger. Unreleased source applies
 ancestor capability and reported-spend ceilings without copying policy or grants.

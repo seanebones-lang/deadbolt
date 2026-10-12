@@ -195,7 +195,10 @@ commands above do not install these new controls. See [local data/privacy](docs/
 ## Controls you can build on
 
 - Tool allow-lists, destination tokens, reported-spend caps, pause and clips.
-- Leases with a default 60-second sliding TTL; killed IDs stay killed.
+- Leases with a default 60-second idle TTL; killed IDs stay killed. Published
+  rc.1 default roots slide it on activity. Corrected unreleased source defaults
+  fresh roots to supervisor renewal, preserving existing modes and offering
+  explicit activity setup.
 - The 2.0 candidate adds [supervisor-only liveness](docs/SUPERVISION.md):
   a separate root-bound credential maintains live runs and children; agent
   activity cannot renew them. Optional fixed deadlines still win.

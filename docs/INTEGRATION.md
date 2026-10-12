@@ -40,6 +40,12 @@ This addition ships in engine 2.0.0-rc.1; the older editor/MCP bundles do not
 include it. Select the matching release and record its identity. The normal Python/Node admission response already
 carries a denial code; keep callbacks uncalled on every denial.
 
+Unreleased corrected source defaults fresh `ensure` and `issue` identities to
+supervisor renewal. Existing identities keep their stored mode; trusted setup
+must provision a separate heartbeat before initial idle expiry. Explicit legacy
+activity setup and version-aware migration are documented in
+[supervision](SUPERVISION.md). A fixed deadline never extends on heartbeat.
+
 <a id="current-source-dispatch-helpers-110-rc1-prerelease"></a>
 
 ## Dispatch helpers (2.0 prerelease)
@@ -290,9 +296,11 @@ deadbolt policy --agent my-mcp-run-001 --tools read_file,write_file
 deadbolt mcp-proxy --agent my-mcp-run-001 -- python3 your_mcp_server.py
 ```
 
-Use your server's actual tool names. Prefer a fixed-deadline `issue` or supervised
-run for unattended work; the explicit `ensure` command retains legacy idle-only
-setup. A missing lease denies `no_lease`; an unset tool policy denies
+Use your server's actual tool names. The short demonstration runs within the
+initial idle window. For ongoing work, provision the supervisor and heartbeat
+described above; corrected source defaults fresh `ensure` roots to that mode.
+Explicit `--activity-renewal` is available for a deliberately selected legacy
+activity run. A missing lease denies `no_lease`; an unset tool policy denies
 `policy_required`; an empty allowlist denies every tool. The check also applies
 to exact-action grants and workload credentials. Setup denials do not slide the
 idle TTL or consume approvals. Published rc.1 and 1.x proxies retain their older

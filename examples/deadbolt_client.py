@@ -123,8 +123,19 @@ def _call(method, path, body=None, *, headers=None):
             conn.close()
 
 
-def ensure(agent_id):
-    return _call("POST", "/ensure", {"agent_id": agent_id})
+def ensure(agent_id, *, activity_renewal=False):
+    """Trusted setup. New corrected engines default to supervisor renewal.
+
+    Existing identities keep their persisted mode. Explicit activity renewal
+    requires a matching corrected engine; this client cannot upgrade an older
+    engine's default. Configure supervisor renewal separately before expiry.
+    """
+    if type(activity_renewal) is not bool:
+        raise ValueError("activity_renewal must be a boolean")
+    body = {"agent_id": agent_id}
+    if activity_renewal:
+        body["activity_renewal"] = True
+    return _call("POST", "/ensure", body)
 
 
 def renew_supervised(agent_id, secret):

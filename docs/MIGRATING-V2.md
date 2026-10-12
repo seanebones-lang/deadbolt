@@ -26,6 +26,23 @@ and assume the guarantee exists. No old package/tag is overwritten.
 
 ## Rust source changes
 
+Unreleased corrected source changes **fresh** `ensure_agent`/`issue_agent` roots
+to supervisor-only renewal, also through CLI `ensure`/`issue` and HTTP setup.
+Existing rows keep their original mode and timestamps. Provision a separate
+supervisor credential and job-scoped heartbeat before initial idle expiry; see
+[supervision setup](SUPERVISION.md). To deliberately retain workload activity
+renewal, use Rust `ensure_activity_agent`/`issue_activity_agent`, CLI
+`--activity-renewal`, or HTTP `activity_renewal: true`. Python `ensure` accepts
+the strict keyword `activity_renewal=True`; Node uses `{activityRenewal: true}`.
+The client alone cannot change an older engine's behavior. The bundle retains
+its explicit mode selection for both original rc.1 and corrected engines.
+
+Unreleased source adds `DeadboltError::FingerprintMismatch` for a changed CLI
+action review. Update exhaustive operator-error matches when adopting that
+source; its string token is `fingerprint_mismatch` and it never grants permission.
+It also adds `DeadboltError::ChildInactive` for unsuccessful CLI child
+registration, with token `child_inactive`. Update exhaustive error matches.
+
 A new enum variant and added public fields require a major Rust version. This is
 not a drop-in minor upgrade for applications using exhaustive matches or struct
 literals. Change an exhaustive denial match to include the fixed-deadline case:

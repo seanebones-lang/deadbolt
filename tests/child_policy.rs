@@ -248,8 +248,8 @@ fn inherited_policy_denial_preserves_activity_and_supervised_liveness_contracts(
             db.issue_supervised_agent("root", None).unwrap();
             db.issue_supervised_agent("local-policy", None).unwrap();
         } else {
-            db.ensure_agent("root").unwrap();
-            db.ensure_agent("local-policy").unwrap();
+            db.ensure_activity_agent("root").unwrap();
+            db.ensure_activity_agent("local-policy").unwrap();
         }
         db.register_child("root", "child", None).unwrap();
         for id in ["root", "local-policy"] {

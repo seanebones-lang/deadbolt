@@ -94,6 +94,14 @@ provider billing source or reservation for future/in-flight effects.
 
 Failure: `{"ok":false,"code":"<token>"}`.
 
+Unreleased corrected source creates a supervisor-renewed root for an absent
+identity. Existing identities retain their mode, timestamps, lineage and state;
+success is not acknowledgement that an existing run is supervised. Inspect
+status and provision a separate renewal credential before initial idle expiry.
+Explicit legacy activity setup sends `"activity_renewal":true`. The field must
+be a JSON boolean; duplicate and unknown fields are refused. Published rc.1
+and 1.x retain their previous activity default.
+
 ## POST /issue (current source, unreleased)
 
 Operator-only. Requires a fresh ID and a fixed future integer Unix timestamp:
@@ -110,6 +118,10 @@ by registered children; `/ensure` cannot change it. See [deadline setup and
 limits](LEASE-DEADLINES.md). New admissions deny `deadline_exceeded` at the
 fixed cutoff, before idle expiry. No in-flight cancellation is performed.
 
+Unreleased corrected source defaults this fresh root to supervisor renewal.
+Explicit legacy activity mode adds `"activity_renewal":true`, a strict boolean.
+Either mode remains bounded by the immutable deadline.
+
 ## POST /register_child
 
 ```json
@@ -117,6 +129,13 @@ fixed cutoff, before idle expiry. No in-flight cancellation is performed.
 ```
 
 `swarm_task_id` is optional. Success: `{"live":true}` or `{"live":false}` when the child is recorded killed. Failure: `{"ok":false,"code":"<token>"}`.
+
+Unreleased operator CLI equivalent: `deadbolt register-child --parent P
+--agent C --swarm-task-id task-1`. Its inactive result exits 1 with
+`deadbolt:child_inactive`; HTTP retains its existing boolean response contract.
+The global CLI `--lease-ttl-secs` selects a 1..86400-second idle window (default
+60) for future issuance and renewal. Use it consistently for CLI and sidecar
+processes; it does not rewrite existing expiry timestamps.
 
 The live result describes the child's stored state at registration, not permission
 to execute. It does not recheck all ancestors or apply their tool policies.

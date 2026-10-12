@@ -43,11 +43,12 @@ denied effect is checked against the note's previous bytes. The broader
 [acceptance script](../tests/fastmcp_acceptance.py) copies the recipe outside the
 checkout, uses the installed wheel and adds three startup refusals: 20 checks.
 
-CI installs the full pinned dependency set in
+CI installs the full version- and hash-pinned dependency set in
 [`tests/fastmcp-requirements.txt`](../tests/fastmcp-requirements.txt), audits it,
 builds/installs the current client wheel, and repeats consumer acceptance on
 Linux, macOS and Windows. These are automated local protocol checks, not
 independent certification or customer adoption.
+See [dependency lock maintenance](DEPENDENCY-LOCKS.md) before changing a pin.
 
 ## The integration inside a tool
 

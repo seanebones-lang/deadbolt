@@ -16,16 +16,32 @@ use deadbolt::{
     about = "Lease gate for tool, MCP, and spawn. Does not shut down frontier models."
 )]
 struct Cli {
+    /// Idle lease window in seconds. Use consistently for setup and the sidecar.
+    #[arg(long, global = true, default_value_t = 60,
+          value_parser = clap::value_parser!(u64).range(1..=86400))]
+    lease_ttl_secs: u64,
     #[command(subcommand)]
     command: Command,
 }
 
 #[derive(Subcommand)]
 enum Command {
-    /// Explicit operator-only idle-lease setup. Does not renew existing runs.
+    /// Register a child under an existing parent. Operator-only; inherits ceilings.
+    RegisterChild {
+        #[arg(long)]
+        parent: String,
+        #[arg(long)]
+        agent: String,
+        #[arg(long)]
+        swarm_task_id: Option<String>,
+    },
+    /// Ensure supervisor-renewed setup. Does not renew or convert existing runs.
     Ensure {
         #[arg(long)]
         agent: String,
+        /// Explicit legacy activity renewal for a fresh identity only.
+        #[arg(long)]
+        activity_renewal: bool,
     },
     /// Issue a fresh supervised run. Only its separate supervisor credential renews TTL.
     Supervise {
@@ -47,6 +63,9 @@ enum Command {
         /// Absolute Unix seconds; never extended. Existing agent IDs are refused.
         #[arg(long)]
         hard_deadline_at: i64,
+        /// Explicit legacy activity renewal; the fixed deadline still wins.
+        #[arg(long)]
+        activity_renewal: bool,
     },
     /// Review, approve and revoke exact actions. Operator-only.
     Action {
@@ -265,9 +284,10 @@ fn read_action(path: &std::path::Path) -> Result<ActionRequest, DeadboltError> {
     ActionRequest::from_json(&raw)
 }
 
-fn cfg() -> DeadboltConfig {
+fn cfg(lease_ttl_secs: u64) -> DeadboltConfig {
     let mut cfg = DeadboltConfig {
         token_env: Some("DEADBOLT_TOKEN".into()),
+        lease_ttl_secs,
         ..DeadboltConfig::default()
     };
     if let Ok(path) = std::env::var("DEADBOLT_DB") {
@@ -290,10 +310,28 @@ fn run() -> Result<(), DeadboltError> {
         println!("deadbolt drill ok");
         return Ok(());
     }
-    let db = Deadbolt::open(&cfg());
+    let db = Deadbolt::open(&cfg(cli.lease_ttl_secs));
     match cli.command {
-        Command::Ensure { agent } => {
-            db.ensure_agent(&agent)?;
+        Command::RegisterChild {
+            parent,
+            agent,
+            swarm_task_id,
+        } => {
+            let live = db.register_child(&parent, &agent, swarm_task_id.as_deref())?;
+            println!("agent={agent} parent={parent} live={live}");
+            if !live {
+                return Err(DeadboltError::ChildInactive);
+            }
+        }
+        Command::Ensure {
+            agent,
+            activity_renewal,
+        } => {
+            if activity_renewal {
+                db.ensure_activity_agent(&agent)?;
+            } else {
+                db.ensure_agent(&agent)?;
+            }
             println!("deadbolt ensured {agent}");
         }
         Command::Supervise {
@@ -351,7 +389,7 @@ fn run() -> Result<(), DeadboltError> {
             ActionCommand::Approve { file, fingerprint } => {
                 let action = read_action(&file)?;
                 if action.fingerprint()? != fingerprint {
-                    return Err(DeadboltError::BadRequest);
+                    return Err(DeadboltError::FingerprintMismatch);
                 }
                 db.approve_action(&action)?;
                 println!(
@@ -439,8 +477,13 @@ fn run() -> Result<(), DeadboltError> {
         Command::Issue {
             agent,
             hard_deadline_at,
+            activity_renewal,
         } => {
-            db.issue_agent(&agent, hard_deadline_at)?;
+            if activity_renewal {
+                db.issue_activity_agent(&agent, hard_deadline_at)?;
+            } else {
+                db.issue_agent(&agent, hard_deadline_at)?;
+            }
             println!("agent={agent} hard_deadline_at={hard_deadline_at}");
         }
         Command::Pause { agent } => {
@@ -477,7 +520,7 @@ fn run() -> Result<(), DeadboltError> {
                 return Err(DeadboltError::BindRefused);
             }
             println!("deadbolt serve {}", path.display());
-            let mut config = cfg();
+            let mut config = cfg(cli.lease_ttl_secs);
             config.allow_legacy_unauthenticated_unix = legacy_unauthenticated_unix;
             serve(&config, &path)?;
         }

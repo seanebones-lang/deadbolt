@@ -3,8 +3,10 @@
 The operator can issue a fresh run with a fixed Unix-seconds deadline. At or
 after that timestamp, new protected admissions deny `deadline_exceeded`, even
 if the agent keeps making allowed or denied requests. This is separate from
-the default 60-second idle timer, which still slides on activity before the
-deadline. Idle expiry can deny earlier with `lease_expired`.
+the default 60-second idle timer. Published rc.1 default setup still slides
+that timer on activity before the deadline. Unreleased corrected source
+defaults new roots to supervisor renewal instead; only explicit legacy activity
+setup slides on workload traffic. Idle expiry can deny earlier with `lease_expired`.
 
 This feature belongs to the reviewed 2.0 candidate, **not** the published
 v1.0.3 engine, 1.1.0-rc.1 registry engine, or existing 1.x MCPB/plugin downloads.
@@ -52,8 +54,11 @@ operator `status` to reconcile the stored timestamp before starting the run;
 do not treat an ambiguous setup failure as permission. A new authorization
 requires a fresh ID. There is no deadline update or extension endpoint.
 
-`ensure_agent` and `POST /ensure` retain their compatibility behavior: they
-create idle-only leases when absent and leave existing rows unchanged. They
+`ensure_agent` and `POST /ensure` retain their existing-identity behavior: they
+create idle-only leases when absent and leave existing rows unchanged. In
+unreleased corrected source, absent identities instead become supervised roots;
+explicit activity setup is available through the migration guide. All variants
+preserve existing rows. They
 cannot attach, remove or slide a fixed deadline. Current-source `/ensure`
 refuses a `hard_deadline_at` field rather than silently acknowledging an idle-only
 lease when the caller requested a deadline. Configure policy and approval

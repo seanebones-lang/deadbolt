@@ -186,6 +186,12 @@ pub enum DeadboltError {
     /// Operator input was not a token.
     #[error("deadbolt:bad_request")]
     BadRequest,
+    /// Reviewed action bytes no longer match the operator's fingerprint.
+    #[error("deadbolt:fingerprint_mismatch")]
+    FingerprintMismatch,
+    /// Registration did not produce a live child. Never permission to dispatch.
+    #[error("deadbolt:child_inactive")]
+    ChildInactive,
 }
 
 /// Why admit refused the action.
@@ -621,8 +627,19 @@ impl Deadbolt {
         self.enabled && (self.store.is_some() || self.fail_closed)
     }
 
-    /// Issue a lease if this agent has none. Does not resurrect a killed lease.
+    /// Ensure a supervisor-renewed root if this identity has none.
+    /// Existing identities keep their mode, expiry, lineage and terminal state.
     pub fn ensure_agent(&self, agent_id: &str) -> Result<(), DeadboltError> {
+        self.ensure_root(agent_id, true)
+    }
+
+    /// Explicit legacy activity-renewed setup. Live workload denials can slide TTL.
+    /// Existing identities are preserved, never converted or resurrected.
+    pub fn ensure_activity_agent(&self, agent_id: &str) -> Result<(), DeadboltError> {
+        self.ensure_root(agent_id, false)
+    }
+
+    fn ensure_root(&self, agent_id: &str, supervised: bool) -> Result<(), DeadboltError> {
         require_token(agent_id)?;
         let store = self.store()?;
         let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
@@ -644,7 +661,7 @@ impl Deadbolt {
                 state: "active".into(),
                 expires_at: exp,
                 hard_deadline_at: None,
-                supervision_root: None,
+                supervision_root: supervised.then(|| agent_id.to_string()),
                 clips: Vec::new(),
                 clip_cids: BTreeMap::new(),
                 swarm_task_id: None,
@@ -663,18 +680,28 @@ impl Deadbolt {
         self.emit(
             EpistemicClass::Observed,
             "lease",
-            json_tokens(&[("agent_id", agent_id), ("state", "active")]),
+            json!({"agent_id":agent_id,"state":"active","supervision_root":supervised.then_some(agent_id)}),
             &[],
         )
         .map(|_| ())
         .map_err(|_| DeadboltError::StoreUnavailable)
     }
 
-    /// Issue a new root lease with an immutable absolute Unix deadline.
+    /// Issue a new supervisor-renewed root with an immutable absolute Unix deadline.
     /// Refuses existing IDs, including idle-only, expired and killed leases.
     /// Keep this API on the trusted operator plane; use a fresh ID for a new run.
     /// This bounds new admissions, not the runtime of already admitted work.
     pub fn issue_agent(&self, agent_id: &str, hard_deadline_at: i64) -> Result<(), DeadboltError> {
+        self.issue_root(agent_id, Some(hard_deadline_at), true)
+    }
+
+    /// Explicit legacy activity renewal, still bounded by an immutable deadline.
+    /// Refuses every existing identity; does not change an existing run's mode.
+    pub fn issue_activity_agent(
+        &self,
+        agent_id: &str,
+        hard_deadline_at: i64,
+    ) -> Result<(), DeadboltError> {
         self.issue_root(agent_id, Some(hard_deadline_at), false)
     }
 
@@ -3777,7 +3804,7 @@ mod tests {
     fn deny_renews_lease_ttl() {
         let dir = tempfile::tempdir().unwrap();
         let db = Deadbolt::open_at(dir.path(), true, 60);
-        db.ensure_agent("A").unwrap();
+        db.ensure_activity_agent("A").unwrap();
         db.set_policy(
             "A",
             PolicyPatch {

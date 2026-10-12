@@ -1,5 +1,5 @@
 //! Status and evidence contract regressions from real desktop testing.
-use deadbolt::{AdmitDecision, Deadbolt, DenyCode, PolicyPatch};
+use deadbolt::{ActionRequest, AdmitDecision, Deadbolt, DenyCode, PolicyPatch};
 use rusqlite::{params, Connection};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -8,6 +8,65 @@ fn now() -> i64 {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs() as i64
+}
+
+#[test]
+fn changed_operator_review_reports_fingerprint_mismatch_without_a_grant() {
+    let dir = tempfile::tempdir().unwrap();
+    let gate = Deadbolt::open_at(dir.path(), true, 60);
+    gate.ensure_agent("review").unwrap();
+    let original = ActionRequest::new(
+        "review",
+        "write",
+        None,
+        serde_json::json!({"body":"original-private-fixture"}),
+        60,
+    )
+    .unwrap();
+    let fingerprint = original.fingerprint().unwrap();
+    let mut changed = original.clone();
+    changed.arguments = serde_json::json!({"body":"changed-private-fixture"});
+    let file = dir.path().join("review.json");
+    std::fs::write(&file, serde_json::to_vec(&changed).unwrap()).unwrap();
+    let run = |fingerprint: &str| {
+        std::process::Command::new(env!("CARGO_BIN_EXE_deadbolt"))
+            .args([
+                "action",
+                "approve",
+                "--file",
+                file.to_str().unwrap(),
+                "--fingerprint",
+                fingerprint,
+            ])
+            .env("DEADBOLT_DB", dir.path().join("deadbolt.db"))
+            .env("DEADBOLT_EVENTS", dir.path().join("deadbolt-events.jsonl"))
+            .output()
+            .unwrap()
+    };
+    let before = gate.export("review", false).unwrap();
+    let denied = run(&fingerprint);
+    assert!(!denied.status.success());
+    assert_eq!(
+        String::from_utf8(denied.stderr).unwrap().trim(),
+        "deadbolt:fingerprint_mismatch"
+    );
+    assert!(denied.stdout.is_empty());
+    assert_eq!(gate.export("review", false).unwrap(), before);
+    let sql = Connection::open(dir.path().join("deadbolt.db")).unwrap();
+    assert_eq!(
+        sql.query_row("SELECT count(*) FROM action_grants", [], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+    assert!(run(&changed.fingerprint().unwrap()).status.success());
+    assert_eq!(gate.admit_action(&changed).unwrap(), AdmitDecision::Allow);
+    assert_eq!(
+        gate.admit_action(&changed).unwrap(),
+        AdmitDecision::Deny {
+            code: DenyCode::NeedsHuman
+        }
+    );
 }
 
 #[test]

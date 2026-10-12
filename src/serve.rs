@@ -686,21 +686,32 @@ fn string_list(value: Option<&Value>) -> Option<Vec<String>> {
     )
 }
 
-fn ensure(gate: &Deadbolt, body: &str) -> (u16, String) {
-    let Ok(v) = serde_json::from_str::<Value>(body) else {
-        return (400, json!({"code":"bad_request"}).to_string());
-    };
-    // Never acknowledge a requested fixed deadline while creating an idle-only lease.
-    if v.get("hard_deadline_at").is_some()
-        || v.get("supervision_root").is_some()
-        || v.get("supervised").is_some()
-    {
-        return (400, json!({"code":"bad_request"}).to_string());
+fn setup_object<T: serde::de::DeserializeOwned>(body: &str) -> Option<T> {
+    // Derived Serde structs also accept positional arrays. Setup deliberately
+    // requires named JSON object fields, including the activity-mode opt-in.
+    if !body.trim_start().starts_with('{') {
+        return None;
     }
-    let Some(agent_id) = v.get("agent_id").and_then(|x| x.as_str()) else {
+    serde_json::from_str(body).ok()
+}
+
+fn ensure(gate: &Deadbolt, body: &str) -> (u16, String) {
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Request {
+        agent_id: String,
+        #[serde(default)]
+        activity_renewal: bool,
+    }
+    let Some(request) = setup_object::<Request>(body) else {
         return (400, json!({"code":"bad_request"}).to_string());
     };
-    match gate.ensure_agent(agent_id) {
+    let result = if request.activity_renewal {
+        gate.ensure_activity_agent(&request.agent_id)
+    } else {
+        gate.ensure_agent(&request.agent_id)
+    };
+    match result {
         Ok(()) => (200, json!({"ok":true}).to_string()),
         Err(e) => (200, json!({"ok":false,"code": err_token(&e)}).to_string()),
     }
@@ -712,11 +723,18 @@ fn issue(gate: &Deadbolt, body: &str) -> (u16, String) {
     struct Request {
         agent_id: String,
         hard_deadline_at: i64,
+        #[serde(default)]
+        activity_renewal: bool,
     }
-    let Ok(request) = serde_json::from_str::<Request>(body) else {
+    let Some(request) = setup_object::<Request>(body) else {
         return (400, json!({"code":"bad_request"}).to_string());
     };
-    match gate.issue_agent(&request.agent_id, request.hard_deadline_at) {
+    let result = if request.activity_renewal {
+        gate.issue_activity_agent(&request.agent_id, request.hard_deadline_at)
+    } else {
+        gate.issue_agent(&request.agent_id, request.hard_deadline_at)
+    };
+    match result {
         Ok(()) => (200, json!({"ok":true}).to_string()),
         Err(DeadboltError::BadRequest) => (400, json!({"code":"bad_request"}).to_string()),
         Err(e) => (200, json!({"ok":false,"code":err_token(&e)}).to_string()),
@@ -734,7 +752,7 @@ fn issue_supervised(gate: &Deadbolt, body: &str) -> (u16, String) {
         #[serde(default, deserialize_with = "deadline")]
         hard_deadline_at: Option<i64>,
     }
-    let Ok(request) = serde_json::from_str::<Request>(body) else {
+    let Some(request) = setup_object::<Request>(body) else {
         return (400, json!({"code":"bad_request"}).to_string());
     };
     match gate.issue_supervised_agent(&request.agent_id, request.hard_deadline_at) {
@@ -828,12 +846,106 @@ fn err_token(err: &DeadboltError) -> &'static str {
         DeadboltError::ExportRefused(_) => "export_refused",
         DeadboltError::McpSpawn => "mcp_spawn",
         DeadboltError::BadRequest => "bad_request",
+        DeadboltError::FingerprintMismatch => "fingerprint_mismatch",
+        DeadboltError::ChildInactive => "child_inactive",
     }
 }
 
 #[cfg(test)]
 mod credential_tests {
     use super::*;
+
+    #[test]
+    fn operator_setup_defaults_to_supervision_and_parses_activity_strictly() {
+        let dir = tempfile::tempdir().unwrap();
+        let gate = Deadbolt::open_at(dir.path(), true, 60);
+        let header = "X-Deadbolt-Token: operator\r\n";
+        for (route, body, id, supervised) in [
+            ("/ensure", r#"{"agent_id":"default"}"#, "default", true),
+            (
+                "/ensure",
+                r#"{"agent_id":"activity","activity_renewal":true}"#,
+                "activity",
+                false,
+            ),
+            (
+                "/issue",
+                r#"{"agent_id":"fixed-default","hard_deadline_at":9007199254740991}"#,
+                "fixed-default",
+                true,
+            ),
+            (
+                "/issue",
+                r#"{"agent_id":"fixed-activity","hard_deadline_at":9007199254740991,"activity_renewal":true}"#,
+                "fixed-activity",
+                false,
+            ),
+        ] {
+            let response = dispatch_http(
+                &gate,
+                &request("POST", route, header, body),
+                Some("operator"),
+            );
+            assert_eq!(response, (200, "{\"ok\":true}".into()));
+            assert_eq!(
+                gate.status(Some(id)).unwrap()[0]
+                    .supervision_root
+                    .as_deref(),
+                supervised.then_some(id)
+            );
+        }
+        for route in ["/ensure", "/issue"] {
+            for field in [
+                "\"activity_renewal\":null",
+                "\"activity_renewal\":1",
+                "\"activity_renewal\":\"true\"",
+                "\"activity_renewal\":false,\"activity_renewal\":true",
+                "\"unknown\":true",
+            ] {
+                let deadline = if route == "/issue" {
+                    ",\"hard_deadline_at\":9007199254740991"
+                } else {
+                    ""
+                };
+                let body = format!("{{\"agent_id\":\"bad\"{deadline},{field}}}");
+                assert_eq!(
+                    dispatch_http(
+                        &gate,
+                        &request("POST", route, header, &body),
+                        Some("operator")
+                    )
+                    .0,
+                    400
+                );
+                assert!(gate.status(Some("bad")).unwrap().is_empty());
+            }
+        }
+        let before = gate.status(Some("activity")).unwrap()[0].expires_at;
+        assert_eq!(ensure(&gate, r#"{"agent_id":"activity"}"#).0, 200);
+        assert_eq!(
+            gate.status(Some("activity")).unwrap()[0].supervision_root,
+            None
+        );
+        assert_eq!(gate.status(Some("activity")).unwrap()[0].expires_at, before);
+        for (route, body) in [
+            ("/ensure", r#"["array-activity",true]"#),
+            ("/issue", r#"["array-fixed",9007199254740991,true]"#),
+            (
+                "/issue-supervised",
+                r#"["array-supervised",9007199254740991]"#,
+            ),
+        ] {
+            assert_eq!(
+                dispatch_http(
+                    &gate,
+                    &request("POST", route, header, body),
+                    Some("operator")
+                )
+                .0,
+                400
+            );
+        }
+    }
 
     #[test]
     fn default_dispatch_never_infers_operator_authority_from_missing_token() {
