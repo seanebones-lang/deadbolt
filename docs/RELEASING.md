@@ -5,6 +5,14 @@ review artifacts for seven days. It does not publish a release or registry
 package. Standard GitHub-hosted runners are used; no larger runner is required.
 An additional Linux job repeats the pinned Hermes MCP/filesystem acceptance.
 
+Unreleased workflow changes add a separate provenance job after the complete
+native matrix succeeds on `main`. PR jobs retain read-only credentials and
+cannot generate these release-build attestations. The provenance job attests
+the exact inner native ZIP, then verifies its repository, signer workflow,
+`main` ref and source digest; its bundle and verification receipt are retained
+alongside the candidate artifacts. This remains a pending release gate until
+the workflow succeeds on the chosen source revision.
+
 | Asset target | Candidate validation host | Compatibility boundary |
 | --- | --- | --- |
 | x86_64-unknown-linux-gnu | Ubuntu 22.04 x86_64 | glibc Linux; validate on your distribution. Not Alpine/musl |
@@ -41,6 +49,24 @@ archives and check their contents. The ZIP itself is nested inside the Actions
 artifact download; distribute the versioned ZIP and its checksum, not the outer
 Actions wrapper. After merge, run against the exact candidate source revision so
 the release's source identity is unambiguous.
+
+For an archive attested by that workflow, verify the exact downloaded ZIP:
+
+```sh
+gh attestation verify /absolute/path/to/deadbolt-VERSION-TARGET.zip \
+  --repo seanebones-lang/deadbolt \
+  --signer-workflow seanebones-lang/deadbolt/.github/workflows/release-candidate.yml \
+  --source-ref refs/heads/main --source-digest REVIEWED_FULL_SOURCE_SHA
+```
+
+Read the release's artifact-specific coverage before requiring this command.
+Existing releases have no such native-build attestation. Local Developer ID
+signing changes a macOS archive's bytes, so an unsigned CI archive's attestation
+does not authenticate the later signed ZIP. Publish the corresponding CI
+receipt separately and describe that limit; do not present a receipt for
+different bytes as verification of the final download. A build attestation
+establishes origin, not a security audit or independent product certification.
+See [GitHub's artifact-attestation documentation](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations).
 
 For the 2.0 candidate, the native matrix also builds and installs the matching
 Python wheel from an unpacked sdist. `tests/native_candidate_acceptance.py`

@@ -5,6 +5,10 @@ The older `v0.1.1-product` tag is not the standalone hardening release.
 
 ## Unreleased after 2.0.0-rc.1
 
+- Add exact-byte native CI build attestations and repository/workflow/source
+  verification after the full main-branch packaging matrix succeeds. Existing
+  releases and later locally signed macOS bytes remain separate proof gates.
+
 - Add operator CLI child registration and a bounded global idle-TTL option.
   Inactive registrations exit unsuccessfully; setup never refreshes existing
   identities. Separate supervisor revocation from the provisioning example.
