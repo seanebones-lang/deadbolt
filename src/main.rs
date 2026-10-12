@@ -16,12 +16,25 @@ use deadbolt::{
     about = "Lease gate for tool, MCP, and spawn. Does not shut down frontier models."
 )]
 struct Cli {
+    /// Idle lease window in seconds. Use consistently for setup and the sidecar.
+    #[arg(long, global = true, default_value_t = 60,
+          value_parser = clap::value_parser!(u64).range(1..=86400))]
+    lease_ttl_secs: u64,
     #[command(subcommand)]
     command: Command,
 }
 
 #[derive(Subcommand)]
 enum Command {
+    /// Register a child under an existing parent. Operator-only; inherits ceilings.
+    RegisterChild {
+        #[arg(long)]
+        parent: String,
+        #[arg(long)]
+        agent: String,
+        #[arg(long)]
+        swarm_task_id: Option<String>,
+    },
     /// Explicit operator-only idle-lease setup. Does not renew existing runs.
     Ensure {
         #[arg(long)]
@@ -265,9 +278,10 @@ fn read_action(path: &std::path::Path) -> Result<ActionRequest, DeadboltError> {
     ActionRequest::from_json(&raw)
 }
 
-fn cfg() -> DeadboltConfig {
+fn cfg(lease_ttl_secs: u64) -> DeadboltConfig {
     let mut cfg = DeadboltConfig {
         token_env: Some("DEADBOLT_TOKEN".into()),
+        lease_ttl_secs,
         ..DeadboltConfig::default()
     };
     if let Ok(path) = std::env::var("DEADBOLT_DB") {
@@ -290,8 +304,19 @@ fn run() -> Result<(), DeadboltError> {
         println!("deadbolt drill ok");
         return Ok(());
     }
-    let db = Deadbolt::open(&cfg());
+    let db = Deadbolt::open(&cfg(cli.lease_ttl_secs));
     match cli.command {
+        Command::RegisterChild {
+            parent,
+            agent,
+            swarm_task_id,
+        } => {
+            let live = db.register_child(&parent, &agent, swarm_task_id.as_deref())?;
+            println!("agent={agent} parent={parent} live={live}");
+            if !live {
+                return Err(DeadboltError::ChildInactive);
+            }
+        }
         Command::Ensure { agent } => {
             db.ensure_agent(&agent)?;
             println!("deadbolt ensured {agent}");
@@ -477,7 +502,7 @@ fn run() -> Result<(), DeadboltError> {
                 return Err(DeadboltError::BindRefused);
             }
             println!("deadbolt serve {}", path.display());
-            let mut config = cfg();
+            let mut config = cfg(cli.lease_ttl_secs);
             config.allow_legacy_unauthenticated_unix = legacy_unauthenticated_unix;
             serve(&config, &path)?;
         }

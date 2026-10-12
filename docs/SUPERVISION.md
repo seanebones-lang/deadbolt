@@ -18,7 +18,12 @@ Two independent controls answer different questions:
 | Idle TTL, supervised mode | Time since issuance or a valid supervisor heartbeat | A separate renewal credential, while still live |
 | Optional fixed `hard_deadline_at` | The latest time a run may receive a new admission | Nothing; a new run requires a fresh operator-issued ID |
 
-The default CLI idle TTL is 60 seconds. Embedded Rust hosts configure
+The default CLI idle TTL is 60 seconds. Unreleased source accepts the global
+`--lease-ttl-secs 1..86400` option; use the same value for trusted issuance,
+registration and the running sidecar. It sets the window for future issuance
+and renewal; it does not rewrite a persisted expiry or revive a run. A longer
+setup window trades slower detection of a lost supervisor for more setup time.
+Embedded Rust hosts configure
 `DeadboltConfig.lease_ttl_secs`. Both modes deny at idle expiry. `deadline_exceeded`
 is checked before `lease_expired`; neither condition consumes an exact-action
 approval. Neither admission, setup, resume, policy nor renewal changes a fixed
@@ -44,8 +49,21 @@ deadbolt supervisor issue --agent review-run-002 --id review-supervisor-002 \
 deadbolt credential issue --agent review-run-002 --id review-worker-002 \
   --ttl-secs 600 --out "$HOME/.deadbolt/credentials/review-worker-002"
 deadbolt supervisor list
-deadbolt supervisor revoke --id review-supervisor-002
 ```
+
+In unreleased source, register children from the same operator shell:
+
+```sh
+deadbolt register-child --parent review-run-002 --agent review-child-002 \
+  --swarm-task-id task-002
+```
+
+Configure the child before starting it. Registration reports `live=true` or
+`live=false`; the latter exits unsuccessfully with `child_inactive`. The result
+does not replace fresh admission checks for ancestor liveness and policy. Stop
+renewal explicitly when finished: `deadbolt supervisor revoke --id
+review-supervisor-002`. Revocation prevents future renewal; use `kill` when new
+admissions must stop immediately.
 
 Configure policy and register children before handing admission access to the
 trusted dispatcher. Supervisor credentials can be issued only for a live

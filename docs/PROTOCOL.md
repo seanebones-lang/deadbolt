@@ -118,6 +118,13 @@ fixed cutoff, before idle expiry. No in-flight cancellation is performed.
 
 `swarm_task_id` is optional. Success: `{"live":true}` or `{"live":false}` when the child is recorded killed. Failure: `{"ok":false,"code":"<token>"}`.
 
+Unreleased operator CLI equivalent: `deadbolt register-child --parent P
+--agent C --swarm-task-id task-1`. Its inactive result exits 1 with
+`deadbolt:child_inactive`; HTTP retains its existing boolean response contract.
+The global CLI `--lease-ttl-secs` selects a 1..86400-second idle window (default
+60) for future issuance and renewal. Use it consistently for CLI and sidecar
+processes; it does not rewrite existing expiry timestamps.
+
 The live result describes the child's stored state at registration, not permission
 to execute. It does not recheck all ancestors or apply their tool policies.
 Current unreleased source rechecks the complete registered ancestor chain for

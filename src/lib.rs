@@ -189,6 +189,9 @@ pub enum DeadboltError {
     /// Reviewed action bytes no longer match the operator's fingerprint.
     #[error("deadbolt:fingerprint_mismatch")]
     FingerprintMismatch,
+    /// Registration did not produce a live child. Never permission to dispatch.
+    #[error("deadbolt:child_inactive")]
+    ChildInactive,
 }
 
 /// Why admit refused the action.

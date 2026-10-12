@@ -5,6 +5,10 @@ The older `v0.1.1-product` tag is not the standalone hardening release.
 
 ## Unreleased after 2.0.0-rc.1
 
+- Add operator CLI child registration and a bounded global idle-TTL option.
+  Inactive registrations exit unsuccessfully; setup never refreshes existing
+  identities. Separate supervisor revocation from the provisioning example.
+
 - Require distribution hashes for the complete OpenAI Agents, Hermes and FastMCP
   Python acceptance dependency sets, retaining their tested versions and adding
   missing conditional platform dependencies.

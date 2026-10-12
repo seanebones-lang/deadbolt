@@ -29,6 +29,8 @@ and assume the guarantee exists. No old package/tag is overwritten.
 Unreleased source adds `DeadboltError::FingerprintMismatch` for a changed CLI
 action review. Update exhaustive operator-error matches when adopting that
 source; its string token is `fingerprint_mismatch` and it never grants permission.
+It also adds `DeadboltError::ChildInactive` for unsuccessful CLI child
+registration, with token `child_inactive`. Update exhaustive error matches.
 
 A new enum variant and added public fields require a major Rust version. This is
 not a drop-in minor upgrade for applications using exhaustive matches or struct

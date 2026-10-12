@@ -829,6 +829,7 @@ fn err_token(err: &DeadboltError) -> &'static str {
         DeadboltError::McpSpawn => "mcp_spawn",
         DeadboltError::BadRequest => "bad_request",
         DeadboltError::FingerprintMismatch => "fingerprint_mismatch",
+        DeadboltError::ChildInactive => "child_inactive",
     }
 }
 
