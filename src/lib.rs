@@ -1019,25 +1019,13 @@ impl Deadbolt {
                 code: DenyCode::LeaseExpired,
             });
         }
-        if let Some(root) = &lease.supervision_root {
-            let root_lease = load_lease(tx, root)?.ok_or(rusqlite::Error::QueryReturnedNoRows)?;
-            let code = if root_lease.state == "killed" {
-                Some(DenyCode::Killed)
-            } else if deadline_reached(&root_lease, now) {
-                Some(DenyCode::DeadlineExceeded)
-            } else if now >= root_lease.expires_at {
-                Some(DenyCode::LeaseExpired)
-            } else if root_lease.state == "paused" {
-                Some(DenyCode::Paused)
-            } else if root_lease.supervision_root.as_deref() != Some(root) {
-                Some(DenyCode::StoreUnavailable)
-            } else {
-                None
-            };
-            if let Some(code) = code {
-                return Ok(AdmitDecision::Deny { code });
-            }
-        } else {
+        // Check the complete lineage under this same writer lock, before any
+        // target TTL refresh or approval consumption. Descendant activity must
+        // not bypass an inactive intermediate parent or renew its ancestors.
+        if let Some(code) = ancestor_admission_denial(tx, &lease, now)? {
+            return Ok(AdmitDecision::Deny { code });
+        }
+        if lease.supervision_root.is_none() {
             let exp = bounded_expiry(now, self.ttl, lease.hard_deadline_at);
             tx.execute(
                 "UPDATE leases SET expires_at=?1, updated_at=?1 WHERE agent_id=?2 AND state!='killed'",
@@ -1240,7 +1228,9 @@ impl Deadbolt {
         })
     }
 
-    /// Pause one agent. Not a fleet halt.
+    /// Pause one stored lease. Its registered descendants also deny new
+    /// admissions while this ancestor is paused; other roots are unaffected.
+    /// This does not cancel already admitted work or rewrite descendant state.
     pub fn pause(&self, agent_id: &str) -> Result<(), DeadboltError> {
         self.set_state(agent_id, "paused")
     }
@@ -2347,6 +2337,55 @@ fn lease_from_row(r: &rusqlite::Row<'_>) -> Result<Lease, rusqlite::Error> {
         approvals: serde_json::from_str(&r.get::<_, String>(12).unwrap_or_else(|_| "[]".into()))
             .unwrap_or_default(),
     })
+}
+
+fn ancestor_admission_denial(
+    conn: &Connection,
+    lease: &Lease,
+    now: i64,
+) -> Result<Option<DenyCode>, rusqlite::Error> {
+    if !matches!(lease.state.as_str(), "active" | "paused" | "killed") {
+        return Err(rusqlite::Error::InvalidQuery);
+    }
+    let mut seen = BTreeSet::from([lease.agent_id.clone()]);
+    let mut parent = lease.parent_id.clone();
+    let mut root_id = lease.agent_id.clone();
+    let mut denial = None;
+    while let Some(id) = parent {
+        if !is_token(&id) || !seen.insert(id.clone()) {
+            return Err(rusqlite::Error::InvalidQuery);
+        }
+        let ancestor = load_lease(conn, &id)?.ok_or(rusqlite::Error::QueryReturnedNoRows)?;
+        if ancestor.supervision_root != lease.supervision_root
+            || !matches!(ancestor.state.as_str(), "active" | "paused" | "killed")
+        {
+            return Err(rusqlite::Error::InvalidQuery);
+        }
+        let code = if ancestor.state == "killed" {
+            Some(DenyCode::Killed)
+        } else if deadline_reached(&ancestor, now) {
+            Some(DenyCode::DeadlineExceeded)
+        } else if now >= ancestor.expires_at {
+            Some(DenyCode::LeaseExpired)
+        } else if ancestor.state == "paused" {
+            Some(DenyCode::Paused)
+        } else {
+            None
+        };
+        // Preserve the nearest blocking ancestor's reason, but validate the
+        // rest of the lineage so incomplete/cyclic state never grants access.
+        denial = denial.or(code);
+        root_id = id;
+        parent = ancestor.parent_id;
+    }
+    if lease
+        .supervision_root
+        .as_ref()
+        .is_some_and(|root| root != &root_id)
+    {
+        return Err(rusqlite::Error::InvalidQuery);
+    }
+    Ok(denial)
 }
 
 fn descendant_ids(conn: &Connection, root: &str) -> Result<Vec<String>, rusqlite::Error> {

@@ -60,8 +60,12 @@ Issuance cannot convert an existing lease's mode. Rust exposes
 `POST /issue-supervised`. `ensure` remains legacy setup and cannot acknowledge
 requested supervision. A fresh registered child inherits its parent's
 `supervision_root` and deadline, starts no later than its parent's idle expiry,
-and does not inherit its policy. Admissions also check the supervision root's
-liveness. Keep all workload paths behind fresh admission.
+and does not inherit its policy. Current unreleased source checks every registered
+ancestor's liveness during admission, including intermediate parents, before
+refreshing the requested lease or consuming an approval. The chain must end at
+the declared supervision root, with consistent mode bindings and no missing or
+cyclic links. Published 2.0.0-rc.1 checks the supervision root but can skip an
+inactive intermediate parent. Keep all workload paths behind fresh admission.
 
 ## Run the heartbeat only in trusted supervision
 
@@ -97,7 +101,11 @@ variable. Operator status remains separately authenticated and read-only;
 renewal-only credentials cannot read it.
 
 The heartbeat maintains the root and still-live registered descendants carrying
-the same supervision root, in one writer transaction. It cannot revive an
+the same supervision root, in one writer transaction. Renewal considers each
+lease individually: a still-live grandchild may receive a new idle expiry while
+its expired intermediate parent remains expired. In current unreleased source,
+fresh admission still denies that grandchild because the full ancestor chain is
+checked. Own-lease status is not permission to execute. Renewal cannot revive an
 expired or killed root or child, unpause a lease, clear clips, change policy,
 consume approvals, admit tools or extend a fixed deadline. Paused leases can
 retain their idle window while paused; renewal does not permit their execution.
