@@ -117,7 +117,8 @@ def run_owned(agent_id, tool, argv, *, admit, status, dest=None, child_env=None,
 
     admit(agent_id, tool, dest) and status(agent_id) are trusted, bounded callbacks.
     All three stop timers (poll, grace, max) are local executor settings; they do
-    not change a lease. Callbacks must not execute effects or renew the lease.
+    not change a lease. Callbacks must not execute the command; status must never
+    renew the lease. The single fresh admission can refresh its idle TTL.
     Output may use caller-owned files; PIPE is refused to avoid undrained pipes.
     No inherited environment or stdin, shell, retries, or externally supplied PID.
     """

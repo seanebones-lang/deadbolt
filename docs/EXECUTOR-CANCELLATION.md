@@ -59,8 +59,9 @@ rejects duplicate keys and nonfinite JSON constants. A missing, ambiguous, wrong
 or malformed status stops execution. Status from an older binary without
 `hard_deadline_at` is refused; use an engine with the fixed-deadline status contract.
 Neither callback may execute the tool body. These are trusted callbacks, not model
-output. Custom callbacks that hang, fabricate state, refresh TTL or reap children
-violate this reference's contract.
+output. Callbacks that hang, fabricate state or reap children violate this
+reference's contract; status callbacks must also never refresh TTL. The single
+fresh admission can refresh the idle timer once, as the core contract specifies.
 
 The executor checks status before admission and immediately before starting work.
 An admission and process creation are not an atomic operation: a revocation between
