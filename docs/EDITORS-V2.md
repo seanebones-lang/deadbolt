@@ -1,9 +1,11 @@
 # Evaluate DeadBolt RC2 in VS Code and Cursor
 
 This route uses the published **MCP bundle 2.0.0-rc.2**, containing the matching
-corrected engine. It is a developer preview. Actual graphical-client/model
-acceptance and independent installation remain open gates; the tests below
-exercise exported commands and real disposable effects through stdio.
+corrected engine. It is a developer preview. NextEleven-operated graphical
+model/tool acceptance passed on macOS ARM64 in Cursor 3.24.12 and VS Code 1.141.0.
+[The scoped acceptance record](evidence/gui-model-macos-arm64-2026-10-12.json)
+separates these tests from independent reproduction, which remains open.
+The helper tests below exercise exported commands and disposable effects through stdio.
 For the unchanged stable route, see [bundle 1.1.0 installation](EDITORS.md).
 
 You need Python 3.9+, Node.js 20+, and one of macOS ARM/Intel, Linux x64/glibc
@@ -51,6 +53,10 @@ protocol errors. The test removes its temporary run afterward.
 For Cursor, open the generated `install.html`, review the local command and click
 **Add deadbolt-rc2-setup to Cursor**. The helper follows
 [Cursor's documented install-link format](https://cursor.com/docs/mcp/install-links).
+If the browser cannot open the editor link, use Cursor's native MCP configuration
+UI to open the intended profile/workspace `mcp.json`, then merge the generated
+`cursor-mcp.json` entry into `mcpServers`. Review and enable only that connection.
+The recorded RC2 GUI run used this native configuration route.
 For VS Code, use **MCP: Open User Configuration**, then merge the generated
 `vscode-mcp.json` entry into `servers`, preserving existing servers and `inputs`.
 Start the connection and review its local-server trust prompt. See
@@ -62,7 +68,34 @@ Setup exposes only `deadbolt_get_integration_guide` and `deadbolt_check_bundle`.
 Ask the guide for `{"route":"stdio_client"}`, then check the bundle with `{}`.
 **Setup has no active protection and starts no downstream server.** A separate
 profile does not necessarily isolate a client's global MCP file; preserve other
-connections when testing and removing this one.
+connections when testing and removing this one. Keep MCP approvals manual during
+a disposable test; approve individual dummy calls once, rather than granting
+persistent execution permission.
+
+## Recorded graphical acceptance
+
+On October 12, 2026, the checksum-pinned RC2 engine was called by the actual
+agent inside each editor: **18 gated calls / 7 effects in Cursor** and
+**17 gated calls / 5 effects in VS Code**. All 23 denied calls produced no new
+dummy effect. Both agents reported `purpose_exceeded`, `needs_human`, `paused`,
+`killed`, `lease_expired`, `store_unavailable` and `deadline_exceeded`.
+Checks included one-use grants, pause/resume, clipping, rejected late renewal,
+a disposable store outage and deadline precedence. A native MCP connection
+reload/restart refused the same killed identity without starting the child again.
+Full editor quit/reopen was not tested.
+
+These runs used separate four-tool marker fixtures and finite trusted supervisor
+helpers, rather than the three-tool activity-mode demo below. The store outage
+stopped each heartbeat; the subsequent deadline probe tested reason precedence
+after both bounds elapsed. Claude Desktop Chat separately tested live supervision
+clamped to its fixed deadline. Two early Cursor expiry probes correctly ran
+before expiry; the later confirmed-expiry probe denied. The receipt preserves
+these procedural details instead of counting them as product failures.
+
+No real accounts or documents were connected. Only the dummy MCP tools were
+covered: editor built-ins and unrelated connections were not routed through
+DeadBolt. These are NextEleven checks, not independent certification, Linux/Windows
+GUI acceptance, or a guarantee for your integration. Test your actual effect route.
 
 ## Try the protected disposable route
 

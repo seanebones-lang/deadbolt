@@ -26,8 +26,10 @@ requires operator authentication for both Unix and TCP sidecars by default.
 **Published corrected preview: engine 2.0.0-rc.2 / Python 2.0.0rc2.**
 It adds supervisor renewal by default for fresh roots, complete ancestor policy
 checks, authenticated operator setup, private persisted state and model-readable
-denials. Existing stored renewal modes stay unchanged. Actual graphical-client
-acceptance and the independent rerun remain open; stable promotion is gated on them.
+denials. Existing stored renewal modes stay unchanged. NextEleven-operated RC2
+model/tool acceptance passed on macOS ARM64 in Claude Desktop Chat, Cursor and
+VS Code, using disposable effects. [Read the exact scope and counts](docs/evidence/gui-model-macos-arm64-2026-10-12.json).
+Independent artifact-pinned reproduction remains open; stable promotion is gated on it.
 
 [Download the matching engine and Python wheel](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.2).
 The release includes four native targets, checksums, source identity and acceptance
