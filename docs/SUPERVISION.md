@@ -5,10 +5,10 @@ not the agent's activity, should keep a run live. Stable 2.0.0
 defaults fresh `ensure`/`issue` runs to this mode through Rust, CLI and HTTP.
 Published 2.0.0-rc.1 still requires explicit supervisor setup and its matching
 `2.0.0rc1` wheel. Use stable engine `2.0.0` with client `2.0.0`;
-install its matching files or build both from one reviewed revision as described in [the package guide](PYPI.md#evaluate-the-corrected-source-candidate).
+install its matching files or build both from one reviewed revision as described in [the package guide](PYPI.md#build-the-matching-release-source).
 The published 1.x engines, 1.x Python packages, 1.x MCPB bundles and
 older stable editor plugins do **not** contain supervisor renewal.
-The separately published [MCPB 2.0.0](INSTALL.md#mcpb-20-preview) supports
+The separately published [MCPB 2.0.0](INSTALL.md#local-mcp-bundle-mcpb) supports
 explicit supervisor mode, but renewal must be provisioned and operated separately;
 its launcher never reads a renewal credential.
 Follow [2.0 migration and artifact verification](MIGRATING-V2.md), including
@@ -143,6 +143,8 @@ Revoking a supervisor credential stops its future heartbeats, not the existing
 idle window or another authorized supervisor credential. Use operator kill for
 immediate admission revocation.
 
+<a id="job-scoped-helper-rc2-source"></a>
+
 ## Job-scoped helper (2.0.0 source)
 
 The 2.0.0 release adds `SupervisorHeartbeat` to `deadbolt_supervisor` and the finite
@@ -151,7 +153,7 @@ does not contain them. Install the matching `2.0.0rc2` release wheel or reviewed
 source; updating documentation alone does not change an installed package.
 
 Provision the run and its private renewal credential as above, then start the
-helper **within the 60-second idle window**. For the preview MCPB, the launcher
+helper **within the 60-second idle window**. For the stable version 2 MCPB, the launcher
 issues the run on enable; provision its supervisor credential immediately
 after that and start the helper before requesting model tools. The launcher
 does not hold this credential. If setup takes too long, use a fresh run ID;
