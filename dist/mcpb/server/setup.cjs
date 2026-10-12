@@ -28,10 +28,10 @@ const definitions = [
 function guide(route) {
   const common = [
     'Choose a downstream MCP server you trust. Its startup and ordinary OS access are outside the tool-call gate.',
-    'Create an operator-owned private state directory and JSON configuration outside agent-editable workspaces. Replace every placeholder; use absolute executable and state paths, an explicit nonempty tool allow-list, destination tokens and irreversible-tool classification.',
+    'Create an operator-owned private state directory and JSON configuration outside agent-editable workspaces. Replace every placeholder; use absolute executable and state paths, an explicit nonempty tool allow-list, destination tokens and irreversible-tool classification. Version 2 requires a future integer Unix hard_deadline_at; zero is an invalid placeholder. Offline exceptions default to empty and must be deliberately granted by the operator. Destination declarations are policy, not OS egress enforcement.',
     'Enter the configuration path in Operator configuration, save and restart the extension. Its tools now come from the downstream server; the read-only setup tools disappear. Invalid supplied configuration exits before that server starts.',
     'Verify allowed and denied dummy effects before connecting real accounts. Keep approval, pause, clip and kill with the local operator CLI. Client consent is separate from DeadBolt approval.',
-    'The stable engine uses a 60-second sliding lease. Silence expires it; choose a fresh operator-assigned agent ID for a new run. Never reuse a killed ID or share one ID across concurrent sessions.',
+    'Choose renewal_mode explicitly: activity renews the 60-second idle TTL on live admission; supervisor requires separately provisioned operator renewal and admissions do not renew it. Neither mode extends the fixed deadline. Restart cannot change the deadline or mode, revive expiry/kill or convert an old idle-only run. Choose a fresh operator-assigned agent ID for a new run; never share an ID across concurrent sessions.',
   ];
   const routes = {
     claude_desktop: ['Install this MCPB and enable the extension. While configuration is blank, these two read-only setup tools are available.', ...common, 'Confirm Settings → Developer shows Running after configuring the protected server. Check local incident evidence for generic client denials.'],
