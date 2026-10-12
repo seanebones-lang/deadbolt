@@ -1,15 +1,15 @@
-# Fixed lease deadlines (2.0 candidate)
+# Fixed lease deadlines (2.0.0)
 
 The operator can issue a fresh run with a fixed Unix-seconds deadline. At or
 after that timestamp, new protected admissions deny `deadline_exceeded`, even
 if the agent keeps making allowed or denied requests. This is separate from
 the default 60-second idle timer. Published rc.1 default setup still slides
-that timer on activity before the deadline. Published RC2
+that timer on activity before the deadline. Stable 2.0.0
 defaults new roots to supervisor renewal instead; only explicit legacy activity
 setup slides on workload traffic. Idle expiry can deny earlier with `lease_expired`.
 
-This feature belongs to the reviewed 2.0 candidate, **not** the published
-v1.0.3 engine, 1.1.0-rc.1 registry engine, or existing 1.x MCPB/plugin downloads.
+This feature ships in stable 2.0.0. Older v1.0.3 and 1.1 engines and
+1.x MCPB/plugin downloads do not contain it.
 Follow [2.0 migration and artifact verification](MIGRATING-V2.md). Record the
 source commit, binary version and checksums; installing a newer client alone
 does not upgrade the engine.
@@ -56,7 +56,7 @@ requires a fresh ID. There is no deadline update or extension endpoint.
 
 `ensure_agent` and `POST /ensure` retain their existing-identity behavior: they
 create idle-only leases when absent and leave existing rows unchanged. In
-published RC2, absent identities instead become supervised roots;
+stable 2.0.0, absent identities instead become supervised roots;
 explicit activity setup is available through the migration guide. All variants
 preserve existing rows. They
 cannot attach, remove or slide a fixed deadline. Current-source `/ensure`
@@ -73,7 +73,7 @@ multiple generations. Their idle expiry is bounded by that timestamp. Repeated
 registration preserves the original row; reparenting and reissuing a child as
 a root are refused. A missing, inactive or expired immediate parent cannot create
 a live child. Registration's live result is not
-an admission decision for the full ancestor chain. Published RC2
+an admission decision for the full ancestor chain. Stable 2.0.0
 checks every ancestor's state, idle expiry and fixed deadline before a tool call
 can proceed. Policy remains separate: configure each child's tools, destinations
 and approvals explicitly.
@@ -115,7 +115,7 @@ not atomic: a callback admitted just before the deadline may start or continue
 after it. No running process is automatically terminated. The executor must
 implement cancellation, process confinement and OS egress controls where
 required. `wait_until_revoked` currently watches operator kill only, not this
-deadline. Optional [supervisor-only idle renewal](SUPERVISION.md) is a separate 2.0 candidate
+deadline. Optional [supervisor-only idle renewal](SUPERVISION.md) is a separate 2.0.0
 source control; its heartbeat also cannot extend the fixed deadline.
 
 Run `cargo test --test deadline` for real-time allow/deny loops, withheld file
@@ -128,9 +128,9 @@ with Node 22+ to check real loopback Python/Node file effects and scoped access.
 CI runs this acceptance on Linux, macOS and Windows. No provider key or real
 account is needed.
 
-## Optional supervised idle expiry (2.0 candidate)
+## Optional supervised idle expiry (2.0.0)
 
-[Supervisor-only renewal](SUPERVISION.md) is the default for fresh RC2
+[Supervisor-only renewal](SUPERVISION.md) is the default for fresh 2.0.0
 root runs. RC1 requires explicit supervisor setup; existing activity-mode runs
 retain their original renewal mode. Admissions do not refresh those leases; a
 separate root-bound credential maintains only still-live members. A fixed deadline remains immutable

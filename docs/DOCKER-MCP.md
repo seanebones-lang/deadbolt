@@ -4,14 +4,12 @@ Use this route when your MCP client can launch Docker and you want a local
 stdio container. **The source build is available now. Docker MCP Catalog
 submission [#5627](https://github.com/docker/mcp-registry/pull/5627) is pending
 review.** Use the source build below; catalog acceptance and a Docker-hosted
-image are not established by the preview release.
+image are not established by the source release.
 
-The **Docker package 2.0.0-rc.2 developer preview** builds engine
-**2.0.0-rc.2** from exact source
-`d166c7b039800bbd6d8acb1bc5c66f9add472f5f`. It requires version 2 operator
+The **stable Docker package 2.0.0** builds engine **2.0.0** from exact source
+`14804f2d512ce814a11de80daa8ca858b1dc7598`. It requires version 2 operator
 configuration: a fixed future deadline, explicit renewal mode and deliberate
-offline-tool exceptions. Stable Docker package 1.0.0 with engine 1.0.3 remains
-available from `e5efc1595bc87683ccf96bc367448012a9e170ee`; old configuration
+offline-tool exceptions. Older packages remain historical; old configuration
 is not silently migrated.
 
 This launcher supports broad one-shot tool approval; it strips inherited
@@ -27,7 +25,7 @@ AMD64, including Docker Desktop's Linux engine on macOS and Windows.
 ```sh
 git clone https://github.com/seanebones-lang/deadbolt-docker-mcp.git
 cd deadbolt-docker-mcp
-git checkout v2.0.0-rc.2
+git checkout v2.0.0
 docker build -t n11-deadbolt-docker:local .
 ```
 
@@ -52,7 +50,7 @@ For clients using an `mcpServers` configuration:
 ```
 
 VS Code uses a `servers` key with `type: "stdio"`; retain the same command and
-arguments. See the [editor guide](EDITORS.md) for client-specific configuration
+arguments. See the [version 2 editor guide](EDITORS-V2.md) for client-specific configuration
 and trust controls. Keep Docker running. Do not add `-t`, which changes the
 stdio stream.
 
@@ -68,7 +66,7 @@ verification or a security certification.
 ## Enable one protected downstream
 
 Follow the pinned package's
-[operator configuration and derived-image guide](https://github.com/seanebones-lang/deadbolt-docker-mcp/blob/v2.0.0-rc.2/README.md#put-a-trusted-server-behind-the-gate).
+[operator configuration and derived-image guide](https://github.com/seanebones-lang/deadbolt-docker-mcp/blob/v2.0.0/README.md#put-a-trusted-server-behind-the-gate).
 Your reviewed downstream runs **inside the same container**. Supply a private
 read-only configuration mount and a separate writable state mount, outside
 agent-editable workspaces. Set actual tool names, policy and a fresh run ID
@@ -79,7 +77,7 @@ that server. Only routed `tools/call` requests in this configured container are
 protected. The downstream remains trusted; its startup, other MCP methods,
 existing tool bodies and OS/network access are outside the admission gate.
 Operator approval, pause, resume, clip and kill remain local operator actions.
-The preview requires a fixed future integer Unix `hard_deadline_at`. Activity
+Configured mode requires a fixed future integer Unix `hard_deadline_at`. Activity
 mode renews the 60-second idle TTL on live admission; supervisor mode requires
 separate trusted operator renewal. Neither extends the fixed deadline. Restart
 cannot change the deadline or mode, revive expiry/kill, or migrate an old run.
@@ -99,12 +97,11 @@ with host-native macOS/Windows processes; the supported test path keeps database
 locking and updates on the Linux side of Docker Desktop's mounts.
 
 For a runnable operator-side example, use the separate
-[RC2 container supervisor reference](https://github.com/seanebones-lang/deadbolt-docker-mcp/blob/8592bc61bac2246ea52b1e25fc50f1be36baa62f/examples/supervisor/README.md).
+[stable container supervisor reference](https://github.com/seanebones-lang/deadbolt-docker-mcp/blob/v2.0.0/examples/supervisor/README.md).
 It builds an operator image with the matching checksum-pinned Python client,
 puts the authenticated sidecar socket in a private Linux volume, and mounts
 only that socket and one read-only renewal key into the finite heartbeat.
 The downstream receives neither the control socket nor credential mounts.
-This later example source does not replace the frozen RC2 MCP image/tag.
 The downstream still shares writable state and remains trusted; the reference
 does not make same-user state tamper-proof or cancel running tool bodies.
 
@@ -123,26 +120,29 @@ python3 tests/acceptance.py n11-deadbolt-docker:local
 python3 tests/gateway_acceptance.py
 ```
 
-The RC2 acceptance suite checks 24 cases in disposable local state, including
-23 gated calls: 8 allowed effects and 15 denials without effects. It covers
+The stable acceptance suite checks 25 cases in disposable local state, including
+25 gated calls: 8 allowed effects and 17 denials without effects. It covers
 single-use approval/replay, pause/resume/clip, terminal kill/reconnect, explicit
-destination/exception policy, immutable run bounds, supervisor non-renewal,
-a real wall-clock deadline and running store outage. Denials must carry the
-expected MCP tool-error reason code and retry hint. Idle expiry is
-operator-forced; a live supervisor heartbeat is not exercised by this suite.
-The gateway check uses a separate temporary catalog/configuration and does not
-change your client connections. CI passed these checks on native AMD64 and
-ARM64 with the official Docker MCP Gateway v0.42.0. These are protocol/container
-checks, not model-mediated client testing or independent customer adoption.
-[Published RC2 container evidence](evidence/docker-rc2-2026-10-12.json)
-records exact source/image and CI checks.
+destination/exception policy, conflicting recognized destinations, immutable run
+bounds, supervisor non-renewal, a real wall-clock deadline and running store
+outage. Reloading a damaged store must refuse startup without repairing the
+missing table, reissuing the identity or starting downstream work. Denials must
+carry the expected MCP tool-error reason code and retry hint. Idle expiry in
+this suite is explicitly operator-forced.
 
-The separate supervisor lifecycle suite crosses the actual default 60-second
-idle expiry with real renewal, then stops its heartbeat while tools keep calling.
-It checks idle-expiry denials without effects, refused late renewal/reconnect,
-and the fixed deadline winning over continued heartbeats. It uses no forced
-SQLite expiry edits. Follow the reference's own checkout/build commands; this
-additional suite is not present in the earlier frozen Docker RC2 source tag.
+The gateway check uses a separate temporary catalog/configuration and does not
+change your client connections. The separate supervisor lifecycle suite crosses
+the actual default 60-second idle expiry with real renewal, then stops its
+heartbeat while tools keep calling. It checks idle-expiry denials without
+effects, refused late renewal/reconnect, and the fixed deadline winning over
+continued heartbeats. It uses no forced SQLite expiry edits. Follow the
+supervisor reference's own checkout/build commands.
+
+CI runs these suites on native AMD64 and ARM64, including the official Docker
+MCP Gateway v0.42.0. These are protocol/container checks, not model-mediated
+client testing or independent customer adoption. Historical
+[RC2 container evidence](evidence/docker-rc2-2026-10-12.json) remains labeled
+with its original source and results; it does not qualify stable artifacts.
 
 Remove your client entry and stop its container to disconnect. `--rm` removes
 the container; private bind-mounted state remains. Back up or deliberately

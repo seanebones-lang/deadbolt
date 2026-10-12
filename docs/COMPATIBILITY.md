@@ -13,7 +13,7 @@ changes are not a new released version until separately tagged and published.
 - CLI commands and documented JSON output used by operator integrations.
   Human-readable status text, help layout and diagnostic prose are not parsers.
 - Included Python/Node source clients, and individual stdio MCP JSON-RPC 2.0
-  objects with routed `tools/call`. The optional Python client is an installable source-candidate wheel/sdist;
+  objects with routed `tools/call`. The optional Python client is an installable version-matched wheel/sdist;
   native and registry publication remain separate release actions.
 
 Consumers must execute only on explicit allow. Unknown decisions, unsuccessful
@@ -25,7 +25,7 @@ changes and need a major version after 1.0.
 
 Kill stays terminal for an identity in the same store. Ensure cannot restore a
 killed identity. Legacy live admission refreshes the lease, silence does not, and an
-expired lease is not refreshed by admission. Optional supervised source mode
+expired lease is not refreshed by admission. Supervised mode
 requires a separate trusted heartbeat. Children need registration and their
 own policy. One-shot approval is consumed by a successful admission, not successful
 completion of the subsequent tool body.
@@ -36,7 +36,7 @@ for the same one-shot dispatch. Never reuse a previous allow as current permissi
 
 ## Versions and upgrades
 
-Published RC2 requires a nonempty operator token
+Stable 2.0.0 requires a nonempty operator token
 for Unix sidecar startup as well as TCP. `DeadboltConfig` adds default-false
 `allow_legacy_unauthenticated_unix`; complete Rust struct literals must add it or
 use `..Default::default()`. Explicit `serve --legacy-unauthenticated-unix` preserves
@@ -47,7 +47,7 @@ This major-version default change does not change local CLI/library authority
 or existing credential scope. Published rc.1/1.x retain their prior behavior.
 [Setup and migration](HTTP-AUTHENTICATION.md) cover the changed startup contract.
 
-Published RC2 removes runtime provisioning from the raw
+Stable 2.0.0 removes runtime provisioning from the raw
 proxy and requires an explicit tool allowlist in all MCP admission paths. Trusted
 setup can use `deadbolt ensure --agent ID` for a fresh supervised idle lease or
 choose `issue` to add a fixed deadline. Activity renewal is an explicit
@@ -59,18 +59,18 @@ its existing open-policy contract. `policy_required` is a new denial token, so
 exhaustive Rust enum matches need updating. Existing leases, policies, grants and
 terminal revocations are preserved. Earlier RC1 and 1.x artifacts retain their original behavior.
 
-Published RC2 tightens admission for registered
+Stable 2.0.0 tightens admission for registered
 trees in both activity and supervised modes. Every ancestor must be live; a
 paused parent blocks new descendant calls without rewriting descendant state.
 Missing, cyclic or inconsistent lineage fails closed. The check precedes target
 TTL renewal and broad or exact approval consumption, so blocked requests preserve
 their grants. Public API, wire format and database schema are unchanged. Own-lease
 status and registration's live result remain separate from fresh admission.
-The RC2 child-policy change below supplies capability and
+The 2.0.0 child-policy change below supplies capability and
 reported-spend ceilings. Cancellation of already admitted work remains an
 executor responsibility. Published rc.1 and 1.x artifacts retain their older behavior.
 
-Published RC2 tightens registered-tree authorization.
+Stable 2.0.0 tightens registered-tree authorization.
 Every ancestor's current tool, destination/offline, clip and irreversible/exact
 review restrictions apply to each descendant. Grants never transfer between
 identities. MCP still requires an explicit tool allowlist on the target itself.
@@ -85,16 +85,16 @@ is a major-version behavior change with no new schema or provider-billing claim.
 SQLite traverses registered lineage and capped subtrees under the writer lock;
 large trees need their own workload validation. Published rc.1/1.x are unchanged.
 
-Published RC2 changes MCP admission denials from JSON-RPC
+Stable 2.0.0 changes MCP admission denials from JSON-RPC
 errors to `isError: true` tool results, reports effective status expiry without
 mutating state, and makes a named missing CLI status query exit 1. Consumers must
 check `result.isError` as well as protocol errors; it never means the body ran.
 Evidence decisions use the actual `purpose_exceeded` token rather than the old
 `clipped` alias. Stored prior evidence is preserved, including its old labels.
-The 2.0 preview launcher accepts the exact not-found response only during fresh
+The 2.0.0 launcher accepts the exact not-found response only during fresh
 operator setup; it does not treat arbitrary errors as a missing lease. Published
-rc.1 and stable artifacts retain their bytes and prior behavior. RC2 publishes these changes as a new candidate; repeat actual GUI/model and
-independent validation before stable promotion.
+rc.1 and stable artifacts retain their bytes and prior behavior. Stable 2.0.0 retains these changes and the RC3 destination/store corrections.
+Release-specific installed checks and prior-candidate GUI evidence are recorded separately in the release qualification.
 
 After 1.0, compatible bug fixes use patch versions, compatible additions use minor
 versions, and incompatible public API/protocol/configuration behavior needs a
@@ -146,7 +146,7 @@ disables anonymous Unix HTTP authority. This persists after revocation/expiry.
 Older binaries do not enforce this boundary; quiesce workload access before
 rollback and do not expose an anonymous old Unix listener to scoped clients.
 
-## Exact-action source candidate
+## Exact-action approval
 
 The opt-in [exact-action protocol](ACTION-APPROVALS.md) binds reviewed arguments,
 run, tool, destination, nonce and deadline. Its new endpoint cannot fall back to
@@ -157,7 +157,7 @@ requirements; quiesce protected dispatch before any rollback.
 
 ## Fixed lease deadline source addition
 
-The 2.0 candidate adds a nullable SQLite `hard_deadline_at` column,
+Version 2.0.0 adds a nullable SQLite `hard_deadline_at` column,
 operator-only `issue`/`POST /issue`, a status field and `deadline_exceeded`.
 Existing rows migrate to idle-only leases with no fixed deadline. New deadline
 runs require fresh IDs; setup cannot attach or change one in place. Child
@@ -173,7 +173,7 @@ Quiesce protected dispatch before changing binaries. See
 
 ## Supervised liveness source addition
 
-The 2.0 candidate adds nullable `leases.supervision_root` and a credential `scope`
+Version 2.0.0 adds nullable `leases.supervision_root` and a credential `scope`
 column defaulting to admission. Existing identities and credentials preserve
 legacy authority and renewal behavior. Supervised runs require fresh operator
 issuance; children inherit mode. New renewal credentials cannot admit or control
@@ -182,7 +182,7 @@ reconstruct the prior schema and preserve old admission credentials and kills.
 
 Rust `AgentStatus` adds `supervision_root`; `ExportRow` adds `supervision_root`,
 `expires_at` and `renewed`. These public struct additions require changes in
-consumers constructing literals and are included in the selected 2.0 candidate,
+consumers constructing literals and are included in the stable 2.0.0,
 along with the new deadline enum variant. JSON consumers tolerate added
 fields while preserving strict allow/deny decisions. Do not publish this source
 as a compatible stable 1.1 update without resolving that version boundary.
@@ -192,11 +192,13 @@ guarantee. Quiesce protected dispatch first and follow the backup/rollback plan.
 No existing release or plugin is upgraded by merging this source. See
 [supervision](SUPERVISION.md) and the consolidated release gates.
 
-## Selected 2.0 candidate
+## Current stable release
 
-The corrected candidate is now `2.0.0-rc.2`, with Python `2.0.0rc2`, resolving the
-major-version boundary described above. [The migration guide](MIGRATING-V2.md)
-and compile acceptance cover original exhaustive matches and public struct
-literals, as well as a migrated downstream consumer. Versioned publication,
-registry installation, native signing and editor/plugin adoption remain separately
-verified actions. Old release/tag identities are immutable.
+The current stable engine and Python client are **2.0.0**. They retain the
+RC3 destination/store corrections and resolve the public Rust major-version
+boundary. [The migration guide](MIGRATING-V2.md) and compile acceptance cover
+exhaustive matches, public struct literals and a migrated downstream consumer.
+Registry installation, native signing, installed artifacts and graphical model
+runs have separate evidence; consult the stable release qualification for the
+exact source and hashes. Prior-candidate GUI evidence is not stable-byte GUI
+acceptance. Old release/tag identities stay immutable.

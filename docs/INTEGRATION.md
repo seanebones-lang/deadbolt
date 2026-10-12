@@ -15,20 +15,20 @@ result other than a fresh explicit `allow`.
 
 **Version rule:** v1.0.3 supports the manual admission examples below. Callback
 helpers, installable Python/SDK integration, scoped credentials and exact-action
-review are available in the 2.0 candidates (and the older 1.1 candidate). [Select and install the right source](INSTALL.md).
+review are available in stable 2.0.0. [Select and install the right source](INSTALL.md).
 
 Use this order in your application:
 
 1. Give the run an executor-assigned ID; create its lease in trusted setup.
 2. Configure the actual tool names, destination policy and sensitive-action review.
-3. Register each child and configure its routes before dispatch. Published RC2
+3. Register each child and configure its routes before dispatch. Stable 2.0.0
    also applies every ancestor’s restrictions; a child can narrow that ceiling.
-4. Give the dispatcher only its required authority. The candidate supports a
+4. Give the dispatcher only its required authority. Stable 2.0.0 supports a
    [single-agent admission credential](CREDENTIALS.md).
 5. Wrap every protected body, then verify effects after allow, policy denial,
    kill, expiry, approval replay and unavailable gate. [Record route coverage](PILOT.md).
 
-## Optional fixed run deadline (2.0 prerelease)
+## Optional fixed run deadline (2.0.0)
 
 In trusted setup, use `deadbolt issue --agent FRESH_RUN_ID --hard-deadline-at
 FUTURE_UNIX_SECONDS`, `gate.issue_agent` in embedded Rust, or operator
@@ -36,11 +36,11 @@ FUTURE_UNIX_SECONDS`, `gate.issue_agent` in embedded Rust, or operator
 slide. Registered children inherit it. Existing `ensure` integrations stay
 idle-only unless setup opts in with a fresh ID. [Full setup and trust
 limits](LEASE-DEADLINES.md) include restart, rollback and wall-clock behavior.
-This addition ships in both 2.0 candidates; the older editor/MCP bundles do not
+This addition ships in stable 2.0.0; the older editor/MCP bundles do not
 include it. Select the matching release and record its identity. The normal Python/Node admission response already
 carries a denial code; keep callbacks uncalled on every denial.
 
-Published RC2 defaults fresh `ensure` and `issue` identities to
+Stable 2.0.0 defaults fresh `ensure` and `issue` identities to
 supervisor renewal. Existing identities keep their stored mode; trusted setup
 must provision a separate heartbeat before initial idle expiry. Explicit legacy
 activity setup and version-aware migration are documented in
@@ -48,11 +48,13 @@ activity setup and version-aware migration are documented in
 
 <a id="current-source-dispatch-helpers-110-rc1-prerelease"></a>
 
-## Dispatch helpers (2.0 prerelease)
+<a id="dispatch-helpers-20-prerelease"></a>
+
+## Dispatch helpers (2.0.0)
 
 The current source adds helpers that take your actual tool callback and check
 immediately before invoking it. They are not in the published v1.0.3 archives.
-Select the immutable RC2 source tag for the corrected APIs;
+Select the immutable 2.0.0 source tag for the corrected APIs;
 install the matching Python release wheel/source package, or copy its Node
 source client as described below.
 
@@ -127,9 +129,11 @@ checkout to inspect real allowed/blocked effects without an AI account.
 source, the Cargo registry and Python release packages. The Rust package is
 `n11-deadbolt`, its library is `deadbolt`, and its executable is `deadbolt`.
 Pin the reviewed registry version or a full Git revision for a deployment.
-The prerelease Python client is on [PyPI](https://pypi.org/project/n11-deadbolt-client/2.0.0rc2/):
-`python -m pip install 'n11-deadbolt-client==2.0.0rc2'`. Install the matching
-candidate engine separately; see [Python setup](PYTHON.md). Node remains a source client.
+Install the published matching stable Python client from
+[PyPI](https://pypi.org/project/n11-deadbolt-client/2.0.0/):
+`python -m pip install 'n11-deadbolt-client==2.0.0'`. The identical release wheel
+is available from the [stable native release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0). Install the matching
+2.0.0 engine separately; see [Python setup](PYTHON.md). Node remains a source client.
 
 ## Build in: Rust executor
 
@@ -137,12 +141,12 @@ In your project's `Cargo.toml`:
 
 ```toml
 [dependencies]
-deadbolt = { package = "n11-deadbolt", version = "=1.0.3" }
+deadbolt = { package = "n11-deadbolt", git = "https://github.com/seanebones-lang/deadbolt", rev = "14804f2d512ce814a11de80daa8ca858b1dc7598" }
 ```
 
-That dependency uses the **published v1.0.3 API**. For the candidate helpers,
-use the immutable RC2 source revision from [installation](INSTALL.md#reviewed-source-candidate),
-or a reviewed adjacent checkout:
+That dependency pins the stable 2.0.0 source used for the published native
+release. When the exact 2.0.0 registry package is visible, you may instead use
+`version = "=2.0.0"`. A reviewed adjacent checkout is another option:
 
 ```toml
 [dependencies]
@@ -151,8 +155,8 @@ deadbolt = { package = "n11-deadbolt", path = "../deadbolt" }
 
 No socket, bearer token, Python package or service is needed. State is persistent;
 keep it outside disposable build output. This complete example works with v1.0.3
-or RC2 for this immediate, single admission and configures policy before dispatch.
-With RC2, it creates a supervised lease: long-running integrations must provision
+or 2.0.0 for this immediate, single admission and configures policy before dispatch.
+With 2.0.0, it creates a supervised lease: long-running integrations must provision
 [separate heartbeat ownership](SUPERVISION.md) before initial idle expiry:
 
 ```rust
@@ -182,7 +186,7 @@ are available on the library. Register children before starting them and check
 that registration returned `true`. Registration is idempotent for the same
 parent, preserves existing state, and rejects reparenting and self-parenting.
 Missing, killed, paused, or expired parents cannot create new live children.
-In RC2, admissions apply every ancestor’s current tool, destination,
+In 2.0.0, admissions apply every ancestor’s current tool, destination,
 clip and approval restrictions. A child’s configuration can narrow those limits,
 not widen them. A spending cap covers its registered subtree. Policies and grants
 are not copied: approvals remain bound to the actual child being admitted. Each
@@ -215,7 +219,7 @@ all tools. MCP-specific admission requires that list and denies an unset policy.
 Have trusted infrastructure record usage separately; reported spend is not
 provider billing measurement.
 
-Run `deadbolt serve` on macOS/Linux for a mode-0600 Unix socket; RC2 also requires an operator token there by default. On Windows, use
+Run `deadbolt serve` on macOS/Linux for a mode-0600 Unix socket; 2.0.0 also requires an operator token there by default. On Windows, use
 loopback TCP and `DEADBOLT_TOKEN`. TCP works on macOS/Linux too.
 [HTTP authentication](HTTP-AUTHENTICATION.md) describes the version boundary
 and explicit legacy migration option. Generate
@@ -240,11 +244,11 @@ deadbolt serve --bind $env:DEADBOLT_SOCK
 Another terminal does not inherit these variables. Supply the same endpoint and
 private operator token through trusted setup; never print or commit the token.
 Keep operator access and credentials away from the model-controlled process.
-For the current candidate, finish trusted lease/policy setup and issue an
+For stable 2.0.0, finish trusted lease/policy setup and issue an
 [admission credential](CREDENTIALS.md); pass only `DEADBOLT_ADMISSION_TOKEN`
 to the dispatcher. The shared operator token remains a compatibility path.
 
-Install the candidate [Python package](PYTHON.md), or copy the selected
+Install the matching [Python package](PYTHON.md), or copy the selected
 revision's `examples/deadbolt_client.py` / `examples/deadbolt_client.js` beside
 your application. The Node client is source-only; the matching Python client is published on PyPI.
 Python uses
@@ -252,7 +256,7 @@ only its standard library; Node uses built-in modules and CommonJS exports.
 Both expose ensure, admit (with optional destination), child registration,
 status, policy, and spend. Those control methods belong to trusted operator setup.
 The following stable-compatible examples keep setup and dispatch together for a
-local demonstration; a candidate workload credential cannot call `ensure`.
+local demonstration; a workload credential cannot call `ensure`.
 Create the lease through the operator before switching to workload credentials.
 In Node the registration function is `registerChild`.
 
@@ -296,7 +300,7 @@ cooperative: your executor must prevent any direct dispatch that skips them.
 
 ## Bolt on: stdio MCP proxy
 
-**Published RC2:** the raw proxy no longer creates leases at runtime.
+**Stable 2.0.0:** the raw proxy no longer creates leases at runtime.
 Before starting it, trusted operator setup must create a fresh run and set its
 tool allowlist. For a short local demonstration within the initial idle window:
 
@@ -308,13 +312,13 @@ deadbolt mcp-proxy --agent my-mcp-run-001 -- python3 your_mcp_server.py
 
 Use your server's actual tool names. The short demonstration runs within the
 initial idle window. For ongoing work, provision the supervisor and heartbeat
-described above; published RC2 defaults fresh `ensure` roots to that mode.
+described above; stable 2.0.0 defaults fresh `ensure` roots to that mode.
 Explicit `--activity-renewal` is available for a deliberately selected legacy
 activity run. A missing lease denies `no_lease`; an unset tool policy denies
 `policy_required`; an empty allowlist denies every tool. The check also applies
 to exact-action grants and workload credentials. Setup denials do not slide the
 idle TTL or consume approvals. Published rc.1 and 1.x proxies retain their older
-setup behavior until a corrected candidate is published.
+setup behavior; those immutable artifacts are not upgraded in place.
 
 Use that command as the MCP server command in your host's configuration.
 It supports newline-delimited JSON-RPC 2.0 objects over stdio. Batches and
@@ -330,7 +334,7 @@ rechecks the live policy, ancestors, approvals and clocks. Policies can change
 after discovery, so a listed tool can still be denied. Configure a smaller catalog
 in the downstream server if you want the model shown fewer tools.
 
-**Unreleased source after RC2:** downstream processes no longer inherit
+**Stable 2.0.0:** downstream processes no longer inherit
 `DEADBOLT_DB`, `DEADBOLT_EVENTS` or `DEADBOLT_SOCK`, in addition to the already
 removed operator/admission tokens and `DEADBOLT_ACTION_GRANTS`. Other application
 environment variables remain available. This avoids handing out operator state
@@ -339,11 +343,11 @@ locations; the downstream still has the same OS user access and is not sandboxed
 The executor assigns the fixed agent ID; model arguments cannot change it.
 By default the proxy opens the local store. To use a running sidecar, add
 `--serve-sock 127.0.0.1:9782`. Stable integrations use the operator token in the
-trusted proxy; candidate integrations can use an admission credential after
+trusted proxy. Scoped integrations can use an admission credential after
 operator lease/policy setup. See [MCP credential restrictions](CREDENTIALS.md)
 and [exact-action metadata](ACTION-APPROVALS.md#mcp-proxy).
 
-The candidate socket proxy uses `/admit-mcp` and `/admit-mcp-action`; pair it with
+The 2.0.0 socket proxy uses `/admit-mcp` and `/admit-mcp-action`; pair it with
 the matching sidecar. Older sidecars lacking those routes deny execution, with
 no fallback to legacy admission or implicit `/ensure`. Server startup,
 initialization and other non-tool methods remain outside the tool-call gate.
@@ -407,22 +411,22 @@ one ID leaves unrelated IDs operational. macOS and Linux-container behavior is l
 The systemd template passed bounded service acceptance in a disposable Ubuntu
 container. Native host installation and actual application acceptance remain open.
 
-## Exact-action source candidate
+## Exact-action approval
 
 The opt-in [exact-action protocol](ACTION-APPROVALS.md) binds reviewed arguments,
 run, tool, destination, nonce and deadline. Its new endpoint cannot fall back to
 legacy admission. Approval enables exact-only policy for that run/tool;
 nonces persist after use/revocation. Existing unconfigured integrations retain
-their behavior. This is available in 1.1.0-rc.1. Older binaries cannot enforce these new
+their behavior. This ships in stable 2.0.0 and was first introduced in 1.1.0-rc.1. Older binaries cannot enforce these new
 requirements; quiesce protected dispatch before any rollback.
 
-## Optional supervised idle expiry (2.0 prerelease)
+## Optional supervised idle expiry (2.0.0)
 
-[Supervisor-only renewal](SUPERVISION.md) is the RC2 default for fresh
+[Supervisor-only renewal](SUPERVISION.md) is the 2.0.0 default for fresh
 root runs; RC1 requires explicit opt-in. Admissions do not refresh those leases; a separate root-bound
 credential maintains only still-live members. A fixed deadline remains immutable
 and wins even during heartbeat activity. The explicit Python renewal call never
-uses operator/workload environment authentication. Both 2.0 candidates include
+uses operator/workload environment authentication. Stable 2.0.0 include
 this feature; older 1.x artifacts do not. Review the migration guide. Running
 work still needs executor-owned cancellation and OS isolation where appropriate.
 

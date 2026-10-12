@@ -23,7 +23,7 @@ from urllib.parse import urlencode
 import uuid
 import zipfile
 
-BUNDLE_SHA256 = "a0634e69da89c6e2c38bf72b8c1a1b8ed75e30e77df218841692808998c7b95e"
+BUNDLE_SHA256 = "50f9b7ac4c56f9a6cfa1c20e310b1a4970b373903edc0dd3faf4f5fb4173c977"
 TARGETS = {("Darwin", "arm64"): "aarch64-apple-darwin",
            ("Darwin", "x86_64"): "x86_64-apple-darwin",
            ("Linux", "x86_64"): "x86_64-unknown-linux-gnu",
@@ -118,8 +118,8 @@ def prepare(bundle, out, node=None):
     binary = root / "native" / target / ("deadbolt.exe" if os.name == "nt" else "deadbolt")
     if os.name != "nt":
         binary.chmod(0o755)
-    export(out, "deadbolt-rc2-setup", node, root / "server" / "launcher.cjs")
-    write_json(out / "installation.json", {"bundle_version": "2.0.0-rc.2", "engine_version": "2.0.0-rc.2",
+    export(out, "deadbolt-v2-setup", node, root / "server" / "launcher.cjs")
+    write_json(out / "installation.json", {"bundle_version": "2.0.0", "engine_version": "2.0.0",
                "bundle_sha256": BUNDLE_SHA256, "node": node, "target": target})
     return {"prepared": str(out), "mode": "read-only setup; no active protection", "profile_modified": False}
 
@@ -275,7 +275,7 @@ def main():
         node, launcher, _ = installation(out)
         directory = out / ("demo-" + uuid.uuid4().hex[:12])
         demo_config(directory, node)
-        export(directory, "deadbolt-rc2-demo", node, launcher, directory / "operator.json")
+        export(directory, "deadbolt-v2-demo", node, launcher, directory / "operator.json")
         result = {"demo": str(directory), "mode": "Disposable marker effects; no connected accounts", "lease": "60 seconds idle, 10 minutes absolute. Explicit activity mode for this short dummy demo; fresh ordinary roots default to supervisor renewal. Use demo again for a fresh run."}
     else:
         _, _, binary = installation(out)

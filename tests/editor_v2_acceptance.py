@@ -41,15 +41,15 @@ def main():
         run("prepare", "--bundle", args.bundle.resolve(), "--out", install, ok=False)
         assert sentinel.read_text() == "keep existing installation"
         checks.append({"case": "existing_installation_preserved", "passed": True})
-        cursor = json.loads((install / "cursor-mcp.json").read_text())["mcpServers"]["deadbolt-rc2-setup"]
-        portable = json.loads((install / "portable-mcp.json").read_text())["mcpServers"]["deadbolt-rc2-setup"]
-        vscode = json.loads((install / "vscode-mcp.json").read_text())["servers"]["deadbolt-rc2-setup"]
+        cursor = json.loads((install / "cursor-mcp.json").read_text())["mcpServers"]["deadbolt-v2-setup"]
+        portable = json.loads((install / "portable-mcp.json").read_text())["mcpServers"]["deadbolt-v2-setup"]
+        vscode = json.loads((install / "vscode-mcp.json").read_text())["servers"]["deadbolt-v2-setup"]
         assert cursor == portable and vscode == {"type": "stdio", **cursor}
         assert len(cursor["args"]) == 1 and Path(cursor["args"][0]).is_absolute()
         uri = urlparse((install / "cursor-install-url.txt").read_text().strip())
         query = parse_qs(uri.query)
         assert uri.scheme == "cursor" and uri.netloc == "anysphere.cursor-deeplink" and uri.path == "/mcp/install"
-        assert query["name"] == ["deadbolt-rc2-setup"]
+        assert query["name"] == ["deadbolt-v2-setup"]
         assert json.loads(base64.b64decode(query["config"][0])) == cursor
         # Exercise both exported client commands, not just the helper's internal
         # test command: this catches paths/escaping and shape mismatches.
@@ -82,7 +82,7 @@ def main():
         run("verify", "--out", install, ok=False)
         checks.append({"case": "installed_binary_corruption_refused", "passed": True})
     output = {"passed": True, "helper_sha256": hashlib.sha256(helper.read_bytes()).hexdigest(),
-              "scope": "Fresh external directory; checksum-pinned published RC2 MCPB; exported editor commands and disposable effects. No GUI/model/account test.", "checks": checks}
+              "scope": "Fresh external directory; checksum-pinned published stable 2.0.0 MCPB; exported editor commands and disposable effects. No GUI/model/account test.", "checks": checks}
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(output, indent=2) + "\n")
     print(json.dumps(output, indent=2))

@@ -15,7 +15,7 @@ packages retain their original immutable files.
 
 ## Install from PyPI
 
-When version 2.0.0 is available on PyPI, select it explicitly in your application's
+Version 2.0.0 is published on PyPI. Select it explicitly in your application's
 virtual environment. The wheel/source archive in the GitHub release is an
 alternative with separately verifiable checksums:
 

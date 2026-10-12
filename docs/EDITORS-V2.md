@@ -1,12 +1,13 @@
-# Evaluate DeadBolt RC2 in VS Code and Cursor
+# Install stable DeadBolt 2.0.0 in VS Code and Cursor
 
-This route uses the published **MCP bundle 2.0.0-rc.2**, containing the matching
-corrected engine. It is a developer preview. NextEleven-operated graphical
-model/tool acceptance passed on macOS ARM64 in Cursor 3.24.12 and VS Code 1.141.0.
-[The scoped acceptance record](evidence/gui-model-macos-arm64-2026-10-12.json)
-separates these tests from independent reproduction, which remains open.
-The helper tests below exercise exported commands and disposable effects through stdio.
-For the unchanged stable route, see [bundle 1.1.0 installation](EDITORS.md).
+This route uses **MCP bundle 2.0.0** and stable **engine 2.0.0**. The helper
+checks the exact bundle hash before extracting, then exports client-specific
+commands without editing an editor profile. Its protocol tests use disposable
+marker effects. Earlier model/GUI receipts keep their original versions and
+scope; they are not stable-byte GUI acceptance.
+
+For the historical engine 1.0.3 / bundle 1.1.0 route, see [the archived-version
+instructions](EDITORS.md). Use version 2 for a new installation.
 
 You need Python 3.9+, Node.js 20+, and one of macOS ARM/Intel, Linux x64/glibc
 or Windows x64. The Mac engines are signed/notarized; the outer bundle and
@@ -15,29 +16,29 @@ No model key, cloud account or Rust toolchain is needed for the protocol test.
 
 ## Prepare and verify outside the workspace
 
-1. Download [deadbolt-2.0.0-rc.2.mcpb](https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v2.0.0-rc.2/deadbolt-2.0.0-rc.2.mcpb).
+1. Download [deadbolt-2.0.0.mcpb](https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v2.0.0/deadbolt-2.0.0.mcpb).
 2. Download and review [editor_setup_v2.py](assets/editor_setup_v2.py).
    It has no third-party dependencies, makes no network requests and does not
-   edit an editor profile. Keep it separate from the stable helper.
+   edit an editor profile. Keep it separate from the historical 1.x helper.
 3. In the directory holding both downloads, select a **new private directory
    outside any agent-editable workspace**:
 
    ```sh
-   OUT="$HOME/.local/share/deadbolt/editor-2.0.0-rc.2"
-   python3 editor_setup_v2.py prepare --bundle deadbolt-2.0.0-rc.2.mcpb --out "$OUT"
+   OUT="$HOME/.local/share/deadbolt/editor-2.0.0"
+   python3 editor_setup_v2.py prepare --bundle deadbolt-2.0.0.mcpb --out "$OUT"
    python3 editor_setup_v2.py verify --out "$OUT"
    ```
 
    On Windows PowerShell:
 
    ```powershell
-   $Out = Join-Path $env:LOCALAPPDATA 'NextEleven\DeadBolt\editor-2.0.0-rc.2'
-   python editor_setup_v2.py prepare --bundle deadbolt-2.0.0-rc.2.mcpb --out $Out
+   $Out = Join-Path $env:LOCALAPPDATA 'NextEleven\DeadBolt\editor-2.0.0'
+   python editor_setup_v2.py prepare --bundle deadbolt-2.0.0.mcpb --out $Out
    python editor_setup_v2.py verify --out $Out
    ```
 
 The helper verifies the entire bundle before extraction against SHA-256
-`a0634e69da89c6e2c38bf72b8c1a1b8ed75e30e77df218841692808998c7b95e`.
+`50f9b7ac4c56f9a6cfa1c20e310b1a4970b373903edc0dd3faf4f5fb4173c977`.
 A mismatch fails without installing; an existing directory is preserved. Supply
 `--node /absolute/path/to/node` to `prepare` if Node is not on PATH. Exported
 configurations contain absolute paths; prepare new configuration if you move it.
@@ -51,12 +52,12 @@ protocol errors. The test removes its temporary run afterward.
 ## Add the read-only setup connection
 
 For Cursor, open the generated `install.html`, review the local command and click
-**Add deadbolt-rc2-setup to Cursor**. The helper follows
+**Add deadbolt-v2-setup to Cursor**. The helper follows
 [Cursor's documented install-link format](https://cursor.com/docs/mcp/install-links).
 If the browser cannot open the editor link, use Cursor's native MCP configuration
 UI to open the intended profile/workspace `mcp.json`, then merge the generated
 `cursor-mcp.json` entry into `mcpServers`. Review and enable only that connection.
-The recorded RC2 GUI run used this native configuration route.
+The historical RC2 GUI run used this native configuration route.
 For VS Code, use **MCP: Open User Configuration**, then merge the generated
 `vscode-mcp.json` entry into `servers`, preserving existing servers and `inputs`.
 Start the connection and review its local-server trust prompt. See
@@ -72,7 +73,7 @@ connections when testing and removing this one. Keep MCP approvals manual during
 a disposable test; approve individual dummy calls once, rather than granting
 persistent execution permission.
 
-## Recorded graphical acceptance
+## Historical RC2 graphical acceptance
 
 On October 12, 2026, the checksum-pinned RC2 engine was called by the actual
 agent inside each editor: **18 gated calls / 7 effects in Cursor** and
@@ -82,6 +83,12 @@ dummy effect. Both agents reported `purpose_exceeded`, `needs_human`, `paused`,
 Checks included one-use grants, pause/resume, clipping, rejected late renewal,
 a disposable store outage and deadline precedence. A native MCP connection
 reload/restart refused the same killed identity without starting the child again.
+These checks did not establish damaged-store reload refusal. A later Cursor
+RC2 plugin retest found that defect; it was corrected in RC3 and retained in
+stable 2.0.0. A subsequent actual Cursor RC3 retest passed conflicting
+destinations, damaged-store Reload and a post-fixed-deadline model call.
+That separate run used Cursor 3.24.12 on macOS arm64, with the underlying Auto
+model unknown; it did not rerun real idle expiry or certify the product.
 Full editor quit/reopen was not tested.
 
 These runs used separate four-tool marker fixtures and finite trusted supervisor
@@ -107,14 +114,14 @@ python3 editor_setup_v2.py demo --out "$OUT"
 
 The output identifies a fresh `demo` directory. Set `DEMO` to that exact path
 (`$Demo` in PowerShell). Its `install.html` or `vscode-mcp.json` configures the
-distinct **deadbolt-rc2-demo** server. It exposes three dummy tools that append
+distinct **deadbolt-v2-demo** server. It exposes three dummy tools that append
 only their name to this demo's fixed `effects.txt`. No accounts are connected.
 
 This short dummy demo explicitly selects **activity renewal**, a **60-second idle
 TTL** and a **fixed deadline ten minutes after preparation**. Connect promptly
 and keep gaps short. Pausing/permission prompts count toward idle time. A dead
 run cannot be resumed by retrying; create a new demo and reconnect. Ordinary
-fresh RC2 roots default to supervisor renewal instead. Provision the separate
+fresh version 2 roots default to supervisor renewal instead. Provision the separate
 supervisor heartbeat before initial expiry for a real supervised run; see
 [supervision](SUPERVISION.md). Neither mode can move the fixed deadline.
 
@@ -146,7 +153,7 @@ running `verify` in a terminal alone does not prove that test passed.
 
 ## Remove the test and integrate deliberately
 
-Disable/remove only `deadbolt-rc2-demo` and `deadbolt-rc2-setup` from the editor
+Disable/remove only `deadbolt-v2-demo` and `deadbolt-v2-setup` from the editor
 before deleting the private test directory. Preserve unrelated connections.
 For real tools, read [the matching bundle configuration](../dist/mcpb/README.md),
 [migration](MIGRATING-V2.md), [trust boundary](TRUST.md) and [privacy](PRIVACY.md).

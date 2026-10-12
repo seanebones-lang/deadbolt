@@ -1,14 +1,14 @@
 # Python client and optional OpenAI Agents SDK adapter
 
-## Published corrected 2.0 developer candidate
+## Published stable 2.0.0
 
-Use matching engine **2.0.0-rc.2** and client **2.0.0rc2** from the
-[immutable GitHub release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.2).
+Use matching engine **2.0.0** and client **2.0.0** from the
+[immutable GitHub release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0).
 Install the engine separately from its verified native archive or the macOS
-Homebrew preview. The client wheel does not include the executable or start a
+Homebrew stable cask. The client wheel does not include the executable or start a
 sidecar. [Migration](MIGRATING-V2.md) covers old state and Rust source compatibility.
 
-The RC2 wheel includes `deadbolt_client`, `deadbolt_openai_agents`,
+The 2.0.0 wheel includes `deadbolt_client`, `deadbolt_openai_agents`,
 `deadbolt_supervisor`, `deadbolt-client`, the job-scoped `SupervisorHeartbeat`
 helper and finite `deadbolt-supervisor-heartbeat` operator command. See
 [heartbeat lifecycle](SUPERVISION.md#job-scoped-helper-rc2-source) before setup.
@@ -20,12 +20,12 @@ The base client has no third-party runtime dependencies. The optional extra pins
 In your application's virtual environment:
 
 ```sh
-python -m pip install 'n11-deadbolt-client==2.0.0rc2'
+python -m pip install 'n11-deadbolt-client==2.0.0'
 # Optional SDK adapter, Python 3.10+:
-python -m pip install 'n11-deadbolt-client[openai-agents]==2.0.0rc2'
+python -m pip install 'n11-deadbolt-client[openai-agents]==2.0.0'
 ```
 
-The [PyPI release](https://pypi.org/project/n11-deadbolt-client/2.0.0rc2/)
+The [PyPI release](https://pypi.org/project/n11-deadbolt-client/2.0.0/)
 preserves the exact verified GitHub wheel/source bytes. Install the engine separately.
 The packaged description is a frozen source snapshot; this current guide tracks
 available routes. A registry account or publishing token is not needed to install.
@@ -36,23 +36,23 @@ Verify `SHA256SUMS` from the release, activate your application's virtual
 environment, then install the matching wheel:
 
 ```sh
-python -m pip install /absolute/path/to/n11_deadbolt_client-2.0.0rc2-py3-none-any.whl
+python -m pip install /absolute/path/to/n11_deadbolt_client-2.0.0-py3-none-any.whl
 # Optional SDK adapter:
-python -m pip install '/absolute/path/to/n11_deadbolt_client-2.0.0rc2-py3-none-any.whl[openai-agents]'
+python -m pip install '/absolute/path/to/n11_deadbolt_client-2.0.0-py3-none-any.whl[openai-agents]'
 ```
 
 The wheel runs on Python 3.9+; the optional process-cancellation reference needs
-its documented POSIX/Python runtime. Select the exact RC2 package; an RC1
+its documented POSIX/Python runtime. Select the exact 2.0.0 package; an RC1
 registry command does not install the new heartbeat helper. No account or API key is needed
 for wheel installation or the provider-free acceptance tests.
 
-Alternatively install the reviewed RC2 source with Python 3.10+:
+Alternatively install the reviewed 2.0.0 source with Python 3.10+:
 
 ```sh
 python -m pip install /absolute/path/to/reviewed/deadbolt
 ```
 
-Use the immutable `v2.0.0-rc.2` source tag and matching executable. Installing a
+Use the immutable `v2.0.0` source tag and matching executable. Installing a
 new wheel alone does not change stored renewal modes or upgrade a running sidecar.
 
 ## Operator setup, outside the agent
@@ -82,7 +82,7 @@ Do not expose `ensure`, policy, approval,
 resume, spend or child-registration methods as model tools. Lease creation and
 explicit `ensure` calls belong to the trusted executor; this decorator never
 calls `ensure`. Published RC1 and existing activity-mode leases retain a sliding
-idle TTL. Fresh RC2 runs instead default to supervisor renewal: provision
+idle TTL. Fresh 2.0.0 runs instead default to supervisor renewal: provision
 the separate heartbeat before their initial idle expiry, or deliberately choose
 activity mode through trusted setup. Neither mode's admission revives an expired
 or killed run.
@@ -143,7 +143,7 @@ The SDK's human approval and DeadBolt admission are separate decisions. This
 adapter does not automatically grant either one. If the operator configures
 `send_email` as irreversible in DeadBolt, it also needs a DeadBolt one-shot
 approval. **That existing approval covers the agent/tool pair, not these exact
-arguments.** Use the SDK's application-controlled per-call review or configure the candidate's [exact-action grant](ACTION-APPROVALS.md#optional-openai-agents-sdk-adapter)
+arguments.** Use the SDK's application-controlled per-call review or configure the stable release's [exact-action grant](ACTION-APPROVALS.md#optional-openai-agents-sdk-adapter)
 with `action_grant` to bind the actual validated arguments.
 SDK error-as-output handlers are rejected; `failure_error_function` must be
 `None`, so a blocked action or failing body stops instead of encouraging retries.
@@ -216,26 +216,26 @@ at the source checkout's `target/debug/deadbolt`. Tests use the SDK's
 approval/resume flows without provider requests, API credentials or paid turns.
 Automated framework acceptance is not outside customer adoption.
 
-## Exact-action source candidate
+## Exact-action approval
 
 The opt-in [exact-action protocol](ACTION-APPROVALS.md) binds reviewed arguments,
 run, tool, destination, nonce and deadline. Its new endpoint cannot fall back to
 legacy admission. Approval enables exact-only policy for that run/tool;
 nonces persist after use/revocation. Existing unconfigured integrations retain
-their behavior. This was introduced in 1.1.0-rc.1 and is included in both 2.0 candidates. Older binaries cannot enforce these new
+their behavior. This was introduced in 1.1.0-rc.1 and is included in stable 2.0.0. Older binaries cannot enforce these new
 requirements; quiesce protected dispatch before any rollback.
 
-## Optional owned-process executor (2.0 candidate)
+## Optional owned-process executor (2.0.0)
 
 For commands already running, see the [trusted supervisor reference](EXECUTOR-CANCELLATION.md).
-It adds POSIX process-group cleanup to 2.0 candidate wheels; the older published 1.1.0rc1 wheel
+It adds POSIX process-group cleanup to 2.0.0 wheels; the older published 1.1.0rc1 wheel
 does not contain it. It uses read-only status, never repeated admissions, and
 refuses unsupported hosts before starting work. This is separate from the normal
 callback wrappers and does not turn them into cancellable processes.
 
-## Optional supervised idle expiry (2.0 candidate)
+## Optional supervised idle expiry (2.0.0)
 
-[Supervisor-only renewal](SUPERVISION.md) is the default for fresh RC2
+[Supervisor-only renewal](SUPERVISION.md) is the default for fresh 2.0.0
 root runs. RC1 requires explicit supervisor setup; existing activity-mode runs
 retain their original renewal mode. Admissions do not refresh those leases; a
 separate root-bound credential maintains only still-live members. A fixed deadline remains immutable
