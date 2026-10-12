@@ -29,7 +29,7 @@ jobs:
         with:
           node-version: '22'
       - name: Download pinned published engine
-        run: gh release download v2.0.0-rc.1 --repo seanebones-lang/deadbolt --pattern '*.zip' --dir build/downloads
+        run: gh release download v2.0.0-rc.2 --repo seanebones-lang/deadbolt --pattern '*.zip' --dir build/downloads
         env:
           GH_TOKEN: ${{ github.token }}
       - run: python dist/build_mcpb.py --downloads build/downloads --out build/mcpb
@@ -54,4 +54,5 @@ jobs:
           path: |
             build/acceptance.json
             build/source-acceptance.json
+            build/deadbolt.mcpb
           if-no-files-found: warn
