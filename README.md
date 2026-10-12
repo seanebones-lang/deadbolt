@@ -68,7 +68,7 @@ the gate, whose tools come from
 the server you configure. Operator approval, pause and kill remain local CLI
 actions. The trusted child retains OS access; this is not a sandbox.
 [Installation and verification](docs/INSTALL.md#local-mcp-bundle-mcpb) ·
-[Configuration and operator controls](dist/mcpb/README.md).
+[Configuration and operator controls](https://github.com/seanebones-lang/deadbolt/blob/mcpb-v1.1.0/dist/mcpb/README.md).
 
 The same bundle is available through [Smithery](https://smithery.ai/servers/seanebones/deadbolt)
 and listed in the [official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.seanebones-lang%2Fdeadbolt&limit=10)

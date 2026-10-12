@@ -160,11 +160,11 @@ the macOS executables retain the published release's signatures.
    PowerShell uses `Get-FileHash .\deadbolt-1.1.0.mcpb -Algorithm SHA256`.
    A future bundle version needs its own verified checksum.
 2. Create a private state directory outside the agent's editable workspace.
-   Copy [the example configuration](../dist/mcpb/operator-config.example.json)
+   Copy [the example configuration](https://github.com/seanebones-lang/deadbolt/blob/mcpb-v1.1.0/dist/mcpb/operator-config.example.json)
    into a private JSON file and replace every placeholder with an absolute path.
    Select an MCP server you trust, its executable and arguments, actual tool names,
    destination tokens, irreversible-tool classifications and reported-spend cap.
-   Read [configuration and operator controls](../dist/mcpb/README.md) before connecting
+   Read [configuration and operator controls](https://github.com/seanebones-lang/deadbolt/blob/mcpb-v1.1.0/dist/mcpb/README.md) before connecting
    a real account. No downstream server is bundled. With Operator configuration left blank, the two read-only setup tools can explain integration and verify packaged-engine integrity; they provide no active protection.
 3. Install the `.mcpb` in your client. For Claude Desktop, use **Settings →
    Extensions → Advanced settings → Install extension**, then select the file

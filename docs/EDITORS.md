@@ -143,7 +143,7 @@ manual timing dependency and never modifies your editor demo's policy or state.
 ## Connect a real downstream server deliberately
 
 Use a server you trust, with explicit tool names, destination conventions and
-operator-owned state. Follow [the configuration guide](../dist/mcpb/README.md) and
+operator-owned state. Follow [the configuration guide](https://github.com/seanebones-lang/deadbolt/blob/mcpb-v1.1.0/dist/mcpb/README.md) and
 [integration boundaries](INTEGRATION.md#bolt-on-stdio-mcp-proxy). Replace that
 server's direct connection with the proxy connection; leaving an ungated direct
 connection available lets the agent bypass this route.
