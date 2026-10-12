@@ -5,7 +5,7 @@ from urllib.parse import urljoin
 from markdown_it import MarkdownIt
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
-PAGES = {"EDITORS.md": "editors.html", "EDITOR-TUTORIAL.md": "editor-tutorial.html"}
+PAGES = {"EDITORS.md": "editors.html", "EDITOR-TUTORIAL.md": "editor-tutorial.html", "EDITORS-V2.md": "editors-v2.html"}
 
 
 def main():
