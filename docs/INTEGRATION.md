@@ -10,6 +10,8 @@ result other than a fresh explicit `allow`.
 | Local HTTP | Native executable plus Python/Node client or HTTP implementation | Trusted dispatcher, before the body |
 | Stdio MCP | Native executable used as a server launch wrapper | Every routed `tools/call` |
 | Python SDK function tools | Sidecar plus optional Python extra | Decorator on each actual effect function |
+| FastMCP server you own | Sidecar and Python client | `dispatch_async` inside each protected tool; [tested recipe](FASTMCP.md) |
+| Docker-launched MCP client | Pinned source-built stdio container | One configured trusted downstream inside the container; [Docker guide](DOCKER-MCP.md) |
 
 **Version rule:** v1.0.3 supports the manual admission examples below. Callback
 helpers, installable Python/SDK integration, scoped credentials and exact-action

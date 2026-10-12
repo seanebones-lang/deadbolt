@@ -1,0 +1,102 @@
+# DeadBolt MCP with Docker
+
+Use this route when your MCP client can launch Docker and you want a local
+stdio container. **The source build is available now. Docker MCP Catalog
+submission [#5627](https://github.com/docker/mcp-registry/pull/5627) is pending
+review.** There is no published `mcp/deadbolt` image to pull yet.
+
+Docker package **1.0.0** contains stable engine **1.0.3**. It is separate from
+MCPB 1.1.0 and engine 1.1.0-rc.1. Exact-action approvals and scoped workload
+credentials from the engine prerelease are not included in this container.
+
+## Build the reviewed source
+
+You need Git and a running Docker Linux engine. Node and Rust are supplied by
+the image/build stages. The tested native architectures are Linux ARM64 and
+AMD64, including Docker Desktop's Linux engine on macOS and Windows.
+
+```sh
+git clone https://github.com/seanebones-lang/deadbolt-docker-mcp.git
+cd deadbolt-docker-mcp
+git checkout --detach e5efc1595bc87683ccf96bc367448012a9e170ee
+docker build -t n11-deadbolt-docker:local .
+```
+
+This revision pins the engine source checksum, Cargo lockfile and official base
+image digests. The first build downloads public sources and dependencies.
+Startup does not download an engine or connect an account. The tag above names
+your local build; it is not a public registry download.
+
+## Start with read-only setup
+
+For clients using an `mcpServers` configuration:
+
+```json
+{
+  "mcpServers": {
+    "deadbolt": {
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "--network", "none", "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "n11-deadbolt-docker:local"]
+    }
+  }
+}
+```
+
+VS Code uses a `servers` key with `type: "stdio"`; retain the same command and
+arguments. See the [editor guide](EDITORS.md) for client-specific configuration
+and trust controls. Keep Docker running. Do not add `-t`, which changes the
+stdio stream.
+
+With no operator configuration, the container exposes two tools:
+
+- `deadbolt_check_bundle`: check the bundled engine and report whether protection is active.
+- `deadbolt_get_integration_guide`: read instructions for connecting a trusted server.
+
+**Setup mode provides no active protection.** It needs no secrets or mounts.
+The executable checksum detects corruption; it is not independent signature
+verification or a security certification.
+
+## Enable one protected downstream
+
+Follow the pinned package's
+[operator configuration and derived-image guide](https://github.com/seanebones-lang/deadbolt-docker-mcp/blob/e5efc1595bc87683ccf96bc367448012a9e170ee/README.md#put-a-trusted-server-behind-the-gate).
+Your reviewed downstream runs **inside the same container**. Supply a private
+read-only configuration mount and a separate writable state mount, outside
+agent-editable workspaces. Set actual tool names, policy and a fresh run ID
+deliberately. Invalid supplied configuration stops startup.
+
+Placing DeadBolt beside another server in Docker MCP Toolkit does not gate
+that server. Only routed `tools/call` requests in this configured container are
+protected. The downstream remains trusted; its startup, other MCP methods,
+existing tool bodies and OS/network access are outside the admission gate.
+Operator approval, pause, resume, clip and kill remain local operator actions.
+The stable engine uses broad one-shot tool approval and a 60-second sliding lease.
+
+Use `--network none` for local-only tools. Remote services require deliberate
+network configuration and credentials. Do not mount your home directory or
+Docker socket, and do not use privileged mode. These limits are part of the
+container configuration; DeadBolt is not a whole-agent sandbox.
+
+## Verify and remove
+
+From the pinned package checkout, with Python 3.11+ and the image built:
+
+```sh
+python3 tests/acceptance.py n11-deadbolt-docker:local
+# Optional: requires Docker Desktop's MCP Toolkit.
+python3 tests/gateway_acceptance.py
+```
+
+The acceptance suite checks 16 real-effect cases in disposable local state.
+The gateway check uses a separate temporary catalog/configuration and does not
+change your client connections. CI passed these checks on native AMD64 and
+ARM64 with the official Docker MCP Gateway v0.42.0. These are protocol/container
+checks, not model-mediated client testing or independent customer adoption.
+
+Remove your client entry and stop its container to disconnect. `--rm` removes
+the container; private bind-mounted state remains. Back up or deliberately
+remove that state separately. Remove the local image with
+`docker image rm n11-deadbolt-docker:local` when no container uses it.
+
+[Package source, privacy and support](https://github.com/seanebones-lang/deadbolt-docker-mcp) ·
+[All installation routes](INSTALL.md) · [Integration boundaries](INTEGRATION.md)

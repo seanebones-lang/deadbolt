@@ -71,9 +71,11 @@ one-shot approval and revocation on one routed MCP connection.
 | Rust application | One dependency, an embedded store and a check at dispatch | [Rust](docs/INTEGRATION.md#build-in-rust-executor) |
 | Python application | Local sidecar and `dispatch` around the actual function | [Python](docs/PYTHON.md) |
 | OpenAI Agents SDK function tools | Local sidecar and `@protected_tool` on each protected function | [SDK adapter](docs/PYTHON.md#add-the-decorator-to-the-actual-body) |
+| FastMCP server you own | Local sidecar and `dispatch_async` inside protected tool bodies | [Offline stdio recipe](docs/FASTMCP.md) |
 | Node or another language | Local sidecar; bundled Node client or the HTTP protocol | [Sidecar](docs/INTEGRATION.md#bolt-on-python-node-or-any-http-client) |
 | Trusted stdio MCP server | Replace its launch command with `deadbolt mcp-proxy … -- SERVER` | [MCP](docs/INTEGRATION.md#bolt-on-stdio-mcp-proxy) |
 | Desktop client supporting MCPB | Install the local bundle and select a private operator configuration | [Local bundle](docs/INSTALL.md#local-mcp-bundle-mcpb) |
+| Docker-launched MCP client | Build the pinned stdio container; configure one trusted downstream inside it | [Docker source build](docs/DOCKER-MCP.md) |
 
 Choose the version before copying examples:
 
