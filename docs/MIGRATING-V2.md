@@ -22,7 +22,7 @@ Expected engine: `deadbolt 2.0.0`. The stable Homebrew cask supplies that engine
 The matching [MCP bundle](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.0)
 contains the engine and version 2 launcher. Select the exact
 [Cargo registry version when available](INSTALL.md#cargo-registry-cli-and-embedded-rust)
-or use the [pinned stable source](INSTALL.md#build-the-pinned-source).
+or use the [pinned stable source](INSTALL.md#published-source).
 Do not substitute an older registry engine for version 2 guarantees. Prior RC3
 GUI/model receipts and stable installed-artifact checks have separate scopes;
 see [compatibility](COMPATIBILITY.md). No old package or tag is overwritten.
