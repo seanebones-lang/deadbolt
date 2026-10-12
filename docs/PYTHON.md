@@ -10,6 +10,11 @@ covers source compatibility and which controls require the new engine.
 The wheel includes `deadbolt_supervisor` and the explicit `renew_supervised` call,
 without adding a base runtime dependency. Older 1.x packages retain their original bytes.
 
+Current unreleased source additionally provides the job-scoped `SupervisorHeartbeat`
+helper and `deadbolt-supervisor-heartbeat` command. They are not in the published
+2.0.0rc1 wheel. See [trusted heartbeat setup and lifecycle](SUPERVISION.md#job-scoped-helper-unreleased-source)
+before testing a source installation.
+
 The 2.0.0-rc.1 prerelease provides an installable Python client and an optional
 OpenAI Agents SDK adapter. The same reviewed wheel and source archive are
 published on [PyPI as `n11-deadbolt-client==2.0.0rc1`](https://pypi.org/project/n11-deadbolt-client/2.0.0rc1/).

@@ -106,6 +106,15 @@ class ExecutorAcceptance(unittest.TestCase):
             data=active(); data['agents'][0][key]=value
             self.assertEqual(supervisor.lease_stop_reason(data,'run','read'),reason)
 
+    def test_effective_expiry_status_keeps_precise_reason(self):
+        data=active(); data['agents'][0].update(state='expired', expires_at=0)
+        self.assertEqual(supervisor.lease_stop_reason(data,'run','read'),'lease_expired')
+        data=active(); data['agents'][0].update(state='deadline_exceeded', hard_deadline_at=0)
+        self.assertEqual(supervisor.lease_stop_reason(data,'run','read'),'deadline_exceeded')
+        for state in ('expired', 'deadline_exceeded'):
+            data=active(); data['agents'][0]['state']=state
+            self.assertEqual(supervisor.lease_stop_reason(data,'run','read'),'status_unavailable')
+
     @unittest.skipUnless(supervisor.supported(), 'POSIX waitid required')
     def test_configuration_refused_before_spawn(self):
         for kwargs in [{'max_secs':float('nan')},{'poll_secs':0},{'child_env':{'DEADBOLT_TOKEN':'dummy'}},

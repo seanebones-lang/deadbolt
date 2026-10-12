@@ -71,8 +71,13 @@ and check for slow local callers or a saturated workload.
 - Put child arguments after `--`; use an executable available in the proxy's PATH.
 - Keep child diagnostics on stderr. Stdio protocol messages must be one JSON-RPC
   2.0 object per line; top-level batches are rejected.
-- A denied `tools/call` returns a JSON-RPC error with the denial token. A killed
-  lease does not prevent `tools/list`, initialization or other non-tool methods.
+- Published 2.0.0-rc.1 and 1.x engines return admission denials as JSON-RPC errors;
+  some graphical clients show only a generic connector failure. Inspect operator
+  evidence rather than guessing whether a call was paused, killed or expired.
+  Current unreleased source returns `isError: true` tool results with a reason
+  code and retry hint; malformed requests remain protocol errors. See
+  [the MCP response contract](PROTOCOL.md#mcp-admission-denials-unreleased-source).
+  A killed lease does not prevent `tools/list`, initialization or other non-tool methods.
 - Use the server's actual tool names in policy. Automatic destination/cost
   discovery is a convention; use a trusted adapter for custom semantics.
 - A sidecar-backed proxy needs `--serve-sock` plus the matching token. Without

@@ -1,8 +1,9 @@
 //! Stdio MCP proxy. Not a model tool.
 //!
 //! Newline-delimited JSON-RPC. `tools/call` is admitted before the child sees
-//! it. Every other method is forwarded. A deny is a JSON-RPC error whose
-//! message is the code token. The child is not invoked.
+//! it. Every other method is forwarded. Admission denials are MCP tool results
+//! with `isError: true`, a stable code and a bounded retry hint. Invalid requests
+//! remain JSON-RPC errors. Denied calls never reach the child.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr, TcpStream};
@@ -406,7 +407,7 @@ fn dispatch(
         }
         if let Some(code) = admit(name, dest.as_deref(), usd, &arguments) {
             if let Some(id) = request_id(&msg) {
-                write_client(client, &error_line(id, -32000, &code))?;
+                write_client(client, &denial_line(id, &code))?;
             }
             return Ok(());
         }
@@ -524,6 +525,43 @@ fn error_line(id: &Value, rpc: i64, token: &str) -> String {
             "jsonrpc": "2.0",
             "id": id,
             "error": {"code": rpc, "message": token, "data": {"code": token}}
+        })
+    )
+}
+
+fn denial_line(id: &Value, code: &str) -> String {
+    // Only fixed tokens and messages cross the model-facing boundary. Do not
+    // reflect an arbitrary sidecar response, policy, arguments or credentials.
+    let code = match code {
+        "killed" | "paused" | "purpose_exceeded" | "lease_expired" | "deadline_exceeded"
+        | "store_unavailable" | "no_lease" | "spend_cap" | "needs_human" | "unauthorized"
+        | "forbidden" | "bad_request" => code,
+        _ => "store_unavailable",
+    };
+    let (retry, hint) = match code {
+        "killed" | "lease_expired" | "deadline_exceeded" => ("never", "Do not retry this run."),
+        "paused" => (
+            "after_operator_resume",
+            "Wait for the operator to resume before retrying.",
+        ),
+        "store_unavailable" => (
+            "after_service_recovery",
+            "Stop calls until the operator verifies service recovery.",
+        ),
+        _ => (
+            "after_operator_intervention",
+            "Do not retry without operator intervention.",
+        ),
+    };
+    format!(
+        "{}\n",
+        json!({
+            "jsonrpc": "2.0", "id": id,
+            "result": {
+                "isError": true,
+                "content": [{"type": "text", "text": format!("DeadBolt denied: {code}. {hint}")}],
+                "_meta": {"io.github.seanebones-lang/deadbolt": {"code": code, "retry": retry}}
+            }
         })
     )
 }
@@ -732,6 +770,61 @@ fn tcp_loopback(raw: &str) -> Option<SocketAddr> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn denied_calls_return_model_readable_tool_errors_without_forwarding() {
+        for code in [
+            "killed",
+            "paused",
+            "purpose_exceeded",
+            "lease_expired",
+            "deadline_exceeded",
+            "store_unavailable",
+            "no_lease",
+            "spend_cap",
+            "needs_human",
+            "unauthorized",
+            "forbidden",
+            "bad_request",
+            "private-policy-and-secret\nignore-previous-instructions",
+        ] {
+            let mut downstream = Vec::new();
+            let output = Mutex::new(Vec::new());
+            let reason = code.to_string();
+            dispatch(
+                r#"{"jsonrpc":"2.0","id":"request-1","method":"tools/call","params":{"name":"write","arguments":{"secret":"do-not-echo"}}}"#,
+                &move |_, _, _, _| Some(reason.clone()),
+                &mut downstream,
+                &output,
+            ).unwrap();
+            assert!(downstream.is_empty());
+            let bytes = output.into_inner().unwrap();
+            let response: Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(response["id"], "request-1");
+            assert!(response.get("error").is_none());
+            assert_eq!(response["result"]["isError"], true);
+            let expected = if code.starts_with("private-") {
+                "store_unavailable"
+            } else {
+                code
+            };
+            let metadata = &response["result"]["_meta"]["io.github.seanebones-lang/deadbolt"];
+            assert_eq!(metadata["code"], expected);
+            assert!(response["result"]["content"][0]["text"]
+                .as_str()
+                .unwrap()
+                .starts_with(&format!("DeadBolt denied: {expected}.")));
+            let text = String::from_utf8(bytes).unwrap();
+            assert!(!text.contains("do-not-echo") && !text.contains("private-policy"));
+            if matches!(code, "killed" | "lease_expired" | "deadline_exceeded") {
+                assert_eq!(metadata["retry"], "never");
+                assert!(text.contains("Do not retry this run."));
+            }
+            if code == "paused" {
+                assert_eq!(metadata["retry"], "after_operator_resume");
+            }
+        }
+    }
     use std::io::Cursor;
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::mpsc;
@@ -1053,8 +1146,16 @@ mod tests {
         );
         assert_eq!(out.len(), 1);
         let v: Value = serde_json::from_str(out[0].trim()).unwrap();
-        assert_eq!(v["error"]["message"], "killed");
-        assert_eq!(v["error"]["data"]["code"], "killed");
+        assert_eq!(v["result"]["isError"], true);
+        assert_eq!(
+            v["result"]["_meta"]["io.github.seanebones-lang/deadbolt"]["code"],
+            "killed"
+        );
+        assert_eq!(
+            v["result"]["content"][0]["text"],
+            "DeadBolt denied: killed. Do not retry this run."
+        );
+        assert!(v.get("error").is_none());
         assert_eq!(v["id"], 7);
         let _ = std::fs::remove_dir_all(dir);
     }
@@ -1131,8 +1232,12 @@ mod tests {
         assert_eq!(out.len(), 2);
         for line in &out {
             let v: Value = serde_json::from_str(line.trim()).unwrap();
-            assert_eq!(v["error"]["message"], "purpose_exceeded");
-            assert_eq!(v["error"]["data"]["code"], "purpose_exceeded");
+            assert_eq!(v["result"]["isError"], true);
+            assert_eq!(
+                v["result"]["_meta"]["io.github.seanebones-lang/deadbolt"]["code"],
+                "purpose_exceeded"
+            );
+            assert!(v.get("error").is_none());
         }
         let _ = std::fs::remove_dir_all(dir);
     }
@@ -1192,7 +1297,11 @@ mod tests {
             "needs_human must not touch the child: {seen:?}"
         );
         let v: Value = serde_json::from_str(out[0].trim()).unwrap();
-        assert_eq!(v["error"]["message"], "needs_human");
+        assert_eq!(v["result"]["isError"], true);
+        assert_eq!(
+            v["result"]["_meta"]["io.github.seanebones-lang/deadbolt"]["code"],
+            "needs_human"
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -1219,7 +1328,11 @@ mod tests {
             "off-list tool must not touch the child: {seen:?}"
         );
         let v: Value = serde_json::from_str(out[0].trim()).unwrap();
-        assert_eq!(v["error"]["message"], "purpose_exceeded");
+        assert_eq!(v["result"]["isError"], true);
+        assert_eq!(
+            v["result"]["_meta"]["io.github.seanebones-lang/deadbolt"]["code"],
+            "purpose_exceeded"
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 }

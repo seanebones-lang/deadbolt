@@ -401,6 +401,9 @@ fn run() -> Result<(), DeadboltError> {
             let rows = db.status(agent.as_deref())?;
             if rows.is_empty() {
                 println!("deadbolt status none");
+                if agent.is_some() {
+                    return Err(DeadboltError::NotFound);
+                }
             }
             for row in rows {
                 let clips = if row.clips.is_empty() {

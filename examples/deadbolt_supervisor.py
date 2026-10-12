@@ -1,7 +1,9 @@
-"""Trusted POSIX executor reference. Own processes only; not a sandbox.
+"""Trusted job-scoped heartbeat and owned POSIX executor references.
 
-Requires waitid(WNOWAIT): Linux, or macOS with Python 3.13+. No other
-thread/signal handler may reap this helper's child. See EXECUTOR-CANCELLATION.md.
+Heartbeat uses Python's cross-platform standard library. Process cancellation
+requires waitid(WNOWAIT): Linux, or macOS with Python 3.13+. No other thread/signal
+handler may reap the executor's child. This is not a sandbox; see
+EXECUTOR-CANCELLATION.md and SUPERVISION.md.
 """
 import json
 import math
@@ -11,6 +13,125 @@ import socket
 import subprocess
 import sys
 import time
+import threading
+
+
+class HeartbeatLost(RuntimeError):
+    """Trusted supervision stopped; do not continue protected dispatch."""
+
+
+class SupervisorHeartbeat:
+    """Job-scoped heartbeat, separate from admission and owned-process monitoring.
+
+    Enter before dispatch: the first renewal must succeed synchronously. Use
+    check() before each new dispatch, and cancel owned work on HeartbeatLost.
+    should_continue is trusted lifecycle code, never agent output. It and any
+    injected renew callback must be bounded. The default client uses private
+    renewal-only authentication. One failed heartbeat stops this helper without
+    retries or reissuing a run. Exiting stops heartbeats, not the remaining TTL.
+    """
+    def __init__(self, agent_id, secret, *, should_continue, interval_secs=10, renew=None):
+        _number(interval_secs, "interval_secs")
+        if interval_secs > 20:
+            raise ValueError("use an interval of at most 20 seconds for the default 60-second TTL")
+        if not callable(should_continue):
+            raise ValueError("provide a bounded trusted lifecycle callback")
+        if type(agent_id) is not str or not agent_id or type(secret) is not str or not secret.strip():
+            raise ValueError("agent and private supervisor credential required")
+        if renew is None:
+            from deadbolt_client import renew_supervised
+            renew = renew_supervised
+        if not callable(renew):
+            raise ValueError("renew must be a bounded trusted callback")
+        self._agent, self._secret = agent_id, secret
+        self._continue, self._renew = should_continue, renew
+        self._interval = interval_secs
+        self._stop, self._lost = threading.Event(), threading.Event()
+        self._thread, self._started = None, False
+
+    def _beat(self):
+        try:
+            # An intentional close may race the timer or lifecycle callback.
+            # It stops renewal normally; it is not a failed liveness check.
+            if self._stop.is_set():
+                return False
+            continuing = self._continue()
+            if self._stop.is_set():
+                return False
+            if continuing is not True:
+                raise HeartbeatLost("supervisor liveness lost")
+            result = self._renew(self._agent, self._secret)
+            if type(result) is not dict or set(result) != {"ok"} or result["ok"] is not True:
+                raise HeartbeatLost("supervisor liveness lost")
+            return True
+        except Exception:
+            self._lost.set()
+            self._stop.set()
+            return False
+
+    def _loop(self):
+        while not self._stop.wait(self._interval):
+            if not self._beat():
+                return
+
+    def __enter__(self):
+        if self._started or self._stop.is_set():
+            raise HeartbeatLost("heartbeat contexts cannot be restarted")
+        self._started = True
+        if not self._beat():
+            raise HeartbeatLost("initial supervisor renewal failed")
+        self._thread = threading.Thread(target=self._loop, name="deadbolt-heartbeat", daemon=True)
+        self._thread.start()
+        return self
+
+    def check(self):
+        if not self._started or self._lost.is_set() or self._stop.is_set():
+            raise HeartbeatLost("supervisor liveness lost")
+
+    def close(self):
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=6)
+            if self._thread.is_alive():
+                self._lost.set()
+                raise HeartbeatLost("heartbeat callback did not stop; verify trusted supervisor cleanup")
+
+    def __exit__(self, exc_type, exc, traceback):
+        self.close()
+        if exc_type is None and self._lost.is_set():
+            raise HeartbeatLost("supervisor liveness lost")
+
+
+def heartbeat_cli():
+    """Finite operator-side helper; no credential output or agent subprocess."""
+    import argparse
+    from pathlib import Path
+    parser = argparse.ArgumentParser(description="Trusted job-scoped supervisor heartbeat; never revives expired runs")
+    parser.add_argument("--agent", required=True)
+    parser.add_argument("--credential-file", required=True, type=Path)
+    parser.add_argument("--interval-secs", type=float, default=10)
+    parser.add_argument("--max-secs", type=float, required=True)
+    args = parser.parse_args()
+    try:
+        _number(args.max_secs, "max_secs")
+        if os.name == "posix" and args.credential_file.stat().st_mode & 0o077:
+            raise ValueError("credential file must be private (0600)")
+        secret = args.credential_file.read_text().strip()
+        end = time.monotonic() + args.max_secs
+        # This finite command's scope owns the thread; it is not a detached
+        # renewal daemon. close() stops it before the command returns.
+        with SupervisorHeartbeat(args.agent, secret, should_continue=lambda: True,
+                                 interval_secs=args.interval_secs) as heartbeat:
+            print("supervisor heartbeat active; stopping at the requested duration", flush=True)
+            while time.monotonic() < end:
+                heartbeat.check()
+                time.sleep(min(.1, max(0, end-time.monotonic())))
+        return 0
+    except (HeartbeatLost, ValueError, OSError):
+        print("supervisor heartbeat stopped or unavailable; verify operator state before continuing", file=sys.stderr)
+        return 1
+    except KeyboardInterrupt:
+        return 0
 
 
 def supported():
@@ -30,7 +151,8 @@ def lease_stop_reason(snapshot, agent_id, tool, now=None):
     if len(rows) != 1 or type(rows[0]) is not dict:
         return "status_unavailable"
     row = rows[0]
-    if row.get("agent_id") != agent_id or row.get("state") not in ("active", "paused", "killed"):
+    if row.get("agent_id") != agent_id or row.get("state") not in (
+            "active", "paused", "killed", "expired", "deadline_exceeded"):
         return "status_unavailable"
     expiry = row.get("expires_at")
     deadline = row.get("hard_deadline_at")
@@ -48,6 +170,8 @@ def lease_stop_reason(snapshot, agent_id, tool, now=None):
         return "deadline_exceeded"
     if current >= expiry:
         return "lease_expired"
+    if row["state"] in ("expired", "deadline_exceeded"):
+        return "status_unavailable"  # Effective state disagrees with its timestamps.
     if row["state"] == "paused":
         return "paused"
     if tool in clips:

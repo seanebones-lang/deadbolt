@@ -105,6 +105,69 @@ Revoking a supervisor credential stops its future heartbeats, not the existing
 idle window or another authorized supervisor credential. Use operator kill for
 immediate admission revocation.
 
+## Job-scoped helper (unreleased source)
+
+Current source adds `SupervisorHeartbeat` to `deadbolt_supervisor` and the finite
+`deadbolt-supervisor-heartbeat` operator command. The published `2.0.0rc1` wheel
+does not contain them yet. Install a reviewed checkout in your virtual environment
+to evaluate this addition; do not assume updating documentation changes a wheel.
+
+Provision the run and its private renewal credential as above, then start the
+helper **within the 60-second idle window**. For the preview MCPB, the launcher
+issues the run on enable; provision its supervisor credential immediately
+after that and start the helper before requesting model tools. The launcher
+does not hold this credential. If setup takes too long, use a fresh run ID;
+late renewal, restart and resume cannot revive expiry.
+
+```sh
+# Run in the trusted supervisor's terminal, with the same DEADBOLT_SOCK.
+# Keep the private key file outside the model and downstream environment.
+deadbolt-supervisor-heartbeat --agent review-run-002 \
+  --credential-file "$HOME/.deadbolt/credentials/review-supervisor-002" \
+  --interval-secs 10 --max-secs 600
+```
+
+This command maintains liveness only for the operator-chosen finite duration,
+stops on renewal failure, and exits without printing the credential. Ctrl-C
+stops its heartbeat. It is not a detached service or an agent-controlled renewal
+loop. Stop protected dispatch if it exits unexpectedly. Ending the helper does
+not instantly kill the run: its remaining idle window still applies. Use operator
+kill for immediate admission revocation.
+
+For an application, tie renewal directly to its trusted job lifecycle:
+
+```python
+from deadbolt_supervisor import SupervisorHeartbeat, HeartbeatLost
+
+try:
+    with SupervisorHeartbeat(run_id, renewal_secret,
+                             should_continue=trusted_job.is_running,
+                             interval_secs=10) as heartbeat:
+        while trusted_job.has_work():
+            heartbeat.check()   # Refuse continuation after heartbeat failure.
+            dispatch_next_with_fresh_admission()
+except HeartbeatLost:
+    stop_protected_dispatch_and_cancel_owned_work()
+```
+
+The first renewal must succeed before the context enters. Later failures stop
+renewal without retries; `check()` and normal context exit report lost liveness.
+The context is single-use and closes its thread with a bounded join. The trusted
+lifecycle callback and any injected renewal callback must themselves be bounded;
+a blocked callback cannot be forcibly terminated by Python, and cleanup failure
+is reported rather than treated as success. One already-started renewal may finish
+while the helper is closing. No reissue, resume, policy mutation or automatic
+execution is performed. Keep long-running work behind the separate owned-process
+monitor or your executor's cancellation controls; the heartbeat alone cannot
+cancel it.
+
+Tests use installed modules, synthetic renewal credentials and disposable effects:
+`python tests/heartbeat_contract.py` and
+`python tests/supervision_client_acceptance.py --binary <candidate-binary>`.
+The latter also replays s1–s3 over real MCP stdio: allowed effect, expired-run
+tool error with no effect, failed late renewal, then the same terminal tool error.
+That protocol test does not replace a graphical model rerun of a new bundle.
+
 ## HTTP contract and evidence
 
 - `POST /issue-supervised`: operator-authenticated `{ "agent_id": "run" }`,

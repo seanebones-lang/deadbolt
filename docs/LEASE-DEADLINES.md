@@ -73,8 +73,11 @@ approvals explicitly.
 SQLite persists the deadline across restart. Existing stores migrate with NULL
 deadlines and keep their prior idle-only behavior; opt in using new run IDs.
 Status reports `hard_deadline_at` (null for idle-only leases) separately from
-`expires_at`. Stored `state: active` describes the row, not current admission:
-time expiry is evaluated on each request.
+`expires_at`. Current source computes `expired` and `deadline_exceeded` on status
+reads without rewriting stored state or evidence. Killed state takes precedence;
+the fixed deadline takes precedence over idle expiry. Published 2.0.0-rc.1 and
+1.x engines report stored state, so their active rows can already be expired.
+Status is never a substitute for fresh tool admission.
 
 Root issuance and child registration record the timestamp as Observed lease
 evidence. With the default SQLite/JSONL sink, failed primary issuance evidence

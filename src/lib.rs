@@ -244,12 +244,13 @@ pub struct KillReport {
     pub swarm_task_ids: Vec<String>,
 }
 
-/// One lease row for `status`.
+/// Read-only effective lease status. Stored state is never rewritten by status.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AgentStatus {
     /// Lease key. Not a vendor API key.
     pub agent_id: String,
-    /// `active`, `paused`, or `killed`.
+    /// `active`, `paused`, `killed`, `expired`, or `deadline_exceeded`.
+    /// Kill wins; otherwise the fixed deadline wins over idle expiry.
     pub state: String,
     /// Unix seconds. Zero when killed.
     pub expires_at: i64,
@@ -1132,65 +1133,46 @@ impl Deadbolt {
             json_tokens(&[("agent_id", agent_id), ("tool", tool)]),
             &[],
         )?;
-        match decision {
-            AdmitDecision::Allow => {
-                self.emit(
-                    EpistemicClass::Observed,
-                    "decision",
-                    json_tokens(&[
-                        ("agent_id", agent_id),
-                        ("tool", tool),
-                        ("outcome", "allow"),
-                        ("code", "ok"),
-                    ]),
-                    &[],
-                )?;
-            }
+        if matches!(
+            decision,
             AdmitDecision::Deny {
-                code: DenyCode::PurposeExceeded,
-            } => {
-                let clip_cid = self.clip_cid(agent_id, tool).unwrap_or_default();
-                let mut premises = Vec::new();
-                if !clip_cid.is_empty() {
-                    premises.push(clip_cid);
-                }
-                premises.push(attempt_cid);
-                self.emit(
-                    EpistemicClass::Inferred,
-                    "purpose_exceeded",
-                    json_tokens(&[
-                        ("agent_id", agent_id),
-                        ("tool", tool),
-                        ("breaker", "purpose_exceeded"),
-                    ]),
-                    &premises,
-                )?;
-                self.emit(
-                    EpistemicClass::Observed,
-                    "decision",
-                    json_tokens(&[
-                        ("agent_id", agent_id),
-                        ("tool", tool),
-                        ("outcome", "deny"),
-                        ("code", "clipped"),
-                    ]),
-                    &[],
-                )?;
+                code: DenyCode::PurposeExceeded
             }
-            AdmitDecision::Deny { code } => {
-                self.emit(
-                    EpistemicClass::Observed,
-                    "decision",
-                    json_tokens(&[
-                        ("agent_id", agent_id),
-                        ("tool", tool),
-                        ("outcome", "deny"),
-                        ("code", code.as_str()),
-                    ]),
-                    &[],
-                )?;
+        ) {
+            let clip_cid = self.clip_cid(agent_id, tool).unwrap_or_default();
+            let mut premises = Vec::new();
+            if !clip_cid.is_empty() {
+                premises.push(clip_cid);
             }
+            premises.push(attempt_cid);
+            self.emit(
+                EpistemicClass::Inferred,
+                "purpose_exceeded",
+                json_tokens(&[
+                    ("agent_id", agent_id),
+                    ("tool", tool),
+                    ("breaker", "purpose_exceeded"),
+                ]),
+                &premises,
+            )?;
         }
+        // Use the actual admission decision as the single source of truth;
+        // extra breaker evidence must not invent a different decision label.
+        let (outcome, code) = match decision {
+            AdmitDecision::Allow => ("allow", "ok"),
+            AdmitDecision::Deny { code } => ("deny", code.as_str()),
+        };
+        self.emit(
+            EpistemicClass::Observed,
+            "decision",
+            json_tokens(&[
+                ("agent_id", agent_id),
+                ("tool", tool),
+                ("outcome", outcome),
+                ("code", code),
+            ]),
+            &[],
+        )?;
         Ok(())
     }
 
@@ -1592,7 +1574,11 @@ impl Deadbolt {
         } else {
             load_all(&g.conn).map_err(|_| DeadboltError::StoreUnavailable)?
         };
-        Ok(leases.into_iter().map(status_of).collect())
+        let now = now_secs();
+        Ok(leases
+            .into_iter()
+            .map(|lease| status_of(lease, now))
+            .collect())
     }
 
     /// Evidence rows for one agent. JSONL-shaped. Children only when asked.
@@ -2462,10 +2448,19 @@ pub fn format_export(rows: &[ExportRow], json: bool) -> String {
     out
 }
 
-fn status_of(lease: Lease) -> AgentStatus {
+fn status_of(lease: Lease, now: i64) -> AgentStatus {
+    let state = if lease.state == "killed" {
+        "killed".into()
+    } else if deadline_reached(&lease, now) {
+        "deadline_exceeded".into()
+    } else if now >= lease.expires_at {
+        "expired".into()
+    } else {
+        lease.state
+    };
     AgentStatus {
         agent_id: lease.agent_id,
-        state: lease.state,
+        state,
         expires_at: lease.expires_at,
         hard_deadline_at: lease.hard_deadline_at,
         supervision_root: lease.supervision_root,
