@@ -1,0 +1,271 @@
+{
+  "verified_at": "2026-10-12T17:50:45.965247+00:00",
+  "package_version": "2.0.0-rc.2",
+  "package_source": "f9aa24d17b550b4d844553e2caf32c23ffd98f7d",
+  "tested_pr_head": "3936a450f7c1577101ccb0ffac515e4b719dac61",
+  "merged_tree_matches_tested_head": true,
+  "engine_source": "d166c7b039800bbd6d8acb1bc5c66f9add472f5f",
+  "engine_archive_sha256": "bbfe4f285a9dfe1489cc8c3dbac51425e5cc13c7a2d2886ce4891dfa02841e9f",
+  "ci_url": "https://github.com/seanebones-lang/deadbolt-docker-mcp/actions/runs/38286528244",
+  "operator": "NextEleven",
+  "independent": false,
+  "checks": [
+    {
+      "runner": "container-ubuntu-24.04",
+      "architecture": "amd64",
+      "image_id": "sha256:7386d1a4d57b8b108cb24b597d251758e875508dd51dbd4a9246a457cf07faed",
+      "engine_version": "deadbolt 2.0.0-rc.2",
+      "checks": [
+        {
+          "case": "nonroot_stdio_image_with_no_declared_ports_or_host_mounts",
+          "passed": true
+        },
+        {
+          "case": "read_only_networkless_setup_absent",
+          "passed": true
+        },
+        {
+          "case": "read_only_networkless_setup_blank",
+          "passed": true
+        },
+        {
+          "case": "supplied_invalid_configuration_starts_no_downstream_relative",
+          "passed": true
+        },
+        {
+          "case": "supplied_invalid_configuration_starts_no_downstream_missing",
+          "passed": true
+        },
+        {
+          "case": "configured_container_discovers_only_trusted_downstream_tools",
+          "passed": true
+        },
+        {
+          "case": "live_existing_run_deadline_and_renewal_mode_cannot_be_changed_on_restart",
+          "passed": true
+        },
+        {
+          "case": "allowed_call_has_real_marker_effect",
+          "passed": true
+        },
+        {
+          "case": "off_policy_call_has_no_effect",
+          "passed": true
+        },
+        {
+          "case": "irreversible_action_needs_local_operator_grant",
+          "passed": true
+        },
+        {
+          "case": "one_grant_one_effect_replay_refused",
+          "passed": true
+        },
+        {
+          "case": "pause_blocks_next_effect",
+          "passed": true
+        },
+        {
+          "case": "resume_restores_allowed_effect",
+          "passed": true
+        },
+        {
+          "case": "clip_blocks_selected_effect",
+          "passed": true
+        },
+        {
+          "case": "expired_lease_blocks_effect",
+          "passed": true
+        },
+        {
+          "case": "terminal_kill_blocks_effect",
+          "passed": true
+        },
+        {
+          "case": "reconnect_retains_state_and_does_not_revive_killed_identity",
+          "passed": true
+        },
+        {
+          "case": "legacy_invalid_and_existing_bound_changes_refused_before_downstream_start",
+          "passed": true
+        },
+        {
+          "case": "empty_explicit_destination_and_exception_lists_admit_no_effects",
+          "passed": true
+        },
+        {
+          "case": "all_routed_tools_require_allowed_destination_without_exception",
+          "passed": true
+        },
+        {
+          "case": "offline_exception_does_not_override_declared_foreign_destination",
+          "passed": true
+        },
+        {
+          "case": "supervised_calls_do_not_renew_and_expired_restart_refused",
+          "passed": true
+        },
+        {
+          "case": "real_fixed_deadline_blocks_effect_and_restart_never_extends_it",
+          "passed": true
+        },
+        {
+          "case": "running_store_outage_is_readable_denial_without_effect",
+          "passed": true
+        }
+      ],
+      "gated_calls": 23,
+      "allowed_effects": 8,
+      "denials_without_effect": 15,
+      "gateway_version": "v0.42.0",
+      "gateway_setup_tools": [
+        "deadbolt_check_bundle",
+        "deadbolt_get_integration_guide"
+      ],
+      "checksum_matches": true,
+      "active_protection_in_setup": false
+    },
+    {
+      "runner": "container-ubuntu-24.04-arm",
+      "architecture": "arm64",
+      "image_id": "sha256:e6317ebeee71f6bb7cc175292fb5a94b5ad1e7857f87556cbbf1ac3561543e33",
+      "engine_version": "deadbolt 2.0.0-rc.2",
+      "checks": [
+        {
+          "case": "nonroot_stdio_image_with_no_declared_ports_or_host_mounts",
+          "passed": true
+        },
+        {
+          "case": "read_only_networkless_setup_absent",
+          "passed": true
+        },
+        {
+          "case": "read_only_networkless_setup_blank",
+          "passed": true
+        },
+        {
+          "case": "supplied_invalid_configuration_starts_no_downstream_relative",
+          "passed": true
+        },
+        {
+          "case": "supplied_invalid_configuration_starts_no_downstream_missing",
+          "passed": true
+        },
+        {
+          "case": "configured_container_discovers_only_trusted_downstream_tools",
+          "passed": true
+        },
+        {
+          "case": "live_existing_run_deadline_and_renewal_mode_cannot_be_changed_on_restart",
+          "passed": true
+        },
+        {
+          "case": "allowed_call_has_real_marker_effect",
+          "passed": true
+        },
+        {
+          "case": "off_policy_call_has_no_effect",
+          "passed": true
+        },
+        {
+          "case": "irreversible_action_needs_local_operator_grant",
+          "passed": true
+        },
+        {
+          "case": "one_grant_one_effect_replay_refused",
+          "passed": true
+        },
+        {
+          "case": "pause_blocks_next_effect",
+          "passed": true
+        },
+        {
+          "case": "resume_restores_allowed_effect",
+          "passed": true
+        },
+        {
+          "case": "clip_blocks_selected_effect",
+          "passed": true
+        },
+        {
+          "case": "expired_lease_blocks_effect",
+          "passed": true
+        },
+        {
+          "case": "terminal_kill_blocks_effect",
+          "passed": true
+        },
+        {
+          "case": "reconnect_retains_state_and_does_not_revive_killed_identity",
+          "passed": true
+        },
+        {
+          "case": "legacy_invalid_and_existing_bound_changes_refused_before_downstream_start",
+          "passed": true
+        },
+        {
+          "case": "empty_explicit_destination_and_exception_lists_admit_no_effects",
+          "passed": true
+        },
+        {
+          "case": "all_routed_tools_require_allowed_destination_without_exception",
+          "passed": true
+        },
+        {
+          "case": "offline_exception_does_not_override_declared_foreign_destination",
+          "passed": true
+        },
+        {
+          "case": "supervised_calls_do_not_renew_and_expired_restart_refused",
+          "passed": true
+        },
+        {
+          "case": "real_fixed_deadline_blocks_effect_and_restart_never_extends_it",
+          "passed": true
+        },
+        {
+          "case": "running_store_outage_is_readable_denial_without_effect",
+          "passed": true
+        }
+      ],
+      "gated_calls": 23,
+      "allowed_effects": 8,
+      "denials_without_effect": 15,
+      "gateway_version": "v0.42.0",
+      "gateway_setup_tools": [
+        "deadbolt_check_bundle",
+        "deadbolt_get_integration_guide"
+      ],
+      "checksum_matches": true,
+      "active_protection_in_setup": false
+    }
+  ],
+  "coverage_limits": [
+    "No model-mediated container invocation",
+    "No live supervisor heartbeat in this suite",
+    "Idle expiry is operator-forced; fixed deadline is wall-clock tested",
+    "Trusted downstream code and same-UID state remain outside hostile-code isolation guarantees",
+    "Docker catalog acceptance remains pending"
+  ],
+  "public_catalog_rebuild": {
+    "validate": "passed",
+    "build_and_discovery": "passed",
+    "package_source": "f9aa24d17b550b4d844553e2caf32c23ffd98f7d",
+    "image_id": "sha256:bc3a99a33607064541629d9c563532a510e992d7518077cb8b4d0ca23318b019",
+    "architecture": "arm64",
+    "gated_calls": 23,
+    "allowed_effects": 8,
+    "denials_without_effect": 15,
+    "official_gateway_version": "v0.42.0",
+    "gateway": "passed",
+    "global_catalogs_or_profiles_changed": false
+  },
+  "post_merge_ci": {
+    "url": "https://github.com/seanebones-lang/deadbolt-docker-mcp/actions/runs/38286831512",
+    "source": "f9aa24d17b550b4d844553e2caf32c23ffd98f7d",
+    "conclusion": "success",
+    "architectures": [
+      "amd64",
+      "arm64"
+    ]
+  }
+}
