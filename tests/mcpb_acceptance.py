@@ -39,7 +39,8 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--bundle', type=Path, required=True)
     p.add_argument('--out', type=Path, required=True)
-    p.add_argument('--expect-damaged-store-refusal', action='store_true', help='Check unreleased source correction; published RC2 does not satisfy this restart contract')
+    p.add_argument('--expect-damaged-store-refusal', action='store_true', help='Require damaged-store restart refusal; select for corrected RC3 or source overlays, not historical RC2')
+    p.add_argument('--expect-conflicting-destination-refusal', action='store_true', help='Require all recognized destination fields to agree before forwarding; select for RC3 or corrected source')
     p.add_argument('--mcpb-module', type=Path, required=True, help='Installed official @anthropic-ai/mcpb package directory')
     args = p.parse_args()
     bundle = args.bundle.resolve()
@@ -288,6 +289,11 @@ import(pathToFileURL(entry).href).catch(()=>process.exit(1));
             call('custom_fetch', 'purpose_exceeded')
             call('echo', 'purpose_exceeded', {'url':'https://foreign.example/'})
             call('echo', arguments={'url':'https://allowed.example/'})
+            if args.expect_conflicting_destination_refusal:
+                call('echo', 'bad_request', {'url':'https://allowed.example/', 'host':'foreign.example'})
+                call('echo', 'bad_request', {'url':'https://allowed.example/', 'nested':[{'endpoint':'https://foreign.example/'}]})
+                call('echo', arguments={'url':'https://Allowed.Example/', 'nested':[{'host':'allowed.example'}]})
+                checks.append({'case':'conflicting_destinations_refused_before_forwarding', 'passed':True})
         finally:
             proc.stdin.close(); proc.wait(timeout=10)
         c['offline_tools'] = ['echo']
@@ -297,6 +303,9 @@ import(pathToFileURL(entry).href).catch(()=>process.exit(1));
             assert 'result' in rpc('initialize')
             call('echo')
             call('echo', 'purpose_exceeded', {'url':'https://foreign.example/'})
+            if args.expect_conflicting_destination_refusal:
+                call('echo', 'bad_request', {'url':'https://allowed.example/', 'host':'foreign.example'})
+                checks.append({'case':'offline_exception_does_not_bypass_conflicting_destination_refusal', 'passed':True})
         finally:
             proc.stdin.close(); proc.wait(timeout=10)
         records = [json.loads(v) for v in Path(c['events']).read_text().splitlines()]
