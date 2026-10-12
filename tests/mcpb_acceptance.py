@@ -45,6 +45,9 @@ def main():
     node = shutil.which('node')
     assert node
     manifest = json.loads((bundle / 'manifest.json').read_text())
+    provenance = json.loads((bundle / 'PROVENANCE.json').read_text())
+    expected_engine_version = provenance['engine_version']
+    assert isinstance(expected_engine_version, str) and expected_engine_version
     assert manifest['tools_generated'] and len(manifest['tools']) == 2
     assert not manifest['user_config']['operator_config']['required']
     target = {('Darwin', 'arm64'): 'aarch64-apple-darwin', ('Darwin', 'x86_64'): 'x86_64-apple-darwin',
@@ -158,7 +161,7 @@ import(pathToFileURL(entry).href).catch(()=>process.exit(1));
                     return data
                 verified = setup_call('deadbolt_check_bundle', {})
                 assert verified['checksum_matches'] and verified['active_protection'] is False
-                assert verified['target'] == target and verified['engine_version'] == '2.0.0-rc.1'
+                assert verified['target'] == target and verified['engine_version'] == expected_engine_version
                 for route in ('claude_desktop', 'stdio_client', 'rust', 'http'):
                     g = setup_call('deadbolt_get_integration_guide', {'route':route})
                     assert g['route'] == route and 'no tools are protected' in g['boundary']
