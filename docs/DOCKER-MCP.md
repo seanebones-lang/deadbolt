@@ -91,7 +91,12 @@ routed tool must declare an allowed destination or have an explicit operator
 An exception cannot override a declared foreign destination. This is declared
 policy, not proof of a tool's actual network behavior; enforce egress separately.
 Keep supervisor credentials outside the model-facing container; the setup entry
-does not provision a renewal sidecar or heartbeat.
+does not provision a renewal sidecar or heartbeat. Run state-writing operator
+commands in the short-lived Linux operator container shown in the pinned README.
+A separately provisioned supervisor sidecar must likewise use the same Docker
+Linux engine and private state. Do not concurrently open/edit that SQLite state
+with host-native macOS/Windows processes; the supported test path keeps database
+locking and updates on the Linux side of Docker Desktop's mounts.
 
 Use `--network none` for local-only tools. Remote services require deliberate
 network configuration and credentials. Do not mount your home directory or
