@@ -5,6 +5,12 @@ The older `v0.1.1-product` tag is not the standalone hardening release.
 
 ## Unreleased source additions
 
+- Add a source-built Python owned-process supervisor reference: fresh admission,
+  read-only lease monitoring and POSIX group cleanup, with installed-consumer
+  kill/deadline/outage acceptance. Refuse unsupported hosts before execution.
+- Reject ambiguous duplicate-key and nonfinite JSON in Python client responses.
+
+
 - Add immutable operator-issued `hard_deadline_at` for fresh root leases through
   Rust `issue_agent`, CLI `issue` and HTTP `/issue`. Deadline denials are distinct
   from idle expiry and happen before TTL renewal or approval consumption.

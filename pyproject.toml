@@ -25,5 +25,5 @@ Documentation = "https://github.com/seanebones-lang/deadbolt/blob/main/docs/PYTH
 deadbolt-client = "deadbolt_client:cli"
 
 [tool.setuptools]
-py-modules = ["deadbolt_client", "deadbolt_openai_agents"]
+py-modules = ["deadbolt_client", "deadbolt_openai_agents", "deadbolt_supervisor"]
 package-dir = {"" = "examples"}

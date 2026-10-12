@@ -200,3 +200,8 @@ and native packages. Passing these checks does not establish acceptance of your 
 [Report ordinary bugs](https://github.com/seanebones-lang/deadbolt/issues/new/choose)
 or use [private security reporting](SECURITY.md). Copyright NextEleven LLC 2026.
 [License](LICENSE) · [Notice](NOTICE). Harness is one consumer, not a prerequisite.
+
+For trusted executors that need to stop already running local commands, the
+[owned-process cancellation reference](docs/EXECUTOR-CANCELLATION.md) adds a
+source-only POSIX supervisor pattern with disposable acceptance. It does not
+change the gate into a sandbox or upgrade published packages.

@@ -18,6 +18,19 @@ from urllib.parse import quote
 MAX_RESPONSE_BYTES = 1024 * 1024
 
 
+def _unique_object(pairs):
+    value = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError("ambiguous JSON response")
+        value[key] = item
+    return value
+
+
+def _invalid_constant(_):
+    raise ValueError("nonfinite JSON response")
+
+
 def sock_path():
     raw = os.environ.get("DEADBOLT_SOCK")
     if raw:
@@ -101,7 +114,8 @@ def _call(method, path, body=None):
             return _down(path, "unauthorized" if status == 401 else "forbidden")
         if not 200 <= status < 300 or not raw or len(raw) > MAX_RESPONSE_BYTES:
             return _down(path)
-        return json.loads(raw.decode("utf-8"))
+        return json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_object,
+                          parse_constant=_invalid_constant)
     except Exception:
         return _down(path)
     finally:
