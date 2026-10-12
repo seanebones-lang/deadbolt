@@ -21,7 +21,7 @@ targets, checksums and acceptance receipts; both Mac ZIPs are signed/notarized.
 2.0 is also available on [crates.io](https://crates.io/crates/n11-deadbolt/2.0.0-rc.1),
 [PyPI](https://pypi.org/project/n11-deadbolt-client/2.0.0rc1/) and the
 [Homebrew preview channel](docs/HOMEBREW.md#explicitly-select-the-prerelease).
-Editor/MCP bundles still pin their older engines. [Choose your route](docs/INSTALL.md).
+The separate MCPB 2.0 preview packages the 2.0 engine with explicit launcher controls; stable MCPB/editor artifacts retain their older pinned engines. [Choose your route](docs/INSTALL.md).
 
 ```sh
 # Rust-built CLI; or select a prebuilt native download / macOS preview cask:
@@ -70,9 +70,12 @@ actions. The trusted child retains OS access; this is not a sandbox.
 [Installation and verification](docs/INSTALL.md#local-mcp-bundle-mcpb) ·
 [Configuration and operator controls](https://github.com/seanebones-lang/deadbolt/blob/mcpb-v1.1.0/dist/mcpb/README.md).
 
-The same bundle is available through [Smithery](https://smithery.ai/servers/seanebones/deadbolt)
+For the new controls, [download MCPB 2.0.0-rc.1 preview](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.0-rc.1). It requires version 2 configuration with a fixed absolute deadline, deliberate renewal mode and offline exceptions that default to empty. The launcher uses broad one-shot tool approvals; exact-action grant provisioning is not included. [Preview configuration and migration](dist/mcpb/README.md). Both versions offer blank read-only setup with no active protection. Choose the artifact and matching configuration before installing.
+
+
+Discover the local bundles through [Smithery](https://smithery.ai/servers/seanebones/deadbolt)
 and listed in the [official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.seanebones-lang%2Fdeadbolt&limit=10)
-as `io.github.seanebones-lang/deadbolt`. The registry is a discovery record, not a
+as `io.github.seanebones-lang/deadbolt`. The latest catalog entry is the 2.0 preview; the stable direct download above remains pinned. The registry is a discovery record, not a
 hosted operator endpoint or an endorsement. [server.json](server.json) records
 the published package URL and SHA-256. This bundle release is separate from the
 engine's 2.0.0-rc.1 developer candidate.

@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.seanebones-lang/deadbolt",
   "title": "DeadBolt by NextEleven",
-  "description": "Read-only setup by default; explicit configuration gates trusted MCP tool calls with local policy.",
-  "version": "1.1.0",
+  "description": "2.0 preview: read-only setup; configured tool gate with fixed deadlines and offline exceptions.",
+  "version": "2.0.0-rc.1",
   "repository": {
     "url": "https://github.com/seanebones-lang/deadbolt",
     "source": "github",
@@ -13,8 +13,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v1.1.0/deadbolt-1.1.0.mcpb",
-      "fileSha256": "7840d23f116b8a162322a372124718ca374296e3b9ca1d781e99f466d7a6634c",
+      "identifier": "https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v2.0.0-rc.1/deadbolt-2.0.0-rc.1.mcpb",
+      "fileSha256": "ee984aaead77f4cc5df4f586c0c4709f967fcf8de667bdcecb253cad743de1e7",
       "transport": {
         "type": "stdio"
       }
@@ -22,13 +22,16 @@
   ],
   "_meta": {
     "io.modelcontextprotocol.registry/publisher-provided": {
-      "bundleVersion": "1.1.0",
-      "engineVersion": "1.0.3",
+      "bundleVersion": "2.0.0-rc.1",
+      "engineVersion": "2.0.0-rc.1",
       "license": "Apache-2.0",
       "setupMode": "Two read-only setup and bundle-verification tools; no active protection until configured.",
       "protectionBoundary": "Protects connected dispatch routes. Not an OS sandbox; cannot cancel running actions.",
-      "documentation": "https://github.com/seanebones-lang/deadbolt/blob/main/docs/INSTALL.md#local-mcp-bundle-mcpb",
-      "captionedWalkthrough": "https://seanebones-lang.github.io/deadbolt/walkthrough.html"
+      "documentation": "https://github.com/seanebones-lang/deadbolt/blob/79f31c9ff615493dee5808d06a63411ef552c35b/dist/mcpb/README.md",
+      "captionedWalkthrough": "https://seanebones-lang.github.io/deadbolt/walkthrough.html",
+      "releaseChannel": "preview",
+      "configurationVersion": 2,
+      "renewal": "Explicit activity or separately operated supervisor; neither extends the fixed deadline."
     }
   }
 }
