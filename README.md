@@ -7,11 +7,11 @@ stdio MCP server. Free under [Apache-2.0](LICENSE).
 
 Keep DeadBolt state and operator controls outside untrusted agent processes.
 
-Unreleased source also creates private Unix state and requires reviewed permission
+RC2 creates private Unix state and requires reviewed permission
 migration for older stores; see [private state](docs/PRIVATE-STATE.md).
 A process that can write the database or invoke the operator CLI has operator
 authority; socket credentials cannot contain it. For untrusted tool execution,
-use separate OS/service ownership and a protected dispatcher. Unreleased source
+use separate OS/service ownership and a protected dispatcher. RC2
 requires operator authentication for both Unix and TCP sidecars by default.
 [Trust boundary](docs/TRUST.md) · [HTTP setup](docs/HTTP-AUTHENTICATION.md)
 
@@ -23,28 +23,30 @@ requires operator authentication for both Unix and TCP sidecars by default.
 
 ## Evaluate the 2.0 developer candidate
 
-**Corrected source candidate: 2.0.0-rc.2 / Python 2.0.0rc2, not yet published.**
+**Published corrected preview: engine 2.0.0-rc.2 / Python 2.0.0rc2.**
 It adds supervisor renewal by default for fresh roots, complete ancestor policy
 checks, authenticated operator setup, private persisted state and model-readable
-denials. Existing stored renewal modes stay unchanged. Use a reviewed commit
-when building this source; the RC1 downloads below retain their earlier behavior.
-New immutable downloads and graphical-client acceptance are separate release gates.
+denials. Existing stored renewal modes stay unchanged. Actual graphical-client
+acceptance and the independent rerun remain open; stable promotion is gated on them.
 
-[Download engine 2.0.0-rc.1 and matching Python wheel 2.0.0rc1](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.1)
-for immutable run deadlines, optional supervisor-only idle renewal and explicit
-operator-owned offline destination exceptions. The release includes four native
-targets, checksums and acceptance receipts; both Mac ZIPs are signed/notarized.
-[Read the major Rust migration guide](docs/MIGRATING-V2.md) before upgrading.
-2.0 is also available on [crates.io](https://crates.io/crates/n11-deadbolt/2.0.0-rc.1),
-[PyPI](https://pypi.org/project/n11-deadbolt-client/2.0.0rc1/) and the
-[Homebrew preview channel](docs/HOMEBREW.md#explicitly-select-the-prerelease).
-The separate MCPB 2.0 preview packages the 2.0 engine with explicit launcher controls; stable MCPB/editor artifacts retain their older pinned engines. [Choose your route](docs/INSTALL.md).
+[Download the matching engine and Python wheel](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.2).
+The release includes four native targets, checksums, source identity and acceptance
+receipts; both Mac ZIPs are signed/notarized. The Python wheel installs the client,
+not an engine or sidecar. [Read the migration guide](docs/MIGRATING-V2.md) before upgrading.
+
+The [Homebrew preview](docs/HOMEBREW.md#explicitly-select-the-prerelease) and
+[local MCPB RC2](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.0-rc.2)
+are available. [Use the RC2 editor helper](docs/EDITORS-V2.md) for Cursor/VS Code.
+PyPI now supplies the matching `2.0.0rc2` client. Cargo remains on RC1 until its
+separate corrected publication is verified. Use the RC2
+native download, verified GitHub wheel or immutable source tag now:
 
 ```sh
-# Rust-built CLI; or select a prebuilt native download / macOS preview cask:
-cargo install n11-deadbolt --version 2.0.0-rc.1 --locked --bin deadbolt
-# Matching Python client, in your application virtual environment:
-python -m pip install 'n11-deadbolt-client==2.0.0rc1'
+git clone --branch v2.0.0-rc.2 --depth 1 https://github.com/seanebones-lang/deadbolt.git
+cd deadbolt
+cargo install --path . --locked --bin deadbolt
+# In your application's virtual environment:
+python -m pip install 'n11-deadbolt-client==2.0.0rc2'
 ```
 
 ## Try it before connecting an agent
@@ -87,7 +89,7 @@ actions. The trusted child retains OS access; this is not a sandbox.
 [Installation and verification](docs/INSTALL.md#local-mcp-bundle-mcpb) ·
 [Configuration and operator controls](https://github.com/seanebones-lang/deadbolt/blob/mcpb-v1.1.0/dist/mcpb/README.md).
 
-For the new controls, [download MCPB 2.0.0-rc.1 preview](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.0-rc.1). It requires version 2 configuration with a fixed absolute deadline, deliberate renewal mode and offline exceptions that default to empty. The launcher uses broad one-shot tool approvals; exact-action grant provisioning is not included. [Preview configuration and migration](dist/mcpb/README.md). Both versions offer blank read-only setup with no active protection. Choose the artifact and matching configuration before installing.
+For the new controls, [download MCPB 2.0.0-rc.2 preview](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.0-rc.2). It requires version 2 configuration with a fixed absolute deadline, deliberate renewal mode and offline exceptions that default to empty. The launcher uses broad one-shot tool approvals; exact-action grant provisioning is not included. [Preview configuration and migration](dist/mcpb/README.md). Both versions offer blank read-only setup with no active protection. Choose the artifact and matching configuration before installing.
 
 
 Discover the local bundles through [Smithery](https://smithery.ai/servers/seanebones/deadbolt)
@@ -95,7 +97,7 @@ and listed in the [official MCP Registry](https://registry.modelcontextprotocol.
 as `io.github.seanebones-lang/deadbolt`. The latest catalog entry is the 2.0 preview; the stable direct download above remains pinned. The registry is a discovery record, not a
 hosted operator endpoint or an endorsement. [server.json](server.json) records
 the published package URL and SHA-256. This bundle release is separate from the
-engine's 2.0.0-rc.1 developer candidate.
+engine's 2.0.0-rc.2 developer candidate.
 
 ## Pick your integration
 
@@ -122,15 +124,13 @@ Choose the version before copying examples:
 | --- | --- |
 | **Published v1.0.3** | Native executable, embedded Rust, local HTTP, source Python/Node clients, stdio MCP, leases, policy, broad one-shot approval, kill and evidence |
 | **Older 1.1.0-rc.1 prerelease** | All of the above, plus callback dispatch helpers, installable Python wheel/source package, optional SDK decorator, single-agent admission credentials and exact-action approvals |
-| **2.0.0-rc.1 developer candidate** | Includes the 1.1 features, explicit per-lease offline exceptions, fixed run deadlines, supervisor-only idle renewal and the POSIX owned-process cancellation reference; major Rust API migration required |
+| **2.0.0-rc.2 corrected developer candidate** | Includes the 1.1 features, complete ancestor enforcement, fixed deadlines, default supervisor renewal for fresh roots, explicit offline exceptions, private state, authenticated operator setup, model-readable denials and POSIX owned-process cancellation; major Rust API migration required |
 
-The [v2.0.0-rc.1 prerelease](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.1)
+The [v2.0.0-rc.2 prerelease](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.2)
 is for developer evaluation before stable promotion. These additions are **not in
-v1.0.3 downloads or the older editor/MCP bundles**. [Install the candidate](docs/INSTALL.md)
-or use the stable examples labeled v1.0.3. The Rust library and CLI are on
-[crates.io](https://crates.io/crates/n11-deadbolt/2.0.0-rc.1); the separately
-installed client is on [PyPI as `n11-deadbolt-client==2.0.0rc1`](https://pypi.org/project/n11-deadbolt-client/2.0.0rc1/).
-Node remains a bundled source client.
+v1.0.3 downloads or older editor/MCP bundles**. [Install the candidate](docs/INSTALL.md)
+or use the stable examples labeled v1.0.3. Registry publication is separately
+versioned; select the exact package and matching engine. Node remains a source client.
 
 **On macOS, install the signed stable CLI with Homebrew:**
 
@@ -158,11 +158,12 @@ deadbolt drill
 deadbolt = { package = "n11-deadbolt", version = "=1.0.3" }
 ```
 
-Use `=2.0.0-rc.1` explicitly to evaluate the candidate APIs. Source builds need
+For RC2, use its immutable source tag or reviewed release archive; the older
+RC1 registry dependency does not include every correction. Source builds need
 Rust 1.85+ and a native C compiler/linker; prebuilt downloads avoid that build.
 [All installation routes](docs/INSTALL.md#cargo-registry-cli-and-embedded-rust).
 [Stable Rust API](https://docs.rs/n11-deadbolt/1.0.3/deadbolt/) ·
-[Candidate Rust API](https://docs.rs/n11-deadbolt/2.0.0-rc.1/deadbolt/).
+[Earlier RC1 Rust API](https://docs.rs/n11-deadbolt/2.0.0-rc.1/deadbolt/).
 
 ## Put the gate at the effect
 
@@ -188,7 +189,7 @@ or perform a separate admission before a one-shot dispatch helper.
 
 ## 2.0 release candidate in this source
 
-This source matches published **engine 2.0.0-rc.1** and **Python client 2.0.0rc1**.
+This source matches published **engine 2.0.0-rc.2** and **Python client 2.0.0rc2**.
 It consolidates strict destination policy, immutable run deadlines, optional
 supervisor-only liveness and the owned-process cancellation reference. Existing
 1.x packages and MCPB/plugin bundles stay separately versioned. Publication and
@@ -202,8 +203,8 @@ commands above do not install these new controls. See [local data/privacy](docs/
 ## Controls you can build on
 
 - Tool allow-lists, destination tokens, reported-spend caps, pause and clips.
-- Leases with a default 60-second idle TTL; killed IDs stay killed. Published
-  rc.1 default roots slide it on activity. Corrected unreleased source defaults
+- Leases with a default 60-second idle TTL; killed IDs stay killed. Earlier
+  rc.1 default roots slide it on activity. Published RC2 defaults
   fresh roots to supervisor renewal, preserving existing modes and offering
   explicit activity setup.
 - The 2.0 candidate adds [supervisor-only liveness](docs/SUPERVISION.md):

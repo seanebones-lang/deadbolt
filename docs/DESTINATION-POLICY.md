@@ -54,7 +54,7 @@ receive **no exceptions**. An existing destination policy therefore becomes
 stricter: tools that previously omitted a host may now return
 `purpose_exceeded`. Review real implementations before adding exceptions, and
 configure each child’s real routes. Offline classifications persist across
-restart. Unreleased source also checks all ancestor policies dynamically: a child
+restart. Published RC2 also checks all ancestor policies dynamically: a child
 may omit a destination only when each configured destination policy on its
 ancestry permits that tool offline. A child exception cannot widen a parent’s
 rule. Published 2.0.0-rc.1 and 1.x engines do not enforce those ancestor ceilings.

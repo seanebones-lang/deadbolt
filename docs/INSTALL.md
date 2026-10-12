@@ -1,44 +1,35 @@
 # Install DeadBolt
 
-## Published 2.0 developer candidate
+## Published corrected 2.0 developer candidate
 
-Engine **2.0.0-rc.1** and matching Python client **2.0.0rc1** are available in
-[the versioned GitHub release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.1). Download the native ZIP and its
-checksum for your target, or select the matching Cargo, PyPI and Homebrew preview
-packages below. The immutable Git tag remains an alternative Rust source build.
-Read [the migration guide](MIGRATING-V2.md) before opening existing state or
-changing an embedded Rust consumer. The final Mac ZIPs are signed/notarized;
-Linux and Windows binaries are unsigned. See the release’s acceptance receipt
-for the tested targets and remaining installation boundaries.
+Engine **2.0.0-rc.2** and matching Python client **2.0.0rc2** are available in
+[the immutable GitHub release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.2).
+Download your native ZIP, the matching wheel if needed, and `SHA256SUMS`. Verify
+before extraction/installation. Both Mac ZIPs are signed/notarized; Linux and
+Windows binaries are unsigned. Read [migration](MIGRATING-V2.md) before changing
+existing state or an embedded Rust consumer. Actual RC2 GUI/model acceptance
+and the independent rerun remain open gates before stable promotion.
 
-For the Rust CLI:
-
-```sh
-cargo install n11-deadbolt --version 2.0.0-rc.1 --locked --bin deadbolt
-```
-
-For an embedded Rust library:
-
-```toml
-deadbolt = { package = "n11-deadbolt", version = "=2.0.0-rc.1" }
-```
-
-For Python, install the pinned [PyPI client](https://pypi.org/project/n11-deadbolt-client/2.0.0rc1/)
-in your application's virtual environment. Install the matching native engine separately:
-
-```sh
-python -m pip install 'n11-deadbolt-client==2.0.0rc1'
-```
-
-On macOS, the signed preview engine is also available without a Rust build:
+For macOS, the signed RC2 preview is available without a Rust build:
 
 ```sh
 brew install --cask seanebones-lang/tap/n11-deadbolt-preview
 ```
 
-The stable commands below deliberately retain 1.0.3. The separately published
-[MCPB 2.0 preview](#mcpb-20-preview) packages engine 2.0 with new operator
-configuration; stable MCPB/editor artifacts retain their older pinned engines.
+For Python, activate your application virtual environment and install the
+checksum-verified release wheel. Install the matching native engine separately:
+
+```sh
+python -m pip install /absolute/path/to/n11_deadbolt_client-2.0.0rc2-py3-none-any.whl
+```
+
+PyPI now offers matching client `2.0.0rc2`. Cargo remains on RC1 until its
+separate corrected publication is verified. That earlier engine does not include every RC2 correction. For the
+corrected Rust CLI or library, use [the RC2 source tag](#reviewed-source-candidate)
+or a native download. The stable routes below retain 1.0.3. The separately
+published [MCPB RC2 preview](#mcpb-20-preview) includes the matching engine;
+[the RC2 editor guide](EDITORS-V2.md) exports Cursor/VS Code configurations without
+overwriting the stable helper or existing installations.
 
 Choose a published native executable for a quick evaluation, or a reviewed source
 candidate for the new APIs. The Python client connects to a **separately installed
@@ -46,11 +37,11 @@ executable**; installing the client does not start a sidecar.
 
 | Path | You need | What you get |
 | --- | --- | --- |
-| Native archive | Matching OS/CPU; Python 3.9+ only for the evaluation | Stable v1.0.3, older 1.1.0-rc.1 or new 2.0.0-rc.1 executable, source clients, examples and docs |
+| Native archive | Matching OS/CPU; Python 3.9+ only for the evaluation | Stable v1.0.3, older 1.1.0-rc.1 or new 2.0.0-rc.2 executable, source clients, examples and docs |
 | [Homebrew tap](HOMEBREW.md) | macOS Apple Silicon or Intel and Homebrew | Signed prebuilt stable CLI or explicitly selected preview; no Rust build |
 | Local MCP bundle (MCPB) | Compatible local MCP client, Node.js 20+ and a trusted downstream stdio server | Bundle 1.1.0 with stable v1.0.3 binaries and a configuration-file launcher |
 | [Docker stdio MCP](DOCKER-MCP.md) | Git and a running Docker Linux engine, ARM64 or AMD64 | Source-built package 1.0.0 with stable engine 1.0.3; catalog review pending |
-| Cargo registry CLI / embedded Rust | Rust 1.85+, native C compiler/linker for bundled SQLite | Stable 1.0.3 or explicitly selected 2.0.0-rc.1 |
+| Cargo registry CLI / embedded Rust | Rust 1.85+, native C compiler/linker for bundled SQLite | Stable 1.0.3 or older RC1; corrected RC2 uses the source-tag route |
 | Source binary / embedded Rust | Git, Rust 1.85+, native C compiler/linker for bundled SQLite | APIs at your selected tag or exact commit |
 | Python source installation | Python 3.10+, pip and a reviewed checkout | Base client with no third-party runtime dependencies |
 | Python package | Python 3.9+ and pip; pinned PyPI wheel or reviewed `.whl` | Prerelease client; engine installed separately; no Rust needed for the wheel |
@@ -70,7 +61,7 @@ deadbolt drill
 ```
 
 Expected version: `deadbolt 1.0.3`. The separate `n11-deadbolt-preview` cask
-selects `2.0.0-rc.1`; both casks cannot be installed together. Installation
+selects `2.0.0-rc.2`; both casks cannot be installed together. Installation
 does not start a service or configure policy. See [the Homebrew guide](HOMEBREW.md)
 for scoped trust, the installed release's disposable evaluation, updates,
 channel switching and state-preserving removal.
@@ -78,7 +69,7 @@ channel switching and state-preserving removal.
 ## Native archive (no Rust required)
 
 Choose [stable v1.0.3](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.3)
-or [new developer candidate v2.0.0-rc.1](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.1) or [older prerelease v1.1.0-rc.1](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.1.0-rc.1).
+or [corrected developer candidate v2.0.0-rc.2](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.2) or [older prerelease v1.1.0-rc.1](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.1.0-rc.1).
 The prerelease includes callback dispatch, scoped credentials and exact-action review;
 use it to evaluate those new APIs before stable promotion. Download the ZIP **and
 its matching `.zip.sha256` file**. Use the same version throughout these commands:
@@ -112,7 +103,7 @@ checksum file before extracting with `Expand-Archive`. From the extracted root:
 python examples/evaluate.py --binary .\deadbolt.exe
 ```
 
-Expected: the checksum matches, version matches your selected release (`deadbolt 1.0.3`, `deadbolt 1.1.0-rc.1` or `deadbolt 2.0.0-rc.1`), the drill reports
+Expected: the checksum matches, version matches your selected release (`deadbolt 1.0.3`, `deadbolt 1.1.0-rc.1` or `deadbolt 2.0.0-rc.2`), the drill reports
 `deadbolt drill ok`, and evaluation JSON has `"passed": true`. Keep this extracted
 folder to retain its examples, notices and source identity in `BUILD.json`.
 Add it to PATH or copy the executable to your chosen binary directory if desired;
@@ -126,15 +117,20 @@ Linux arm64, Windows arm64 and Alpine/musl are outside the native asset matrix.
 
 ## MCPB 2.0 preview
 
-[Download the 2.0.0-rc.1 preview bundle](https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v2.0.0-rc.1/deadbolt-2.0.0-rc.1.mcpb), or inspect its [release, checksums and four-host acceptance reports](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.0-rc.1). Bundle SHA-256:
+[Download the 2.0.0-rc.2 preview bundle](https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v2.0.0-rc.2/deadbolt-2.0.0-rc.2.mcpb), or inspect its [release, checksums and four-host acceptance reports](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.0-rc.2). Bundle SHA-256:
 
 ```text
-ee984aaead77f4cc5df4f586c0c4709f967fcf8de667bdcecb253cad743de1e7
+a0634e69da89c6e2c38bf72b8c1a1b8ed75e30e77df218841692808998c7b95e
 ```
 
 This is a separate preview, not a silent update of stable bundle 1.1.0. Read the [version 2 configuration and migration guide](../dist/mcpb/README.md), use a fresh run ID, set a fixed future integer Unix deadline, choose activity or separately operated supervisor renewal, and review offline exceptions (default empty). Old configuration is refused. Restart cannot extend a deadline or revive expired/killed state. Destination declarations are policy, not OS egress enforcement; this gate does not cancel already running effects. Its irreversible tool approvals remain broad one-shot approvals; the launcher does not provision exact-action grants.
 
 Node.js 20+ and the same four native targets are required. Blank configuration provides only read-only setup and no protection. Four-host tests exercised actual disposable allow/deny effects and startup/restart refusal; graphical client installation of this preview and independent outside-adopter reproduction remain open. The stable instructions below use their own versioned configuration.
+
+For Cursor or VS Code, use the [separate RC2 helper and guide](EDITORS-V2.md).
+Fresh ordinary roots default to supervisor renewal. Explicit configured modes
+and existing stored modes retain their semantics; a heartbeat must arrive before
+idle expiry. Neither activity nor supervisor renewal can move the fixed deadline.
 
 ## Local MCP bundle (MCPB)
 
@@ -247,23 +243,11 @@ Cargo does not use a dependency's lockfile when resolving your application.
 See the [dispatch-boundary example](INTEGRATION.md#build-in-rust-executor).
 [Stable Rust API reference](https://docs.rs/n11-deadbolt/1.0.3/deadbolt/).
 
-For candidate evaluation, select it explicitly:
-
-```sh
-cargo install n11-deadbolt --version 2.0.0-rc.1 --locked --bin deadbolt
-```
-
-Use `version = "=2.0.0-rc.1"` in the embedded dependency for callback helpers,
-scoped credentials, exact-action approvals and the 2.0 deadline/supervision controls.
-These remain prerelease APIs. Review [major-version migration](MIGRATING-V2.md) first.
-[Candidate Rust API reference](https://docs.rs/n11-deadbolt/2.0.0-rc.1/deadbolt/).
-Replacing an installed CLI requires an intentional `--force`; review
-[upgrade preparation](#upgrade-and-remove) first.
-
-The registry versions come from their existing reviewed Git tags. Their
-packaged READMEs are frozen release snapshots and may describe registry
-publication as pending on the original release date. This guide tracks current
-installation routes. The prerelease Python client is on PyPI; Node is not on npm.
+The Cargo registry's earlier candidate `2.0.0-rc.1` remains available, but
+it does not include every corrected RC2 guarantee. Use the [RC2 source tag](#reviewed-source-candidate)
+until a matching registry update is published and verified. Packaged registry
+READMEs are frozen release snapshots; this current guide tracks available routes.
+Node remains a bundled source client.
 
 ## Published source
 
@@ -284,10 +268,10 @@ If `deadbolt` is not found, call that executable by its full path or fix PATH.
 
 ## Reviewed source candidate
 
-The `2.0.0-rc.1` APIs are not in v1.0.3. Select the versioned prerelease tag:
+The `2.0.0-rc.2` APIs are not in v1.0.3. Select the versioned prerelease tag:
 
 ```sh
-git clone --branch v2.0.0-rc.1 --depth 1 https://github.com/seanebones-lang/deadbolt.git
+git clone --branch v2.0.0-rc.2 --depth 1 https://github.com/seanebones-lang/deadbolt.git
 cd deadbolt
 cargo install --path . --locked --bin deadbolt
 git rev-parse HEAD
@@ -300,12 +284,15 @@ an archive. Replacing an existing Cargo-installed binary requires an intentional
 `--force`; follow [upgrade preparation](#upgrade-and-remove) first. Direct Git install:
 
 ```sh
-cargo install --git https://github.com/seanebones-lang/deadbolt.git --tag v2.0.0-rc.1 --locked --bin deadbolt
+cargo install --git https://github.com/seanebones-lang/deadbolt.git --tag v2.0.0-rc.2 --locked --bin deadbolt
 ```
 
-The Rust library and CLI are also available through the [Cargo registry route](#cargo-registry-cli-and-embedded-rust).
-The prerelease Python client is also on [PyPI](https://pypi.org/project/n11-deadbolt-client/2.0.0rc1/).
-Pin `n11-deadbolt-client==2.0.0rc1`; install the matching engine separately.
+RC2 Cargo registry publication remains separate. For an embedded source dependency,
+pin the exact reviewed release revision:
+
+```toml
+deadbolt = { package = "n11-deadbolt", git = "https://github.com/seanebones-lang/deadbolt.git", rev = "d166c7b039800bbd6d8acb1bc5c66f9add472f5f" }
+```
 
 ## Python and Node
 
@@ -314,21 +301,21 @@ In your application, create and activate a virtual environment. On macOS/Linux:
 ```sh
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install 'n11-deadbolt-client==2.0.0rc1'
+python -m pip install 'n11-deadbolt-client==2.0.0rc2'
 python -c "import deadbolt_client; print(deadbolt_client.__file__)"
 ```
 
 Windows: `python -m venv .venv`, then `.\.venv\Scripts\Activate.ps1` and the same
 pip/import commands. To install reviewed source instead, use
 `python -m pip install /absolute/path/to/reviewed/deadbolt` with Python 3.10+
-for its build backend. The PyPI wheel runs on Python 3.9+. For a manual wheel, download
-`n11_deadbolt_client-2.0.0rc1-py3-none-any.whl` and `SHA256SUMS` from the prerelease,
-verify its hash, then run `python -m pip install /absolute/path/to/n11_deadbolt_client-2.0.0rc1-py3-none-any.whl`. The imported path should be inside your environment.
+for its build backend. The PyPI/release wheel runs on Python 3.9+; pin the matching `2.0.0rc2` client. For a manual wheel, download
+`n11_deadbolt_client-2.0.0rc2-py3-none-any.whl` and `SHA256SUMS` from the prerelease,
+verify its hash, then run `python -m pip install /absolute/path/to/n11_deadbolt_client-2.0.0rc2-py3-none-any.whl`. The imported path should be inside your environment.
 
 For SDK function tools, install the extra instead:
 
 ```sh
-python -m pip install 'n11-deadbolt-client[openai-agents]==2.0.0rc1'
+python -m pip install '/absolute/path/to/n11_deadbolt_client-2.0.0rc2-py3-none-any.whl[openai-agents]'
 ```
 
 See [Python setup](PYTHON.md) for the operator/dispatcher split and optional
@@ -341,7 +328,7 @@ in the candidate too. Use files from the same selected revision as your executab
 
 Embedded Rust needs no sidecar or token. A sidecar defaults to the same-user,
 mode-0600 Unix socket `~/.deadbolt/deadbolt.sock` on macOS/Linux. Windows uses
-loopback TCP and requires a nonempty operator token. Unreleased source requires
+loopback TCP and requires a nonempty operator token. RC2 requires
 that token for Unix sidecars as well; [HTTP authentication](HTTP-AUTHENTICATION.md)
 explains the version boundary. TCP is also available on Unix.
 

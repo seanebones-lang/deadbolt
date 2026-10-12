@@ -15,13 +15,13 @@ result other than a fresh explicit `allow`.
 
 **Version rule:** v1.0.3 supports the manual admission examples below. Callback
 helpers, installable Python/SDK integration, scoped credentials and exact-action
-review are available in the 2.0.0-rc.1 prerelease (and the older 1.1 candidate). [Select and install the right source](INSTALL.md).
+review are available in the 2.0 candidates (and the older 1.1 candidate). [Select and install the right source](INSTALL.md).
 
 Use this order in your application:
 
 1. Give the run an executor-assigned ID; create its lease in trusted setup.
 2. Configure the actual tool names, destination policy and sensitive-action review.
-3. Register each child and configure its routes before dispatch. Unreleased source
+3. Register each child and configure its routes before dispatch. Published RC2
    also applies every ancestor’s restrictions; a child can narrow that ceiling.
 4. Give the dispatcher only its required authority. The candidate supports a
    [single-agent admission credential](CREDENTIALS.md).
@@ -36,11 +36,11 @@ FUTURE_UNIX_SECONDS`, `gate.issue_agent` in embedded Rust, or operator
 slide. Registered children inherit it. Existing `ensure` integrations stay
 idle-only unless setup opts in with a fresh ID. [Full setup and trust
 limits](LEASE-DEADLINES.md) include restart, rollback and wall-clock behavior.
-This addition ships in engine 2.0.0-rc.1; the older editor/MCP bundles do not
+This addition ships in both 2.0 candidates; the older editor/MCP bundles do not
 include it. Select the matching release and record its identity. The normal Python/Node admission response already
 carries a denial code; keep callbacks uncalled on every denial.
 
-Unreleased corrected source defaults fresh `ensure` and `issue` identities to
+Published RC2 defaults fresh `ensure` and `issue` identities to
 supervisor renewal. Existing identities keep their stored mode; trusted setup
 must provision a separate heartbeat before initial idle expiry. Explicit legacy
 activity setup and version-aware migration are documented in
@@ -52,7 +52,7 @@ activity setup and version-aware migration are documented in
 
 The current source adds helpers that take your actual tool callback and check
 immediately before invoking it. They are not in the published v1.0.3 archives.
-Select the `2.0.0-rc.1` registry crate or reviewed source tag for these APIs;
+Select the immutable RC2 source tag for the corrected APIs;
 install the matching Python release wheel/source package, or copy its Node
 source client as described below.
 
@@ -127,8 +127,8 @@ checkout to inspect real allowed/blocked effects without an AI account.
 source, the Cargo registry and Python release packages. The Rust package is
 `n11-deadbolt`, its library is `deadbolt`, and its executable is `deadbolt`.
 Pin the reviewed registry version or a full Git revision for a deployment.
-The prerelease Python client is on [PyPI](https://pypi.org/project/n11-deadbolt-client/2.0.0rc1/):
-`python -m pip install 'n11-deadbolt-client==2.0.0rc1'`. Install the matching
+The prerelease Python client is on [PyPI](https://pypi.org/project/n11-deadbolt-client/2.0.0rc2/):
+`python -m pip install 'n11-deadbolt-client==2.0.0rc2'`. Install the matching
 candidate engine separately; see [Python setup](PYTHON.md). Node remains a source client.
 
 ## Build in: Rust executor
@@ -141,7 +141,8 @@ deadbolt = { package = "n11-deadbolt", version = "=1.0.3" }
 ```
 
 That dependency uses the **published v1.0.3 API**. For the candidate helpers,
-replace the version value with `"=2.0.0-rc.1"`, or use a reviewed adjacent checkout:
+use the immutable RC2 source revision from [installation](INSTALL.md#reviewed-source-candidate),
+or a reviewed adjacent checkout:
 
 ```toml
 [dependencies]
@@ -150,7 +151,9 @@ deadbolt = { package = "n11-deadbolt", path = "../deadbolt" }
 
 No socket, bearer token, Python package or service is needed. State is persistent;
 keep it outside disposable build output. This complete example works with v1.0.3
-or the candidate and configures policy before dispatch:
+or RC2 for this immediate, single admission and configures policy before dispatch.
+With RC2, it creates a supervised lease: long-running integrations must provision
+[separate heartbeat ownership](SUPERVISION.md) before initial idle expiry:
 
 ```rust
 use deadbolt::{AdmitDecision, Deadbolt};
@@ -179,7 +182,7 @@ are available on the library. Register children before starting them and check
 that registration returned `true`. Registration is idempotent for the same
 parent, preserves existing state, and rejects reparenting and self-parenting.
 Missing, killed, paused, or expired parents cannot create new live children.
-In unreleased source, admissions apply every ancestor’s current tool, destination,
+In RC2, admissions apply every ancestor’s current tool, destination,
 clip and approval restrictions. A child’s configuration can narrow those limits,
 not widen them. A spending cap covers its registered subtree. Policies and grants
 are not copied: approvals remain bound to the actual child being admitted. Each
@@ -204,8 +207,7 @@ Never cache an allow result for later execution.
 
 ## Bolt on: Python, Node, or any HTTP client
 
-Run `deadbolt serve` on macOS/Linux for a mode-0600 Unix socket; unreleased
-source also requires an operator token there by default. On Windows, use
+Run `deadbolt serve` on macOS/Linux for a mode-0600 Unix socket; RC2 also requires an operator token there by default. On Windows, use
 loopback TCP and `DEADBOLT_TOKEN`. TCP works on macOS/Linux too.
 [HTTP authentication](HTTP-AUTHENTICATION.md) describes the version boundary
 and explicit legacy migration option. Generate
@@ -236,7 +238,7 @@ to the dispatcher. The shared operator token remains a compatibility path.
 
 Install the candidate [Python package](PYTHON.md), or copy the selected
 revision's `examples/deadbolt_client.py` / `examples/deadbolt_client.js` beside
-your application. The Node client is source-only; neither is on a registry.
+your application. The Node client is source-only; the matching Python client is published on PyPI.
 Python uses
 only its standard library; Node uses built-in modules and CommonJS exports.
 Both expose ensure, admit (with optional destination), child registration,
@@ -396,10 +398,10 @@ requirements; quiesce protected dispatch before any rollback.
 
 ## Optional supervised idle expiry (2.0 prerelease)
 
-[Supervisor-only renewal](SUPERVISION.md) is a separate opt-in control for fresh
-root runs. Admissions do not refresh those leases; a separate root-bound
+[Supervisor-only renewal](SUPERVISION.md) is the RC2 default for fresh
+root runs; RC1 requires explicit opt-in. Admissions do not refresh those leases; a separate root-bound
 credential maintains only still-live members. A fixed deadline remains immutable
 and wins even during heartbeat activity. The explicit Python renewal call never
-uses operator/workload environment authentication. Engine 2.0.0-rc.1 includes
+uses operator/workload environment authentication. Both 2.0 candidates include
 this feature; older 1.x artifacts do not. Review the migration guide. Running
 work still needs executor-owned cancellation and OS isolation where appropriate.
