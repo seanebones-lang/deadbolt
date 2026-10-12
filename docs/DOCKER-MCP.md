@@ -3,12 +3,21 @@
 Use this route when your MCP client can launch Docker and you want a local
 stdio container. **The source build is available now. Docker MCP Catalog
 submission [#5627](https://github.com/docker/mcp-registry/pull/5627) is pending
-review.** There is no published `mcp/deadbolt` image to pull yet.
+review.** Use the source build below; catalog acceptance and a Docker-hosted
+image are not established by the preview release.
 
-Docker package **1.0.0** contains stable engine **1.0.3**. It is separate from
-MCPB 1.1.0 and engine 1.1.0-rc.1. Exact-action approvals and scoped workload
-credentials from the engine prerelease are not included in this container.
+The **Docker package 2.0.0-rc.2 developer preview** builds engine
+**2.0.0-rc.2** from exact source
+`d166c7b039800bbd6d8acb1bc5c66f9add472f5f`. It requires version 2 operator
+configuration: a fixed future deadline, explicit renewal mode and deliberate
+offline-tool exceptions. Stable Docker package 1.0.0 with engine 1.0.3 remains
+available from `e5efc1595bc87683ccf96bc367448012a9e170ee`; old configuration
+is not silently migrated.
 
+This launcher supports broad one-shot tool approval; it strips inherited
+`DEADBOLT_*` variables and does not provision exact-action grants. Use the
+Rust/Python or raw-proxy integration when your executor needs exact-action
+grants.
 ## Build the reviewed source
 
 You need Git and a running Docker Linux engine. Node and Rust are supplied by
@@ -18,7 +27,7 @@ AMD64, including Docker Desktop's Linux engine on macOS and Windows.
 ```sh
 git clone https://github.com/seanebones-lang/deadbolt-docker-mcp.git
 cd deadbolt-docker-mcp
-git checkout --detach e5efc1595bc87683ccf96bc367448012a9e170ee
+git checkout v2.0.0-rc.2
 docker build -t n11-deadbolt-docker:local .
 ```
 
@@ -59,7 +68,7 @@ verification or a security certification.
 ## Enable one protected downstream
 
 Follow the pinned package's
-[operator configuration and derived-image guide](https://github.com/seanebones-lang/deadbolt-docker-mcp/blob/e5efc1595bc87683ccf96bc367448012a9e170ee/README.md#put-a-trusted-server-behind-the-gate).
+[operator configuration and derived-image guide](https://github.com/seanebones-lang/deadbolt-docker-mcp/blob/v2.0.0-rc.2/README.md#put-a-trusted-server-behind-the-gate).
 Your reviewed downstream runs **inside the same container**. Supply a private
 read-only configuration mount and a separate writable state mount, outside
 agent-editable workspaces. Set actual tool names, policy and a fresh run ID
@@ -70,7 +79,24 @@ that server. Only routed `tools/call` requests in this configured container are
 protected. The downstream remains trusted; its startup, other MCP methods,
 existing tool bodies and OS/network access are outside the admission gate.
 Operator approval, pause, resume, clip and kill remain local operator actions.
-The stable engine uses broad one-shot tool approval and a 60-second sliding lease.
+The preview requires a fixed future integer Unix `hard_deadline_at`. Activity
+mode renews the 60-second idle TTL on live admission; supervisor mode requires
+separate trusted operator renewal. Neither extends the fixed deadline. Restart
+cannot change the deadline or mode, revive expiry/kill, or migrate an old run.
+The example's zero deadline is an invalid placeholder that you must replace.
+
+Configured mode installs the destination allow-list even if it is empty. Every
+routed tool must declare an allowed destination or have an explicit operator
+`offline_tools` exception. With both lists empty, no tool call is admitted.
+An exception cannot override a declared foreign destination. This is declared
+policy, not proof of a tool's actual network behavior; enforce egress separately.
+Keep supervisor credentials outside the model-facing container; the setup entry
+does not provision a renewal sidecar or heartbeat. Run state-writing operator
+commands in the short-lived Linux operator container shown in the pinned README.
+A separately provisioned supervisor sidecar must likewise use the same Docker
+Linux engine and private state. Do not concurrently open/edit that SQLite state
+with host-native macOS/Windows processes; the supported test path keeps database
+locking and updates on the Linux side of Docker Desktop's mounts.
 
 Use `--network none` for local-only tools. Remote services require deliberate
 network configuration and credentials. Do not mount your home directory or
@@ -87,11 +113,19 @@ python3 tests/acceptance.py n11-deadbolt-docker:local
 python3 tests/gateway_acceptance.py
 ```
 
-The acceptance suite checks 16 real-effect cases in disposable local state.
+The RC2 acceptance suite checks 24 cases in disposable local state, including
+23 gated calls: 8 allowed effects and 15 denials without effects. It covers
+single-use approval/replay, pause/resume/clip, terminal kill/reconnect, explicit
+destination/exception policy, immutable run bounds, supervisor non-renewal,
+a real wall-clock deadline and running store outage. Denials must carry the
+expected MCP tool-error reason code and retry hint. Idle expiry is
+operator-forced; a live supervisor heartbeat is not exercised by this suite.
 The gateway check uses a separate temporary catalog/configuration and does not
 change your client connections. CI passed these checks on native AMD64 and
 ARM64 with the official Docker MCP Gateway v0.42.0. These are protocol/container
 checks, not model-mediated client testing or independent customer adoption.
+[Published RC2 container evidence](evidence/docker-rc2-2026-10-12.json)
+records exact source/image and CI checks.
 
 Remove your client entry and stop its container to disconnect. `--rm` removes
 the container; private bind-mounted state remains. Back up or deliberately
