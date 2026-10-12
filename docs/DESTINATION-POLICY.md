@@ -48,9 +48,9 @@ authorized operation, not the human who held the operator credential.
 
 ## Migration and recovery
 
-### Unreleased source after RC2: MCP calls declare at most one host
+### Released in RC3: MCP calls declare at most one host
 
-The source proxy inspects every recognized string field (`url`, `uri`, `href`,
+The proxy inspects every recognized string field (`url`, `uri`, `href`,
 `endpoint`, `host`) throughout nested objects and arrays. Multiple declarations
 of the same host are accepted, comparing host names without ASCII case sensitivity
 and preserving the first declaration's spelling for exact-action fingerprints.
@@ -63,7 +63,8 @@ own complete multi-destination policy; the proxy cannot represent that operation
 by silently selecting one host. These malformed calls produce a bounded MCP
 error, not a persisted admission event. No destination or raw argument is echoed.
 
-This change is not in published RC2 artifacts. The convention still does not
+This behavior shipped in 2.0.0-rc.3 and is retained for 2.0.0; published RC2
+artifacts do not include it. The convention still does not
 discover arbitrary aliases such as `server`, URL strings in `urls`, hidden
 destinations, redirects or downstream network activity. It is not egress control.
 

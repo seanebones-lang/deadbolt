@@ -332,7 +332,12 @@ fn run() -> Result<(), DeadboltError> {
             } else {
                 db.ensure_agent(&agent)?;
             }
-            println!("deadbolt ensured {agent}");
+            let rows = db.status(Some(&agent))?;
+            let row = rows.first().ok_or(DeadboltError::NotFound)?;
+            println!(
+                "deadbolt ensured {agent} state={} expires_at={} (record present; not a readiness check)",
+                row.state, row.expires_at
+            );
         }
         Command::Supervise {
             agent,

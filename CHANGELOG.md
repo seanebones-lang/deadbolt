@@ -3,6 +3,21 @@
 Versioned GitHub releases identify publication and the exact source revision.
 The older `v0.1.1-product` tag is not the standalone hardening release.
 
+## 2.0.0 — release source
+
+Scope is frozen at the tested RC3 behavior. Publication and package-manager
+availability are tracked separately from this source version; earlier candidate
+artifacts remain unchanged.
+
+- Clarify CLI `ensure` output with effective state and expiry. A successful
+  reconciliation confirms record presence, preserves terminal state and does not
+  certify that the next action is allowed. The library/HTTP contract is unchanged.
+- Correct destination-policy release wording and retain the recognized-field,
+  trusted-executor, same-user state and OS-egress boundaries.
+- Write bundle provenance metadata as UTF-8 bytes with LF line endings on every
+  build host, eliminating Windows-only metadata variation.
+- Pair stable Rust/Python versions in the FastMCP recipe and signing preflight.
+
 ## 2.0.0-rc.3 — candidate source
 
 Corrected developer preview candidate, not stable qualification. The Rust/core
