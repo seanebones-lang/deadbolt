@@ -90,7 +90,18 @@ on [PyPI as `n11-deadbolt-client==1.1.0rc1`](https://pypi.org/project/n11-deadbo
 or as a release wheel/source installation. This remains a prerelease client
 for a separately installed engine. Node is a bundled source client.
 
-**Install the stable CLI:**
+**On macOS, install the signed stable CLI with Homebrew:**
+
+```sh
+brew install --cask seanebones-lang/tap/n11-deadbolt
+deadbolt --version
+deadbolt drill
+```
+
+Apple Silicon and Intel are supported. [Trust, evaluation, preview and removal](docs/HOMEBREW.md).
+This installs the engine without starting a service or configuring protection.
+
+**Or build the stable CLI with Cargo:**
 
 ```sh
 cargo install n11-deadbolt --version 1.0.3 --locked --bin deadbolt
