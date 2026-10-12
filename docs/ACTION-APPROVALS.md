@@ -1,7 +1,9 @@
-# Exact-action approval (1.1.0-rc.1 prerelease)
+# Exact-action approval (2.0 developer candidate)
 
 Approve one specific effect rather than the next call to a tool. This opt-in
-addition is not in published v1.0.3 binaries. Use the v1.1.0-rc.1 tag or a reviewed candidate commit
+addition is not in published v1.0.3 binaries. It is available in the published
+1.1.0-rc.1 and 2.0.0-rc.1 candidates, and the corrected 2.0 source. Select a
+versioned candidate tag or a reviewed commit
 and keep the executor, operator CLI, database and review storage trusted.
 It needs no model provider, API key or paid service.
 

@@ -3,7 +3,16 @@
 Versioned GitHub releases identify publication and the exact source revision.
 The older `v0.1.1-product` tag is not the standalone hardening release.
 
-## Unreleased after 2.0.0-rc.1
+## 2.0.0-rc.2 candidate (unreleased; publication is a separate gate)
+
+- Give corrected source a new immutable candidate identity. The matching Python
+  version is `2.0.0rc2`. Published RC1 archives, wheels and bundles keep their
+  original checksums and behavior; source changes do not retrofit those bytes.
+
+- Refuse malformed persisted policy, approval and clip JSON, unknown lease
+  states and invalid spend values rather than treating them as open defaults.
+  SQL NULL remains an unset optional policy; an empty list remains deny-all.
+  This detects malformed state, not valid operator edits or same-user tampering.
 
 - Default fresh Rust, CLI and HTTP roots to supervisor-only idle renewal;
   preserve existing persisted modes and offer explicit legacy activity setup.

@@ -1,5 +1,11 @@
 # Standalone integration review — 2026-09-29
 
+This is a historical review of the source identified below. Its package,
+credential, child-policy and distribution statements describe that earlier
+revision. For current behavior use [README](../README.md),
+[trust boundaries](TRUST.md), [migration](MIGRATING-V2.md) and
+[release requirements](RELEASING.md).
+
 Reviewed starting commit: `b8a13036567ca1b71ed14c6b36cbf84df80fe647`, matching
 GitHub main at review start. Work is on `codex/standalone-integration`.
 

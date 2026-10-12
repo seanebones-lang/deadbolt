@@ -2,11 +2,15 @@ name: MCP bundle
 
 on:
   pull_request:
-    paths: ['.gitattributes', 'dist/mcpb/**', 'dist/build_mcpb.py', 'tests/mcpb_acceptance.py', '.github/workflows/mcpb.yml']
+    paths: ['.gitattributes', 'src/**', 'Cargo.toml', 'Cargo.lock', 'dist/mcpb/**', 'dist/build_mcpb.py', 'tests/mcpb*_acceptance.py', '.github/workflows/mcpb.yml']
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: mcp-bundle-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   installed-bundle:
@@ -33,9 +37,21 @@ jobs:
       - run: node build/tools/node_modules/@anthropic-ai/mcpb/dist/cli/cli.js pack build/mcpb/bundle build/deadbolt.mcpb
       - run: node build/tools/node_modules/@anthropic-ai/mcpb/dist/cli/cli.js unpack build/deadbolt.mcpb build/installed
       - run: python tests/mcpb_acceptance.py --bundle build/installed --mcpb-module build/tools/node_modules/@anthropic-ai/mcpb --out build/acceptance.json
+      - uses: dtolnay/rust-toolchain@3230091d7ef9483f601620abacc570c22cf44d22
+        with:
+          toolchain: 1.85.0
+      - run: cargo build --locked --release --bin deadbolt
+      - name: Verify the matching source engine through the installed launcher
+        if: runner.os != 'Windows'
+        run: python tests/mcpb_source_acceptance.py --bundle build/installed --binary target/release/deadbolt --mcpb-module build/tools/node_modules/@anthropic-ai/mcpb --out build/source-acceptance.json
+      - name: Verify the matching source engine through the installed launcher
+        if: runner.os == 'Windows'
+        run: python tests/mcpb_source_acceptance.py --bundle build/installed --binary target/release/deadbolt.exe --mcpb-module build/tools/node_modules/@anthropic-ai/mcpb --out build/source-acceptance.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: mcpb-${{ matrix.os }}
-          path: build/acceptance.json
+          path: |
+            build/acceptance.json
+            build/source-acceptance.json
           if-no-files-found: warn

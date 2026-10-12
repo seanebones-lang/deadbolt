@@ -95,6 +95,14 @@ OS shell or contact a model. This trusted demonstration uses operator access to
 create its lease. A real workload dispatcher should receive only a separately
 issued [admission credential](CREDENTIALS.md) after trusted setup.
 
+With the corrected RC2 source, this fresh run defaults to supervisor renewal.
+For this short demonstration, perform the kill step within the default
+60-second idle window. If it expires first, the sample prints `lease_expired`
+and exits without reviving it. For ongoing use, provision the separate
+[supervisor heartbeat](SUPERVISION.md), then give the dispatcher only admission
+access. Published RC1 and deliberate activity-mode leases retain their older
+admission-renewed idle behavior.
+
 ### Kill the lease
 
 In terminal C, from the same checkout:

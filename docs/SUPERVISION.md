@@ -3,8 +3,10 @@
 Use supervisor liveness when the trusted supervisor's continued participation,
 not the agent's activity, should keep a run live. Unreleased corrected source
 defaults fresh `ensure`/`issue` runs to this mode through Rust, CLI and HTTP.
-Published 2.0.0-rc.1 still requires explicit supervisor setup. Use the reviewed 2.0 candidate
-engine and matching `2.0.0rc1` client wheel. The published 1.x engines, PyPI
+Published 2.0.0-rc.1 still requires explicit supervisor setup and its matching
+`2.0.0rc1` wheel. Corrected source is engine `2.0.0-rc.2` with client `2.0.0rc2`;
+build both from the same reviewed revision as described in [the package guide](PYPI.md#evaluate-the-corrected-source-candidate).
+The published 1.x engines, PyPI
 packages, MCPB bundles and editor plugins do **not** contain this addition.
 The separately published [MCPB 2.0 preview](INSTALL.md#mcpb-20-preview) supports
 explicit supervisor mode, but renewal must be provisioned and operated separately;

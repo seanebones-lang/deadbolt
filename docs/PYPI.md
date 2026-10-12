@@ -6,12 +6,14 @@ decision: a denial leaves the callback uncalled. The base client has no runtime
 dependencies. The optional `openai-agents` extra adapts function tools to the
 tested OpenAI Agents SDK contract.
 
-This package is **2.0.0rc1**, a developer-evaluation prerelease matching engine
-**2.0.0-rc.1**. The engine is not included in the wheel. Installing the client
+This source package is **2.0.0rc2**, a developer-evaluation candidate matching
+engine **2.0.0-rc.2**. RC2 publication is a separate release gate; the published
+pair described below is still client **2.0.0rc1** and engine **2.0.0-rc.1**.
+The engine is not included in the wheel. Installing the client
 does not start a sidecar, connect an account, or protect unwrapped tool routes.
 Existing 1.x packages and editor/MCP bundles remain separately versioned.
 
-## Install a matching pair
+## Install the published matching pair
 
 In your application's virtual environment, pin the PyPI candidate explicitly:
 
@@ -47,6 +49,29 @@ The extra pins `openai-agents==0.23.1`; it does not request API credentials or
 make model requests during installation. Your application configures its own
 provider separately. A source-built wheel follows the same version contract;
 registry publication and native downloads are separate release steps.
+
+## Evaluate the corrected source candidate
+
+For RC2, build both components from the same reviewed source revision. In that
+checkout, build the engine and client wheel:
+
+```sh
+cargo build --release --locked --bin deadbolt
+python -m build --outdir release-artifacts/python
+```
+
+Install the resulting `n11_deadbolt_client-2.0.0rc2-py3-none-any.whl` in your
+application's virtual environment and use that checkout's `target/release/deadbolt`
+(`deadbolt.exe` on Windows). Confirm `deadbolt --version` reports
+`deadbolt 2.0.0-rc.2` before connecting it. Keep the exact source revision and
+artifact hashes with your test results. Do not pair this wheel with the RC1
+native downloads or treat a local source build as a published, signed release.
+
+RC2 makes fresh leases supervisor-renewed by default. Provision a separate
+supervisor heartbeat before handing a run to the executor; activity renewal is
+an explicit operator opt-in. See the [current supervision guide](https://github.com/seanebones-lang/deadbolt/blob/main/docs/SUPERVISION.md)
+for the credential boundary, idle TTL and fixed deadline. Existing RC1 leases
+retain their stored renewal mode; installing a new wheel does not migrate them.
 
 ## Connect a protected callback
 

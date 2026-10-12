@@ -5,6 +5,10 @@ on:
     branches: [main]
 permissions:
   contents: read
+
+concurrency:
+  group: fastmcp-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   dependency-audit:
     runs-on: ubuntu-latest

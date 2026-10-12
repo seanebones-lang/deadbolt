@@ -12,7 +12,9 @@ without adding a base runtime dependency. Older 1.x packages retain their origin
 
 Current unreleased source additionally provides the job-scoped `SupervisorHeartbeat`
 helper and `deadbolt-supervisor-heartbeat` command. They are not in the published
-2.0.0rc1 wheel. See [trusted heartbeat setup and lifecycle](SUPERVISION.md#job-scoped-helper-unreleased-source)
+2.0.0rc1 wheel. Corrected source pairs engine `2.0.0-rc.2` with client `2.0.0rc2`;
+[build the matching source pair](PYPI.md#evaluate-the-corrected-source-candidate).
+See [trusted heartbeat setup and lifecycle](SUPERVISION.md#job-scoped-helper-unreleased-source)
 before testing a source installation.
 
 The 2.0.0-rc.1 prerelease provides an installable Python client and an optional
@@ -96,8 +98,11 @@ deadbolt policy --agent my-run-001 --tools write_file
 Check that `ensure` returns `ok: true`. Do not expose `ensure`, policy, approval,
 resume, spend or child-registration methods as model tools. Lease creation and
 explicit `ensure` calls belong to the trusted executor; this decorator never
-calls `ensure`. Ordinary admission retains DeadBolt's sliding TTL for already
-live leases. It cannot revive an expired or killed run.
+calls `ensure`. Published RC1 and existing activity-mode leases retain a sliding
+idle TTL. Fresh RC2 source runs instead default to supervisor renewal: provision
+the separate heartbeat before their initial idle expiry, or deliberately choose
+activity mode through trusted setup. Neither mode's admission revives an expired
+or killed run.
 
 ## Add the decorator to the actual body
 
