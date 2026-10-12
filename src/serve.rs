@@ -828,6 +828,7 @@ fn err_token(err: &DeadboltError) -> &'static str {
         DeadboltError::ExportRefused(_) => "export_refused",
         DeadboltError::McpSpawn => "mcp_spawn",
         DeadboltError::BadRequest => "bad_request",
+        DeadboltError::FingerprintMismatch => "fingerprint_mismatch",
     }
 }
 

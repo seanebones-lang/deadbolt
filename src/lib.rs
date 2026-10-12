@@ -186,6 +186,9 @@ pub enum DeadboltError {
     /// Operator input was not a token.
     #[error("deadbolt:bad_request")]
     BadRequest,
+    /// Reviewed action bytes no longer match the operator's fingerprint.
+    #[error("deadbolt:fingerprint_mismatch")]
+    FingerprintMismatch,
 }
 
 /// Why admit refused the action.

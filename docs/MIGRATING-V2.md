@@ -26,6 +26,10 @@ and assume the guarantee exists. No old package/tag is overwritten.
 
 ## Rust source changes
 
+Unreleased source adds `DeadboltError::FingerprintMismatch` for a changed CLI
+action review. Update exhaustive operator-error matches when adopting that
+source; its string token is `fingerprint_mismatch` and it never grants permission.
+
 A new enum variant and added public fields require a major Rust version. This is
 not a drop-in minor upgrade for applications using exhaustive matches or struct
 literals. Change an exhaustive denial match to include the fixed-deadline case:

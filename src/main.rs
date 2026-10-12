@@ -351,7 +351,7 @@ fn run() -> Result<(), DeadboltError> {
             ActionCommand::Approve { file, fingerprint } => {
                 let action = read_action(&file)?;
                 if action.fingerprint()? != fingerprint {
-                    return Err(DeadboltError::BadRequest);
+                    return Err(DeadboltError::FingerprintMismatch);
                 }
                 db.approve_action(&action)?;
                 println!(

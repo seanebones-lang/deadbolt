@@ -52,6 +52,11 @@ deadbolt action approve --file review.json --fingerprint sha256:PASTE_THE_REVIEW
 
 Approval rechecks the supplied fingerprint against the file, refusing a file
 changed since review. It also enables exact-only policy for that run/tool.
+
+Unreleased source reports `deadbolt:fingerprint_mismatch` and exits nonzero when
+the supplied review fingerprint differs. No grant is written and no arguments
+are echoed by that error. Inspect/review the changed request before approving it.
+Published rc.1 retains the older `bad_request` label.
 The file is still review data, not a bearer credential. The trusted executor
 uses its existing admission credential, then invokes the actual effect with
 the snapshot supplied by the helper:
@@ -167,6 +172,10 @@ is not an OS sandbox or protection against same-user filesystem access.
   a crash may leave the outcome unknown. DeadBolt does not provide transactional
   exactly-once external effects. Use transport idempotency/reconciliation and
   obtain a new review when retrying. Revocation cannot cancel running work.
+  Prefer `dispatch_action` to keep admission adjacent to the protected body.
+  Calling raw `admit_action` alone still consumes an accepted grant; it is not a
+  dry-run or readiness probe. A crash between admission and execution can spend
+  approval without any effect. Do not rearm or automatically retry that grant.
 - Revoke with `deadbolt action revoke --agent RUN --nonce NONCE`. Exact-only
   policy remains. Only the operator can explicitly restore legacy mode with
   `deadbolt action require --agent RUN --tool TOOL --allow-legacy`; that is a
