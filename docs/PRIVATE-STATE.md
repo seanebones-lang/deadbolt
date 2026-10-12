@@ -77,9 +77,10 @@ An enabled sidecar exits unsuccessfully before binding a listener when the initi
 store check fails; a later live-store outage still denies admissions.
 Published RC2 artifacts do not yet implement this check.
 
-If a lease row is missing but SQLite evidence retains that identity, `issue`,
-`ensure` and child registration refuse to create it again. This includes prior
-attempts recorded for an unissued identity: choose a fresh operator-owned run ID.
+If a lease row is missing but SQLite evidence retains its issuance or kill,
+`issue`, `ensure` and child registration refuse to create it again. A denied
+attempt for an identity that was never issued does not reserve that run ID;
+normal operator setup after a `no_lease` result remains possible.
 Existing rows retain normal idempotent `ensure` and terminal-kill behavior.
 Do not delete state to make startup succeed. Stop protected dispatch, preserve
 the database, WAL and evidence, and restore a consistent reviewed backup or

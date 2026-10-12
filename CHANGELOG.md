@@ -11,7 +11,7 @@ The older `v0.1.1-product` tag is not the standalone hardening release.
 - Refuse partial SQLite schemas at startup rather than recreating missing state.
   Refuse enabled sidecar startup before binding when its initial store check fails.
   Initialize/migrate complete supported stores transactionally with a schema
-  generation marker. Refuse a missing identity with retained event history across
+  generation marker. Refuse a missing identity with retained issuance/kill history across
   root issuance, ensure and child registration. This is damaged-state recovery,
   not tamper resistance against a user with operator database write access.
 - Update pinned GitHub Actions while retaining scoped workflow permissions.

@@ -2403,7 +2403,7 @@ fn migrate_leases(conn: &Connection) -> Result<(), SinkError> {
 fn refuse_historical_identity(conn: &Connection, agent_id: &str) -> Result<(), DeadboltError> {
     let seen: bool = conn
         .query_row(
-            "SELECT EXISTS(SELECT 1 FROM events WHERE json_extract(payload,'$.agent_id')=?1)",
+            "SELECT EXISTS(SELECT 1 FROM events WHERE kind IN ('lease','kill') AND json_extract(payload,'$.agent_id')=?1)",
             [agent_id],
             |row| row.get(0),
         )

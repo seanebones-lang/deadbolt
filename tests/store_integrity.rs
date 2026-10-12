@@ -126,3 +126,24 @@ fn sidecar_refuses_damaged_store_before_accepting_connections() {
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("store_unavailable"));
 }
+
+#[test]
+fn denied_unissued_attempt_does_not_reserve_an_operator_run_identity() {
+    let dir = tempfile::tempdir().unwrap();
+    let gate = Deadbolt::open_at(dir.path(), true, 60);
+    for id in ["ensure", "issue", "child"] {
+        assert_eq!(
+            gate.admit(id, "read"),
+            AdmitDecision::Deny {
+                code: DenyCode::NoLease
+            }
+        );
+    }
+    gate.ensure_agent("ensure").unwrap();
+    gate.issue_agent("issue", deadline()).unwrap();
+    gate.issue_agent("parent", deadline()).unwrap();
+    assert!(gate.register_child("parent", "child", None).unwrap());
+    for id in ["ensure", "issue", "child"] {
+        assert_eq!(gate.admit(id, "read"), AdmitDecision::Allow);
+    }
+}
