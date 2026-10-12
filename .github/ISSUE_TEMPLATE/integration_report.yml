@@ -1,0 +1,41 @@
+name: Integration report
+description: Tell us what worked and what made your first bounded integration difficult.
+title: "[Integration] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        One protected route is enough. Distinguish a returned decision from the effect you actually observed.
+        Use dummy data. Do not include keys, operator configuration, private messages or customer records.
+        Report suspected vulnerabilities privately through the Security tab instead.
+  - type: input
+    id: version
+    attributes:
+      label: Versions and installation route
+      description: Engine version, source revision when relevant, client/framework versions, and how you installed them.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment and protected route
+      description: OS/architecture and Rust, HTTP, stdio proxy or FastMCP. Describe one harmless protected action.
+    validations:
+      required: true
+  - type: textarea
+    id: observations
+    attributes:
+      label: Observed effects
+      description: What happened on allow, denial and revocation? Did you independently check the effect? State anything you could not test.
+    validations:
+      required: true
+  - type: textarea
+    id: friction
+    attributes:
+      label: Time to first success and confusing steps
+      description: Optional approximate setup time, unclear instructions, workarounds and one thing we could simplify.
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Redacted reproduction or demo result
+      description: Optional exact commands or a small dummy-data example. State whether this was protocol-only or also exercised through an agent/editor.

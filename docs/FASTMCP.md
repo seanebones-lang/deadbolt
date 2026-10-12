@@ -1,5 +1,8 @@
 # Build DeadBolt into a FastMCP tool
 
+[Step-by-step local walkthrough](https://seanebones-lang.github.io/deadbolt/fastmcp-tutorial.html)
+with pinned lab commands and effect checks.
+
 If you own the MCP server's Python code, check inside each protected function
 instead of adding a proxy process. FastMCP still owns its schema and transport;
 DeadBolt checks immediately before the actual effect. If you cannot edit the
