@@ -168,7 +168,7 @@ commands above do not install these new controls. See [local data/privacy](docs/
   activity cannot renew them. Optional fixed deadlines still win.
 - The 2.0 candidate adds [fixed operator-issued deadlines](docs/LEASE-DEADLINES.md)
   for new runs and their children. This blocks new admissions, with no automatic
-  cancellation of already running work; published engine/plugin downloads do not yet include it.
+  cancellation of already running work; published 1.x engine/plugin downloads do not include it.
 - Operator kill blocks subsequent actions for an ID and its registered descendants.
 - Broad one-shot approval for classified irreversible tools; the candidate adds
   [review of exact arguments](docs/ACTION-APPROVALS.md), including recipient/body/amount.

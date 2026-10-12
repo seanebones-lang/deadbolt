@@ -1,5 +1,10 @@
 # Build DeadBolt into a FastMCP tool
 
+The current recipe accepts the matching 2.0 candidate engine/client pair and the
+original 1.1 prerelease pair. It rejects mixed engine/client versions. Existing
+1.1 registry commands below retain their original scope; use the
+[2.0 migration guide](MIGRATING-V2.md) for the new candidate.
+
 [Step-by-step local walkthrough](https://seanebones-lang.github.io/deadbolt/fastmcp-tutorial.html)
 with pinned lab commands and effect checks.
 

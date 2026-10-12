@@ -108,7 +108,7 @@ async def evaluate(binary, state, sidecar, operator_env, endpoint, credential):
         await check(reconnected, "kill_persists_after_mcp_reconnect", "reconnect", "killed")
         stop(sidecar)
         await check(reconnected, "sidecar_outage_body_absent", "outage", "store_unavailable")
-    return {"passed": True, "framework": "fastmcp==4.1.0", "client": "n11-deadbolt-client==1.1.0rc1",
+    return {"passed": True, "framework": "fastmcp==4.1.0", "client": "n11-deadbolt-client==" + importlib.metadata.version("n11-deadbolt-client"),
             "transport": "stdio subprocess", "provider_requests": 0,
             "cases": cases, "count": len(cases), "operator_token_forwarded": False}
 
@@ -120,11 +120,13 @@ def main():
     binary = args.binary.resolve(strict=True)
     if importlib.metadata.version("fastmcp") != "4.1.0":
         parser.error("this recipe is tested with fastmcp==4.1.0")
-    if importlib.metadata.version("n11-deadbolt-client") != "1.1.0rc1":
-        parser.error("install n11-deadbolt-client==1.1.0rc1")
+    installed = importlib.metadata.version("n11-deadbolt-client")
+    supported = {"1.1.0rc1": "deadbolt 1.1.0-rc.1", "2.0.0rc1": "deadbolt 2.0.0-rc.1"}
+    if installed not in supported:
+        parser.error("this recipe requires a tested 1.1.0rc1 or 2.0.0rc1 client")
     version = subprocess.check_output([str(binary), "--version"], text=True, timeout=10).strip()
-    if version != "deadbolt 1.1.0-rc.1":
-        parser.error("this recipe requires engine 1.1.0-rc.1")
+    if version != supported[installed]:
+        parser.error("install the engine matching the tested client: " + supported[installed])
     previous = dict(os.environ)
     try:
         with tempfile.TemporaryDirectory(prefix="deadbolt-fastmcp-") as directory:

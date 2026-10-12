@@ -48,6 +48,12 @@ def main():
         with tarfile.open(sdist) as archive:
             archive.extractall(unpacked, filter="data")
         source = unpacked / ("n11_deadbolt_client-" + version)
+        # Ship the guides referenced by migration/privacy, rather than broken
+        # relative links in an otherwise installable source distribution.
+        for document in ("SECURITY.md", "docs/MIGRATING-V2.md", "docs/PRIVACY.md",
+                         "docs/TRUST.md", "docs/OPERATIONS.md", "docs/DESTINATION-POLICY.md",
+                         "docs/LEASE-DEADLINES.md", "docs/SUPERVISION.md", "docs/EXECUTOR-CANCELLATION.md"):
+            assert (source/document).read_bytes() == (ROOT/document).read_bytes(), document
         wheels = temp / "wheel"
         run([sys.executable, "-m", "build", "--wheel", "--outdir", str(wheels)], cwd=source,
             stdout=subprocess.DEVNULL)
@@ -86,7 +92,7 @@ print("installed base wheel: import, fail-closed body, no SDK dependency passed"
         report = {"version": version, "cargo_version": cargo, "base_runtime_dependencies": [],
                   "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),
                   "sdist_sha256": hashlib.sha256(sdist.read_bytes()).hexdigest(),
-                  "checks": ["sdist-to-wheel outside checkout", "license and notice",
+                  "checks": ["sdist-to-wheel outside checkout", "complete migration and privacy guides", "license and notice",
                              "isolated install without dependencies", "import without SDK",
                              "unavailable sidecar leaves body untouched", "installed CLI"]}
         (OUT / "package-acceptance.json").write_text(json.dumps(report, indent=2) + "\n")
