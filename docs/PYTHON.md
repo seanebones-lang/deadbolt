@@ -164,6 +164,11 @@ network tool; always provide its actual destination when using destination polic
 
 ## Coverage and trust boundary
 
+For Python MCP servers you own, the separate [FastMCP recipe](FASTMCP.md) uses
+the same installed client's `dispatch_async` inside the effect function. It
+needs no OpenAI SDK or model key and is tested with FastMCP 4.1.0. Install that
+recipe in its own environment; it does not change the pinned optional SDK contract.
+
 - Decorate every protected function on every agent, including specialists reached
   through handoffs. This adapter does not scan an Agent or silently wrap all tools.
 - Existing `FunctionTool` objects, `Agent.as_tool()` wrappers, hosted tools,

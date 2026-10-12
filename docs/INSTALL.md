@@ -9,11 +9,13 @@ executable**; installing the client does not start a sidecar.
 | Native archive | Matching OS/CPU; Python 3.9+ only for the evaluation | Stable v1.0.3 or prerelease 1.1.0-rc.1 executable, source clients, examples and docs |
 | [Homebrew tap](HOMEBREW.md) | macOS Apple Silicon or Intel and Homebrew | Signed prebuilt stable CLI or explicitly selected preview; no Rust build |
 | Local MCP bundle (MCPB) | Compatible local MCP client, Node.js 20+ and a trusted downstream stdio server | Bundle 1.1.0 with stable v1.0.3 binaries and a configuration-file launcher |
+| [Docker stdio MCP](DOCKER-MCP.md) | Git and a running Docker Linux engine, ARM64 or AMD64 | Source-built package 1.0.0 with stable engine 1.0.3; catalog review pending |
 | Cargo registry CLI / embedded Rust | Rust 1.85+, native C compiler/linker for bundled SQLite | Stable 1.0.3 or explicitly selected 1.1.0-rc.1 |
 | Source binary / embedded Rust | Git, Rust 1.85+, native C compiler/linker for bundled SQLite | APIs at your selected tag or exact commit |
 | Python source installation | Python 3.10+, pip and a reviewed checkout | Base client with no third-party runtime dependencies |
 | Python package | Python 3.9+ and pip; pinned PyPI wheel or reviewed `.whl` | Prerelease client; engine installed separately; no Rust needed for the wheel |
 | Optional SDK adapter | Python 3.10+ and the `openai-agents` extra | Pinned tested SDK 0.23.1 integration |
+| [FastMCP source recipe](FASTMCP.md) | Python 3.10+, FastMCP 4.1.0, client 1.1.0rc1 and engine 1.1.0-rc.1 | A check inside each protected MCP tool; offline stdio demo |
 | Bundled Node client | Node (22 tested) | CommonJS source module; no npm installation |
 
 No model key, Harness, cloud account or database server is needed for setup or
