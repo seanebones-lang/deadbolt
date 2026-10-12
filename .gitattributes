@@ -1,0 +1,2 @@
+# Keep packaged launcher/configuration bytes identical on every build host.
+/dist/mcpb/** text eol=lf
