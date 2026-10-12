@@ -83,8 +83,9 @@ and its argument mapping as part of that review.
 
 Read-only status never renews idle TTL or spends another approval. A long command
 can therefore expire while running: choose the lease's operator-provisioned TTL
-for the intended job, or build a separate trusted liveness supervisor. Supervisor-only
-renewal is a separate future feature, not something this helper silently enables.
+for the intended job, or build a separate trusted liveness supervisor. Optional [supervisor-only renewal](SUPERVISION.md) is now a separate unreleased
+source feature. Arrange its heartbeat independently in trusted lifecycle code;
+this helper does not silently enable it or renew from status callbacks.
 
 Cancellation latency includes status I/O, polling, host scheduling, the TERM grace
 and process cleanup. The included transport has five-second socket timeouts, which

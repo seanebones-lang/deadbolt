@@ -6,9 +6,9 @@ does not support it.
 
 | Identity | HTTP access | Who holds it |
 | --- | --- | --- |
-| Operator (`DEADBOLT_TOKEN` / `X-Deadbolt-Token`) | All exposed routes, including setup, policy, spend and status | Trusted setup/administration |
+| Operator (`DEADBOLT_TOKEN` / `X-Deadbolt-Token`) | Operator routes, including setup, policy, spend and status; no supervisor-only renewal | Trusted setup/administration |
 | Admission (`DEADBOLT_ADMISSION_TOKEN` / `X-Deadbolt-Admission`) | Only `POST /admit` and `POST /admit-action`, for one stored agent ID | Trusted dispatcher for that run |
-| Socket possession without credentials | Legacy operator access only before any admission credential has ever been issued | Existing Unix integrations only |
+| Socket possession without credentials | Legacy operator access only before any scoped credential has ever been issued | Existing Unix integrations only |
 
 An admission credential cannot ensure/register agents, alter policy, report spend,
 inspect other agents or grant/resume approvals. Kill, pause, approve and credential
@@ -119,3 +119,14 @@ before deploying this candidate.
 For sensitive effects, use [exact-action approval](ACTION-APPROVALS.md). Its
 operator-owned grant binds arguments and consumes once through the new endpoint;
 issuing an admission credential alone never approves an action.
+
+## Separate supervisor scope (unreleased source)
+
+[Supervisor-only liveness](SUPERVISION.md) adds a `dbs1-` renewal credential,
+independent of the `dbw1-` admission credential. It is bound to a fresh supervised
+root, permits only `POST /renew`, and maintains live descendants of that run.
+It cannot read status or admit. CLI `supervisor issue/list/revoke` manages that
+scope; ordinary `credential` commands remain admission-only. Issuing either scope
+disables anonymous Unix authority permanently for that store. Mode and credential
+scope survive restart and migration; old credentials retain admission-only access.
+Keep supervisor credentials outside the agent, dispatcher and child environment.

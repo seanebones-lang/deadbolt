@@ -150,6 +150,9 @@ or perform a separate admission before a one-shot dispatch helper.
 
 - Tool allow-lists, destination tokens, reported-spend caps, pause and clips.
 - Leases with a default 60-second sliding TTL; killed IDs stay killed.
+- Current unreleased source adds [supervisor-only liveness](docs/SUPERVISION.md):
+  a separate root-bound credential maintains live runs and children; agent
+  activity cannot renew them. Optional fixed deadlines still win.
 - Current unreleased source adds [fixed operator-issued deadlines](docs/LEASE-DEADLINES.md)
   for new runs and their children. This blocks new admissions, with no automatic
   cancellation of already running work; published engine/plugin downloads do not yet include it.

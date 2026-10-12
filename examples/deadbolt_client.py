@@ -96,7 +96,7 @@ def _down(path, code="store_unavailable"):
     return {"decision": "deny", "code": code}
 
 
-def _call(method, path, body=None):
+def _call(method, path, body=None, *, headers=None):
     conn = None
     try:
         payload = None if body is None else json.dumps(body, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode("utf-8")
@@ -106,7 +106,7 @@ def _call(method, path, body=None):
             conn = http.client.HTTPConnection(host, port, timeout=5)
         else:
             conn = _UnixHTTPConnection(sock_path())
-        conn.request(method, path, body=payload, headers=_headers())
+        conn.request(method, path, body=payload, headers=_headers() if headers is None else headers)
         resp = conn.getresponse()
         raw = resp.read(MAX_RESPONSE_BYTES + 1)
         status = resp.status
@@ -125,6 +125,25 @@ def _call(method, path, body=None):
 
 def ensure(agent_id):
     return _call("POST", "/ensure", {"agent_id": agent_id})
+
+
+def renew_supervised(agent_id, secret):
+    """Trusted supervisor only: maintain one live root and its live children.
+
+    Uses only the explicitly supplied renewal credential, never operator or
+    workload environment authentication. Keep the credential outside the model
+    and child environment. Failure is not liveness: callers must require
+    ``result.get('ok') is True`` and stop their protected dispatch otherwise.
+    Does not revive expiry, unpause a lease or extend its fixed deadline.
+    """
+    result = _call("POST", "/renew", {"agent_id": agent_id}, headers={
+        "Content-Type": "application/json", "Connection": "close",
+        "X-Deadbolt-Supervisor": secret,
+    })
+    if not isinstance(result, dict) or type(result.get("ok")) is not bool:
+        return {"ok": False, "code": result.get("code", "store_unavailable")
+                if isinstance(result, dict) else "store_unavailable"}
+    return result
 
 
 def admit(agent_id, tool, dest=None):

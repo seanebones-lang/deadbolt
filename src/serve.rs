@@ -423,6 +423,19 @@ fn dispatch_http(gate: &Deadbolt, raw: &str, token: Option<&str>) -> (u16, Strin
         Ok(v) => v,
         Err(()) => return (401, json!({"code":"unauthorized"}).to_string()),
     };
+    let supervisor = match unique_header(raw, "x-deadbolt-supervisor") {
+        Ok(value) => value,
+        Err(()) => return (401, json!({"code":"unauthorized"}).to_string()),
+    };
+    if let Some(secret) = supervisor {
+        if operator.is_some() || workload.is_some() {
+            return (401, json!({"code":"unauthorized"}).to_string());
+        }
+        if method != "POST" || path != "/renew" {
+            return (403, json!({"code":"forbidden"}).to_string());
+        }
+        return renew(gate, body, &secret);
+    }
     if let Some(secret) = workload {
         if operator.is_some() {
             return (401, json!({"code":"unauthorized"}).to_string());
@@ -453,6 +466,7 @@ fn dispatch_http(gate: &Deadbolt, raw: &str, token: Option<&str>) -> (u16, Strin
         ("POST", "/admit-action") => admit_action(gate, body, None),
         ("POST", "/ensure") => ensure(gate, body),
         ("POST", "/issue") => issue(gate, body),
+        ("POST", "/issue-supervised") => issue_supervised(gate, body),
         ("POST", "/register_child") => register_child(gate, body),
         ("POST", "/policy") => policy(gate, body),
         ("POST", "/spend") => spend(gate, body),
@@ -590,7 +604,10 @@ fn ensure(gate: &Deadbolt, body: &str) -> (u16, String) {
         return (400, json!({"code":"bad_request"}).to_string());
     };
     // Never acknowledge a requested fixed deadline while creating an idle-only lease.
-    if v.get("hard_deadline_at").is_some() {
+    if v.get("hard_deadline_at").is_some()
+        || v.get("supervision_root").is_some()
+        || v.get("supervised").is_some()
+    {
         return (400, json!({"code":"bad_request"}).to_string());
     }
     let Some(agent_id) = v.get("agent_id").and_then(|x| x.as_str()) else {
@@ -616,6 +633,50 @@ fn issue(gate: &Deadbolt, body: &str) -> (u16, String) {
         Ok(()) => (200, json!({"ok":true}).to_string()),
         Err(DeadboltError::BadRequest) => (400, json!({"code":"bad_request"}).to_string()),
         Err(e) => (200, json!({"ok":false,"code":err_token(&e)}).to_string()),
+    }
+}
+
+fn issue_supervised(gate: &Deadbolt, body: &str) -> (u16, String) {
+    fn deadline<'de, D: serde::Deserializer<'de>>(decoder: D) -> Result<Option<i64>, D::Error> {
+        <i64 as serde::Deserialize>::deserialize(decoder).map(Some)
+    }
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Request {
+        agent_id: String,
+        #[serde(default, deserialize_with = "deadline")]
+        hard_deadline_at: Option<i64>,
+    }
+    let Ok(request) = serde_json::from_str::<Request>(body) else {
+        return (400, json!({"code":"bad_request"}).to_string());
+    };
+    match gate.issue_supervised_agent(&request.agent_id, request.hard_deadline_at) {
+        Ok(()) => (200, json!({"ok":true}).to_string()),
+        Err(DeadboltError::BadRequest) => (400, json!({"code":"bad_request"}).to_string()),
+        Err(error) => (
+            200,
+            json!({"ok":false,"code":err_token(&error)}).to_string(),
+        ),
+    }
+}
+
+fn renew(gate: &Deadbolt, body: &str, secret: &str) -> (u16, String) {
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Request {
+        agent_id: String,
+    }
+    let Ok(request) = serde_json::from_str::<Request>(body) else {
+        return (400, json!({"code":"bad_request"}).to_string());
+    };
+    match gate.renew_supervised(&request.agent_id, secret) {
+        Ok(()) => (200, json!({"ok":true}).to_string()),
+        Err(DeadboltError::TokenRequired) => (401, json!({"code":"unauthorized"}).to_string()),
+        Err(DeadboltError::BadRequest) => (400, json!({"code":"bad_request"}).to_string()),
+        Err(error) => (
+            200,
+            json!({"ok":false,"code":err_token(&error)}).to_string(),
+        ),
     }
 }
 
@@ -656,6 +717,7 @@ fn status(gate: &Deadbolt, query: &str) -> (u16, String) {
                         "parent_id": row.parent_id,
                         "expires_at": row.expires_at,
                         "hard_deadline_at": row.hard_deadline_at,
+                        "supervision_root": row.supervision_root,
                         "clips": row.clips,
                         "swarm_task_id": row.swarm_task_id,
                     })
@@ -903,6 +965,208 @@ mod credential_tests {
         )
         .1
         .contains("needs_human"));
+    }
+
+    #[test]
+    fn supervisor_route_matrix_and_strict_requests() {
+        let dir = tempfile::tempdir().unwrap();
+        let gate = Deadbolt::open_at(dir.path(), true, 60);
+        gate.issue_supervised_agent("run", None).unwrap();
+        gate.issue_supervised_agent("other", None).unwrap();
+        gate.issue_supervisor_credential("run", "sup", 60, &dir.path().join("sup"))
+            .unwrap();
+        let secret = fs::read_to_string(dir.path().join("sup")).unwrap();
+        let header = format!("X-Deadbolt-Supervisor: {secret}\r\n");
+        gate.issue_credential("run", "worker", 60, &dir.path().join("worker"))
+            .unwrap();
+        let worker = fs::read_to_string(dir.path().join("worker")).unwrap();
+        for operator in [None, Some("operator")] {
+            assert_eq!(
+                dispatch_http(
+                    &gate,
+                    &request("POST", "/renew", &header, r#"{"agent_id":"run"}"#),
+                    operator
+                ),
+                (200, r#"{"ok":true}"#.into())
+            );
+            assert_eq!(
+                dispatch_http(
+                    &gate,
+                    &request("POST", "/renew", &header, r#"{"agent_id":"other"}"#),
+                    operator
+                )
+                .0,
+                401
+            );
+            for path in [
+                "/admit",
+                "/admit-action",
+                "/ensure",
+                "/issue",
+                "/issue-supervised",
+                "/policy",
+                "/spend",
+                "/register_child",
+                "/resume",
+                "/unknown",
+            ] {
+                assert_eq!(
+                    dispatch_http(
+                        &gate,
+                        &request("POST", path, &header, r#"{"agent_id":"run","tool":"read"}"#),
+                        operator
+                    )
+                    .0,
+                    403
+                );
+            }
+            assert_eq!(
+                dispatch_http(
+                    &gate,
+                    &request("GET", "/status?agent=run", &header, ""),
+                    operator
+                )
+                .0,
+                403
+            );
+            for extra in [
+                "X-Deadbolt-Token: operator\r\n".to_owned(),
+                format!("X-Deadbolt-Admission: {worker}\r\n"),
+                format!("x-deadbolt-supervisor: {secret}\r\n"),
+            ] {
+                assert_eq!(
+                    dispatch_http(
+                        &gate,
+                        &request(
+                            "POST",
+                            "/renew",
+                            &format!("{header}{extra}"),
+                            r#"{"agent_id":"run"}"#
+                        ),
+                        operator
+                    )
+                    .0,
+                    401
+                );
+            }
+            for raw in [
+                r#"{"agent_id":"run","agent_id":"other"}"#,
+                r#"{"agent_id":"run","extra":true}"#,
+                r#"{"agent_id":null}"#,
+                "{}",
+                "[]",
+            ] {
+                assert_eq!(
+                    dispatch_http(&gate, &request("POST", "/renew", &header, raw), operator).0,
+                    400
+                );
+            }
+            assert_eq!(
+                dispatch_http(
+                    &gate,
+                    &request(
+                        "POST",
+                        "/renew",
+                        &format!("X-Deadbolt-Admission: {worker}\r\n"),
+                        r#"{"agent_id":"run"}"#
+                    ),
+                    operator
+                )
+                .0,
+                403
+            );
+            assert_eq!(
+                dispatch_http(
+                    &gate,
+                    &request("POST", "/renew", "", r#"{"agent_id":"run"}"#),
+                    operator
+                )
+                .0,
+                401
+            );
+        }
+        assert_eq!(
+            dispatch_http(
+                &gate,
+                &request(
+                    "POST",
+                    "/renew",
+                    "X-Deadbolt-Token: operator\r\n",
+                    r#"{"agent_id":"run"}"#
+                ),
+                Some("operator")
+            )
+            .0,
+            404
+        );
+        gate.revoke_supervisor_credential("sup").unwrap();
+        assert_eq!(
+            dispatch_http(
+                &gate,
+                &request("POST", "/renew", &header, r#"{"agent_id":"run"}"#),
+                None
+            )
+            .0,
+            401
+        );
+    }
+
+    #[test]
+    fn supervised_issuance_and_supervisor_only_store_never_restore_anonymous_access() {
+        let dir = tempfile::tempdir().unwrap();
+        let gate = Deadbolt::open_at(dir.path(), true, 60);
+        let header = "X-Deadbolt-Token: operator\r\n";
+        for body in [
+            r#"{"agent_id":"bad","hard_deadline_at":null}"#,
+            r#"{"agent_id":"bad","hard_deadline_at":1.5}"#,
+            r#"{"agent_id":"bad","hard_deadline_at":"9999999999"}"#,
+            r#"{"agent_id":"bad","extra":true}"#,
+            r#"{"agent_id":"bad","agent_id":"other"}"#,
+        ] {
+            assert_eq!(
+                dispatch_http(
+                    &gate,
+                    &request("POST", "/issue-supervised", header, body),
+                    Some("operator")
+                )
+                .0,
+                400
+            );
+        }
+        assert_eq!(
+            dispatch_http(
+                &gate,
+                &request("POST", "/issue-supervised", header, r#"{"agent_id":"run"}"#),
+                Some("operator")
+            ),
+            (200, r#"{"ok":true}"#.into())
+        );
+        assert!(gate.status(Some("bad")).unwrap().is_empty());
+        for body in [
+            r#"{"agent_id":"bad","supervised":true}"#,
+            r#"{"agent_id":"bad","supervision_root":"run"}"#,
+        ] {
+            assert_eq!(
+                dispatch_http(
+                    &gate,
+                    &request("POST", "/ensure", header, body),
+                    Some("operator")
+                )
+                .0,
+                400
+            );
+        }
+        gate.issue_supervisor_credential("run", "sup", 60, &dir.path().join("sup"))
+            .unwrap();
+        assert_eq!(
+            dispatch_http(&gate, &request("GET", "/status", "", ""), None).0,
+            401
+        );
+        gate.revoke_supervisor_credential("sup").unwrap();
+        assert_eq!(
+            dispatch_http(&gate, &request("GET", "/status", "", ""), None).0,
+            401
+        );
     }
 
     #[test]

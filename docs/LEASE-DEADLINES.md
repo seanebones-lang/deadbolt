@@ -102,7 +102,8 @@ not atomic: a callback admitted just before the deadline may start or continue
 after it. No running process is automatically terminated. The executor must
 implement cancellation, process confinement and OS egress controls where
 required. `wait_until_revoked` currently watches operator kill only, not this
-deadline. Supervisor-only idle renewal is a separate future control.
+deadline. Optional [supervisor-only idle renewal](SUPERVISION.md) is a separate unreleased
+source control; its heartbeat also cannot extend the fixed deadline.
 
 Run `cargo test --test deadline` for real-time allow/deny loops, withheld file
 effects, writer-lock delay, exact/scoped approval preservation, child inheritance,
@@ -113,3 +114,13 @@ primary-evidence failure. After installing the Python client, run
 with Node 22+ to check real loopback Python/Node file effects and scoped access.
 CI runs this acceptance on Linux, macOS and Windows. No provider key or real
 account is needed.
+
+## Optional supervised idle expiry (unreleased source)
+
+[Supervisor-only renewal](SUPERVISION.md) is a separate opt-in control for fresh
+root runs. Admissions do not refresh those leases; a separate root-bound
+credential maintains only still-live members. A fixed deadline remains immutable
+and wins even during heartbeat activity. The explicit Python renewal call never
+uses operator/workload environment authentication. Existing published artifacts
+do not include this feature; source, migration and release gates apply. Running
+work still needs executor-owned cancellation and OS isolation where appropriate.

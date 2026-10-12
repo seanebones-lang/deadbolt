@@ -22,6 +22,19 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Issue a fresh supervised run. Only its separate supervisor credential renews TTL.
+    Supervise {
+        #[arg(long)]
+        agent: String,
+        /// Optional immutable absolute Unix deadline, never extended by renewal.
+        #[arg(long)]
+        hard_deadline_at: Option<i64>,
+    },
+    /// Manage renewal-only supervisor credentials, separate from workload keys.
+    Supervisor {
+        #[command(subcommand)]
+        command: SupervisorCommand,
+    },
     /// Issue a fresh run with a fixed Unix-seconds deadline. Operator-only.
     Issue {
         #[arg(long)]
@@ -179,6 +192,28 @@ enum CredentialCommand {
 }
 
 #[derive(Subcommand)]
+enum SupervisorCommand {
+    /// Issue a new root-bound renewal key to a fresh private file. Never prints it.
+    Issue {
+        #[arg(long)]
+        agent: String,
+        #[arg(long)]
+        id: String,
+        #[arg(long, default_value_t = 3600)]
+        ttl_secs: u64,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Revoke one renewal key. No other credential or lease is changed.
+    Revoke {
+        #[arg(long)]
+        id: String,
+    },
+    /// List renewal metadata only.
+    List,
+}
+
+#[derive(Subcommand)]
 enum ActionCommand {
     /// Print the exact envelope and fingerprint for human review. No permission granted.
     Inspect {
@@ -249,6 +284,49 @@ fn run() -> Result<(), DeadboltError> {
     }
     let db = Deadbolt::open(&cfg());
     match cli.command {
+        Command::Supervise {
+            agent,
+            hard_deadline_at,
+        } => {
+            db.issue_supervised_agent(&agent, hard_deadline_at)?;
+            println!(
+                "agent={agent} supervision_root={agent} hard_deadline_at={}",
+                hard_deadline_at
+                    .map(|n| n.to_string())
+                    .unwrap_or_else(|| "-".into())
+            );
+        }
+        Command::Supervisor { command } => match command {
+            SupervisorCommand::Issue {
+                agent,
+                id,
+                ttl_secs,
+                out,
+            } => {
+                let status = db.issue_supervisor_credential(&agent, &id, ttl_secs, &out)?;
+                println!(
+                    "supervisor={} agent={} expires_at={}",
+                    status.credential_id, status.agent_id, status.expires_at
+                );
+            }
+            SupervisorCommand::Revoke { id } => {
+                db.revoke_supervisor_credential(&id)?;
+                println!("deadbolt supervisor revoked {id}");
+            }
+            SupervisorCommand::List => {
+                for row in db.supervisor_credentials()? {
+                    println!(
+                        "supervisor={} agent={} expires_at={} revoked_at={}",
+                        row.credential_id,
+                        row.agent_id,
+                        row.expires_at,
+                        row.revoked_at
+                            .map(|n| n.to_string())
+                            .unwrap_or_else(|| "-".into())
+                    );
+                }
+            }
+        },
         Command::Action { command } => match command {
             ActionCommand::Inspect { file } => {
                 let action = read_action(&file)?;
@@ -331,14 +409,15 @@ fn run() -> Result<(), DeadboltError> {
                     row.clips.join(",")
                 };
                 println!(
-                    "agent={} state={} expires_at={} parent={} clips={} swarm_task={} hard_deadline_at={}",
+                    "agent={} state={} expires_at={} parent={} clips={} swarm_task={} hard_deadline_at={} supervision_root={}",
                     row.agent_id,
                     row.state,
                     row.expires_at,
                     row.parent_id.as_deref().unwrap_or("-"),
                     clips,
                     row.swarm_task_id.as_deref().unwrap_or("-"),
-                    row.hard_deadline_at.map(|v| v.to_string()).unwrap_or_else(|| "-".into())
+                    row.hard_deadline_at.map(|v| v.to_string()).unwrap_or_else(|| "-".into()),
+                    row.supervision_root.as_deref().unwrap_or("-")
                 );
             }
         }

@@ -355,3 +355,13 @@ legacy admission. Approval enables exact-only policy for that run/tool;
 nonces persist after use/revocation. Existing unconfigured integrations retain
 their behavior. This is available in 1.1.0-rc.1. Older binaries cannot enforce these new
 requirements; quiesce protected dispatch before any rollback.
+
+## Optional supervised idle expiry (unreleased source)
+
+[Supervisor-only renewal](SUPERVISION.md) is a separate opt-in control for fresh
+root runs. Admissions do not refresh those leases; a separate root-bound
+credential maintains only still-live members. A fixed deadline remains immutable
+and wins even during heartbeat activity. The explicit Python renewal call never
+uses operator/workload environment authentication. Existing published artifacts
+do not include this feature; source, migration and release gates apply. Running
+work still needs executor-owned cancellation and OS isolation where appropriate.

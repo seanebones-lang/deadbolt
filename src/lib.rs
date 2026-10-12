@@ -26,6 +26,7 @@ use thiserror::Error;
 mod actions;
 pub use actions::ActionRequest;
 mod credentials;
+mod supervision;
 pub use credentials::CredentialStatus;
 mod mcp;
 mod serve;
@@ -45,7 +46,8 @@ pub struct DeadboltConfig {
     /// Deny tool actions when the store cannot be opened or written.
     #[serde(default = "default_true")]
     pub fail_closed: bool,
-    /// Lease lifetime. A live admit, allow or deny, renews it. Silence does not. An expired lease is not slid.
+    /// Idle lifetime. Legacy admits renew it; supervised runs require a separate heartbeat.
+    /// Silence does not renew either mode. An expired lease is not slid.
     #[serde(default = "default_ttl")]
     pub lease_ttl_secs: u64,
     /// SQLite path. Default `~/.deadbolt/deadbolt.db`.
@@ -253,6 +255,8 @@ pub struct AgentStatus {
     pub expires_at: i64,
     /// Fixed Unix deadline for new admissions, or None for idle-only leases.
     pub hard_deadline_at: Option<i64>,
+    /// Root of an operator-issued supervised run, or None for admission-renewed TTL.
+    pub supervision_root: Option<String>,
     /// Parent agent, if this lease was registered as a child.
     pub parent_id: Option<String>,
     /// Clipped tool names.
@@ -301,6 +305,7 @@ struct Lease {
     state: String,
     expires_at: i64,
     hard_deadline_at: Option<i64>,
+    supervision_root: Option<String>,
     clips: Vec<String>,
     clip_cids: BTreeMap<String, String>,
     swarm_task_id: Option<String>,
@@ -361,7 +366,8 @@ impl JsonlSqliteSink {
                token_hash TEXT NOT NULL UNIQUE,
                expires_at INTEGER NOT NULL,
                revoked_at INTEGER,
-               created_at INTEGER NOT NULL
+               created_at INTEGER NOT NULL,
+               scope TEXT NOT NULL DEFAULT 'admission'
              );
              CREATE TABLE IF NOT EXISTS events (
                seq INTEGER PRIMARY KEY,
@@ -376,6 +382,11 @@ impl JsonlSqliteSink {
         )
         .map_err(|_| SinkError::Unavailable)?;
         migrate_leases(&conn)?;
+        // Existing credentials retain admission-only authority on upgrade.
+        let _ = conn.execute(
+            "ALTER TABLE admission_credentials ADD COLUMN scope TEXT NOT NULL DEFAULT 'admission'",
+            [],
+        );
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS event_sequence (id INTEGER PRIMARY KEY CHECK(id=1), seq INTEGER NOT NULL);
              INSERT INTO event_sequence (id, seq) SELECT 1, COALESCE(MAX(seq), 0) FROM events WHERE true
@@ -633,6 +644,7 @@ impl Deadbolt {
                 state: "active".into(),
                 expires_at: exp,
                 hard_deadline_at: None,
+                supervision_root: None,
                 clips: Vec::new(),
                 clip_cids: BTreeMap::new(),
                 swarm_task_id: None,
@@ -663,48 +675,73 @@ impl Deadbolt {
     /// Keep this API on the trusted operator plane; use a fresh ID for a new run.
     /// This bounds new admissions, not the runtime of already admitted work.
     pub fn issue_agent(&self, agent_id: &str, hard_deadline_at: i64) -> Result<(), DeadboltError> {
+        self.issue_root(agent_id, Some(hard_deadline_at), false)
+    }
+
+    /// Issue a fresh supervised root. Only a separate supervisor credential may
+    /// renew its idle TTL. An optional absolute deadline remains immutable.
+    /// Registered children inherit supervision; existing identities are refused.
+    pub fn issue_supervised_agent(
+        &self,
+        agent_id: &str,
+        hard_deadline_at: Option<i64>,
+    ) -> Result<(), DeadboltError> {
+        self.issue_root(agent_id, hard_deadline_at, true)
+    }
+
+    fn issue_root(
+        &self,
+        agent_id: &str,
+        hard_deadline_at: Option<i64>,
+        supervised: bool,
+    ) -> Result<(), DeadboltError> {
         require_token(agent_id)?;
         if !self.enabled {
             return Err(DeadboltError::Disabled);
         }
-        self.operator_grant(
-            "lease",
-            json!({"agent_id":agent_id,"state":"active","hard_deadline_at":hard_deadline_at}),
-            |tx| {
-                let now = now_secs();
-                // Match JSON consumers' exact integer range. Check after writer-lock acquisition.
-                if hard_deadline_at <= now || hard_deadline_at > 9_007_199_254_740_991 {
-                    return Err(DeadboltError::BadRequest);
-                }
-                if load_lease(tx, agent_id)
-                    .map_err(|_| DeadboltError::StoreUnavailable)?
-                    .is_some()
-                {
-                    return Err(DeadboltError::BadRequest);
-                }
-                save_lease(
-                    tx,
-                    &Lease {
-                        agent_id: agent_id.to_string(),
-                        parent_id: None,
-                        state: "active".into(),
-                        expires_at: bounded_expiry(now, self.ttl, Some(hard_deadline_at)),
-                        hard_deadline_at: Some(hard_deadline_at),
-                        clips: Vec::new(),
-                        clip_cids: BTreeMap::new(),
-                        swarm_task_id: None,
-                        tools_allow: None,
-                        dest_allow: None,
-                        offline_tools: None,
-                        spend_cap_usd: None,
-                        spend_usd: 0.0,
-                        irreversible: None,
-                        approvals: Vec::new(),
-                    },
-                )
-                .map_err(|_| DeadboltError::StoreUnavailable)
-            },
-        )
+        self.operator_event("lease", |tx| {
+            let now = now_secs();
+            // Match JSON consumers' exact integer range. Check after writer-lock acquisition.
+            if hard_deadline_at
+                .is_some_and(|deadline| deadline <= now || deadline > 9_007_199_254_740_991)
+            {
+                return Err(DeadboltError::BadRequest);
+            }
+            if load_lease(tx, agent_id)
+                .map_err(|_| DeadboltError::StoreUnavailable)?
+                .is_some()
+            {
+                return Err(DeadboltError::BadRequest);
+            }
+            let expires_at = bounded_expiry(now, self.ttl, hard_deadline_at);
+            save_lease(
+                tx,
+                &Lease {
+                    agent_id: agent_id.to_string(),
+                    parent_id: None,
+                    state: "active".into(),
+                    expires_at,
+                    hard_deadline_at,
+                    supervision_root: supervised.then(|| agent_id.to_string()),
+                    clips: Vec::new(),
+                    clip_cids: BTreeMap::new(),
+                    swarm_task_id: None,
+                    tools_allow: None,
+                    dest_allow: None,
+                    offline_tools: None,
+                    spend_cap_usd: None,
+                    spend_usd: 0.0,
+                    irreversible: None,
+                    approvals: Vec::new(),
+                },
+            )
+            .map_err(|_| DeadboltError::StoreUnavailable)?;
+            let supervision_root = supervised.then_some(agent_id);
+            Ok(json!({
+                "agent_id":agent_id,"state":"active","expires_at":expires_at,
+                "hard_deadline_at":hard_deadline_at,"supervision_root":supervision_root
+            }))
+        })
     }
 
     /// Register `child` under `parent`. An inactive or missing parent births a dead child.
@@ -751,10 +788,18 @@ impl Deadbolt {
         };
         let state = if parent_dead { "killed" } else { "active" };
         let hard_deadline_at = parent_lease.as_ref().and_then(|p| p.hard_deadline_at);
+        let supervision_root = parent_lease
+            .as_ref()
+            .and_then(|p| p.supervision_root.clone());
         let exp = if parent_dead {
             0
         } else {
-            bounded_expiry(now_secs(), self.ttl, hard_deadline_at)
+            let expiry = bounded_expiry(now_secs(), self.ttl, hard_deadline_at);
+            if supervision_root.is_some() {
+                expiry.min(parent_lease.as_ref().unwrap().expires_at)
+            } else {
+                expiry
+            }
         };
         {
             save_lease(
@@ -765,6 +810,7 @@ impl Deadbolt {
                     state: state.into(),
                     expires_at: exp,
                     hard_deadline_at,
+                    supervision_root: supervision_root.clone(),
                     clips: Vec::new(),
                     clip_cids: BTreeMap::new(),
                     swarm_task_id: swarm_task_id.map(str::to_string),
@@ -780,7 +826,7 @@ impl Deadbolt {
             .map_err(|_| DeadboltError::StoreUnavailable)?;
         }
         let payload = json!({"agent_id":child,"parent_id":parent,"state":state,
-            "swarm_task_id":swarm_task_id.unwrap_or("-"),"hard_deadline_at":hard_deadline_at});
+            "swarm_task_id":swarm_task_id.unwrap_or("-"),"hard_deadline_at":hard_deadline_at,"supervision_root":supervision_root});
         let record = if default_sink {
             Some(
                 emit_in_transaction(
@@ -972,11 +1018,31 @@ impl Deadbolt {
                 code: DenyCode::LeaseExpired,
             });
         }
-        let exp = bounded_expiry(now, self.ttl, lease.hard_deadline_at);
-        tx.execute(
-            "UPDATE leases SET expires_at=?1, updated_at=?1 WHERE agent_id=?2 AND state!='killed'",
-            params![exp, agent_id],
-        )?;
+        if let Some(root) = &lease.supervision_root {
+            let root_lease = load_lease(tx, root)?.ok_or(rusqlite::Error::QueryReturnedNoRows)?;
+            let code = if root_lease.state == "killed" {
+                Some(DenyCode::Killed)
+            } else if deadline_reached(&root_lease, now) {
+                Some(DenyCode::DeadlineExceeded)
+            } else if now >= root_lease.expires_at {
+                Some(DenyCode::LeaseExpired)
+            } else if root_lease.state == "paused" {
+                Some(DenyCode::Paused)
+            } else if root_lease.supervision_root.as_deref() != Some(root) {
+                Some(DenyCode::StoreUnavailable)
+            } else {
+                None
+            };
+            if let Some(code) = code {
+                return Ok(AdmitDecision::Deny { code });
+            }
+        } else {
+            let exp = bounded_expiry(now, self.ttl, lease.hard_deadline_at);
+            tx.execute(
+                "UPDATE leases SET expires_at=?1, updated_at=?1 WHERE agent_id=?2 AND state!='killed'",
+                params![exp, agent_id],
+            )?;
+        }
         if let Some(cap) = lease.spend_cap_usd {
             if lease.spend_usd >= cap {
                 tx.execute(
@@ -1209,7 +1275,10 @@ impl Deadbolt {
             }
             let now = now_secs();
             if deadline_reached(&lease, now) { return Err(DeadboltError::BadRequest); }
-            let exp = bounded_expiry(now, self.ttl, lease.hard_deadline_at);
+            let exp = if lease.supervision_root.is_some() {
+                if now >= lease.expires_at { return Err(DeadboltError::BadRequest); }
+                lease.expires_at
+            } else { bounded_expiry(now, self.ttl, lease.hard_deadline_at) };
             tx
                 .execute(
                     "UPDATE leases SET state='active', expires_at=?1, clips='[]', clip_cids='{}', updated_at=?1 WHERE agent_id=?2",
@@ -1494,6 +1563,7 @@ impl Deadbolt {
             "first_seen": first_seen,
             "killed_at": killed_at,
             "hard_deadline_at": lease.hard_deadline_at,
+            "supervision_root": lease.supervision_root,
             "decisions": decisions,
             "inferred": inferred,
             "offline_policy_changes": policy_changes,
@@ -1598,6 +1668,14 @@ impl Deadbolt {
                     .get("offline_tools")
                     .and_then(|v| serde_json::from_value(v.clone()).ok()),
                 hard_deadline_at: payload.get("hard_deadline_at").and_then(Value::as_i64),
+                supervision_root: payload
+                    .get("supervision_root")
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
+                expires_at: payload.get("expires_at").and_then(Value::as_i64),
+                renewed: payload
+                    .get("renewed")
+                    .and_then(|v| serde_json::from_value(v.clone()).ok()),
                 ts,
             });
         }
@@ -1809,9 +1887,19 @@ impl Deadbolt {
     where
         F: FnOnce(&rusqlite::Transaction<'_>) -> Result<(), DeadboltError>,
     {
+        self.operator_event(kind, |tx| {
+            mutate(tx)?;
+            Ok(payload)
+        })
+    }
+
+    fn operator_event<F>(&self, kind: &str, mutate: F) -> Result<(), DeadboltError>
+    where
+        F: FnOnce(&rusqlite::Transaction<'_>) -> Result<Value, DeadboltError>,
+    {
         let store = self.store()?;
         let default_sink = self.uses_default_sink(&store);
-        let record = {
+        let (record, payload) = {
             let mut g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
             let StoreInner { conn, events } = &mut *g;
             let tx = rusqlite::Transaction::new_unchecked(
@@ -1819,7 +1907,7 @@ impl Deadbolt {
                 rusqlite::TransactionBehavior::Immediate,
             )
             .map_err(|_| DeadboltError::StoreUnavailable)?;
-            mutate(&tx)?;
+            let payload = mutate(&tx)?;
             let record = if default_sink {
                 Some(
                     emit_in_transaction(
@@ -1836,7 +1924,7 @@ impl Deadbolt {
                 None
             };
             tx.commit().map_err(|_| DeadboltError::StoreUnavailable)?;
-            record
+            (record, payload)
         };
         if let Some(record) = record {
             self.append_witness(&record)
@@ -2169,6 +2257,7 @@ fn migrate_leases(conn: &Connection) -> Result<(), SinkError> {
         "ALTER TABLE leases ADD COLUMN dest_allow TEXT",
         "ALTER TABLE leases ADD COLUMN offline_tools TEXT",
         "ALTER TABLE leases ADD COLUMN hard_deadline_at INTEGER",
+        "ALTER TABLE leases ADD COLUMN supervision_root TEXT",
         "ALTER TABLE leases ADD COLUMN spend_cap_usd REAL",
         "ALTER TABLE leases ADD COLUMN spend_usd REAL NOT NULL DEFAULT 0",
         "ALTER TABLE leases ADD COLUMN irreversible TEXT",
@@ -2202,13 +2291,14 @@ fn save_lease(conn: &Connection, lease: &Lease) -> Result<(), rusqlite::Error> {
     let clips = serde_json::to_string(&lease.clips).unwrap_or_else(|_| "[]".into());
     let clip_cids = serde_json::to_string(&lease.clip_cids).unwrap_or_else(|_| "{}".into());
     conn.execute(
-        "INSERT INTO leases (agent_id, parent_id, state, expires_at, clips, clip_cids, swarm_task_id, updated_at, hard_deadline_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+        "INSERT INTO leases (agent_id, parent_id, state, expires_at, clips, clip_cids, swarm_task_id, updated_at, hard_deadline_at, supervision_root)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
          ON CONFLICT(agent_id) DO UPDATE SET
            parent_id=excluded.parent_id,
            state=excluded.state,
            expires_at=excluded.expires_at,
            hard_deadline_at=excluded.hard_deadline_at,
+           supervision_root=excluded.supervision_root,
            clips=excluded.clips,
            clip_cids=excluded.clip_cids,
            swarm_task_id=excluded.swarm_task_id,
@@ -2222,7 +2312,8 @@ fn save_lease(conn: &Connection, lease: &Lease) -> Result<(), rusqlite::Error> {
             clip_cids,
             lease.swarm_task_id,
             now_secs(),
-            lease.hard_deadline_at
+            lease.hard_deadline_at,
+            lease.supervision_root
         ],
     )?;
     Ok(())
@@ -2230,7 +2321,7 @@ fn save_lease(conn: &Connection, lease: &Lease) -> Result<(), rusqlite::Error> {
 
 fn load_lease(conn: &Connection, agent_id: &str) -> Result<Option<Lease>, rusqlite::Error> {
     let mut stmt = conn.prepare(
-        "SELECT agent_id, parent_id, state, expires_at, clips, clip_cids, swarm_task_id, tools_allow, dest_allow, spend_cap_usd, spend_usd, irreversible, approvals, offline_tools, hard_deadline_at FROM leases WHERE agent_id=?1",
+        "SELECT agent_id, parent_id, state, expires_at, clips, clip_cids, swarm_task_id, tools_allow, dest_allow, spend_cap_usd, spend_usd, irreversible, approvals, offline_tools, hard_deadline_at, supervision_root FROM leases WHERE agent_id=?1",
     )?;
     let mut rows = stmt.query(params![agent_id])?;
     let Some(r) = rows.next()? else {
@@ -2241,7 +2332,7 @@ fn load_lease(conn: &Connection, agent_id: &str) -> Result<Option<Lease>, rusqli
 
 fn load_all(conn: &Connection) -> Result<Vec<Lease>, rusqlite::Error> {
     let mut stmt = conn.prepare(
-        "SELECT agent_id, parent_id, state, expires_at, clips, clip_cids, swarm_task_id, tools_allow, dest_allow, spend_cap_usd, spend_usd, irreversible, approvals, offline_tools, hard_deadline_at FROM leases ORDER BY agent_id",
+        "SELECT agent_id, parent_id, state, expires_at, clips, clip_cids, swarm_task_id, tools_allow, dest_allow, spend_cap_usd, spend_usd, irreversible, approvals, offline_tools, hard_deadline_at, supervision_root FROM leases ORDER BY agent_id",
     )?;
     let rows = stmt.query_map([], lease_from_row)?;
     rows.collect()
@@ -2257,6 +2348,7 @@ fn lease_from_row(r: &rusqlite::Row<'_>) -> Result<Lease, rusqlite::Error> {
         state: r.get(2)?,
         expires_at: r.get(3)?,
         hard_deadline_at: r.get(14)?,
+        supervision_root: r.get(15)?,
         clips,
         clip_cids,
         swarm_task_id: r.get(6)?,
@@ -2319,6 +2411,15 @@ pub struct ExportRow {
     /// Fixed deadline on an observed lease issuance, including inherited child deadlines.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hard_deadline_at: Option<i64>,
+    /// Root identity on supervised issuance; absent for legacy issuance.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub supervision_root: Option<String>,
+    /// Issued credential expiration or renewed root lease expiration.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<i64>,
+    /// Still-live identities maintained by this supervisor heartbeat.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub renewed: Option<Vec<String>>,
     /// Unix seconds from the store row.
     pub ts: i64,
 }
@@ -2334,7 +2435,7 @@ pub fn format_export(rows: &[ExportRow], json: bool) -> String {
             }
         } else {
             out.push_str(&format!(
-                "class={} kind={} cid={} payload_sha256={} premises={} agent_id={} tool={} decision={} code={} ts={} offline_tools={} hard_deadline_at={}\n",
+                "class={} kind={} cid={} payload_sha256={} premises={} agent_id={} tool={} decision={} code={} ts={} offline_tools={} hard_deadline_at={} supervision_root={} expires_at={} renewed={}\n",
                 row.class,
                 row.kind,
                 row.cid,
@@ -2351,7 +2452,10 @@ pub fn format_export(rows: &[ExportRow], json: bool) -> String {
                 row.ts,
                 row.offline_tools.as_ref().map(|v| serde_json::to_string(v).unwrap())
                     .unwrap_or_else(|| "-".to_string()),
-                row.hard_deadline_at.map(|v| v.to_string()).unwrap_or_else(|| "-".into())
+                row.hard_deadline_at.map(|v| v.to_string()).unwrap_or_else(|| "-".into()),
+                row.supervision_root.as_deref().unwrap_or("-"),
+                row.expires_at.map(|v| v.to_string()).unwrap_or_else(|| "-".into()),
+                row.renewed.as_ref().map(|v| serde_json::to_string(v).unwrap()).unwrap_or_else(|| "-".into())
             ));
         }
     }
@@ -2364,6 +2468,7 @@ fn status_of(lease: Lease) -> AgentStatus {
         state: lease.state,
         expires_at: lease.expires_at,
         hard_deadline_at: lease.hard_deadline_at,
+        supervision_root: lease.supervision_root,
         parent_id: lease.parent_id,
         clips: lease.clips,
         swarm_task_id: lease.swarm_task_id,

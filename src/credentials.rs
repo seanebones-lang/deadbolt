@@ -7,7 +7,7 @@ use super::*;
 pub struct CredentialStatus {
     /// Operator-selected identifier. Identifiers cannot be reused, even after revocation.
     pub credential_id: String,
-    /// The only agent this credential may admit for.
+    /// The agent this credential is bound to; authority depends on its issued scope.
     pub agent_id: String,
     /// Fixed Unix expiration time; admission never extends it.
     pub expires_at: i64,
@@ -41,6 +41,30 @@ impl Deadbolt {
         ttl_secs: u64,
         out: &Path,
     ) -> Result<CredentialStatus, DeadboltError> {
+        self.issue_scoped_credential(agent_id, credential_id, ttl_secs, out, false)
+    }
+
+    /// Issue a separate renewal-only credential for a supervised root run.
+    /// Never grants admission or operator control. The secret is written to a
+    /// fresh owner-only file; store only its hash. TTL is 1..=86400 seconds.
+    pub fn issue_supervisor_credential(
+        &self,
+        agent_id: &str,
+        credential_id: &str,
+        ttl_secs: u64,
+        out: &Path,
+    ) -> Result<CredentialStatus, DeadboltError> {
+        self.issue_scoped_credential(agent_id, credential_id, ttl_secs, out, true)
+    }
+
+    fn issue_scoped_credential(
+        &self,
+        agent_id: &str,
+        credential_id: &str,
+        ttl_secs: u64,
+        out: &Path,
+        supervisor: bool,
+    ) -> Result<CredentialStatus, DeadboltError> {
         require_token(agent_id)?;
         require_token(credential_id)?;
         if !self.enabled || !(1..=86400).contains(&ttl_secs) {
@@ -48,8 +72,14 @@ impl Deadbolt {
         }
         let mut entropy = [0u8; 32];
         getrandom::fill(&mut entropy).map_err(|_| DeadboltError::StoreUnavailable)?;
-        let secret = format!("dbw1-{}", hex_encode(&entropy));
-        let hash = credential_hash(&secret)?;
+        let scope = if supervisor {
+            "supervisor"
+        } else {
+            "admission"
+        };
+        let prefix = if supervisor { "dbs1-" } else { "dbw1-" };
+        let secret = format!("{prefix}{}", hex_encode(&entropy));
+        let hash = credential_hash_for(&secret, prefix)?;
         let parent = out
             .parent()
             .filter(|p| !p.as_os_str().is_empty())
@@ -65,12 +95,15 @@ impl Deadbolt {
             .map_err(|_| DeadboltError::ExportRefused("credential_file"))?;
         let expires_at = now_secs() + ttl_secs as i64;
         let issued = self.operator_grant(
-            "credential_issue",
-            json!({"agent_id":agent_id,"credential_id":credential_id,"expires_at":expires_at}),
+            if supervisor { "supervisor_credential_issue" } else { "credential_issue" },
+            json!({"agent_id":agent_id,"credential_id":credential_id,"expires_at":expires_at,"scope":scope}),
             |tx| {
                 let lease = load_lease(tx, agent_id)
                     .map_err(|_| DeadboltError::StoreUnavailable)?
                     .ok_or(DeadboltError::NotFound)?;
+                if supervisor && lease.supervision_root.as_deref() != Some(agent_id) {
+                    return Err(DeadboltError::BadRequest);
+                }
                 if lease.state == "killed" {
                     return Err(DeadboltError::Killed);
                 }
@@ -78,8 +111,8 @@ impl Deadbolt {
                     return Err(DeadboltError::BadRequest);
                 }
                 tx.execute(
-                    "INSERT INTO admission_credentials (credential_id,agent_id,token_hash,expires_at,created_at) VALUES (?1,?2,?3,?4,?5)",
-                    params![credential_id, agent_id, hash, expires_at, now_secs()],
+                    "INSERT INTO admission_credentials (credential_id,agent_id,token_hash,expires_at,created_at,scope) VALUES (?1,?2,?3,?4,?5,?6)",
+                    params![credential_id, agent_id, hash, expires_at, now_secs(), scope],
                 ).map_err(|e| match e {
                     rusqlite::Error::SqliteFailure(ref detail, _) if detail.code == rusqlite::ErrorCode::ConstraintViolation => DeadboltError::BadRequest,
                     _ => DeadboltError::StoreUnavailable,
@@ -116,6 +149,24 @@ impl Deadbolt {
     /// Revoke one credential without killing its lease or other credentials.
     /// Serialized with credential validation and admission by the SQLite writer transaction.
     pub fn revoke_credential(&self, credential_id: &str) -> Result<(), DeadboltError> {
+        self.revoke_scoped_credential(credential_id, false)
+    }
+
+    /// Revoke a renewal credential without changing its run or admission keys.
+    pub fn revoke_supervisor_credential(&self, credential_id: &str) -> Result<(), DeadboltError> {
+        self.revoke_scoped_credential(credential_id, true)
+    }
+
+    fn revoke_scoped_credential(
+        &self,
+        credential_id: &str,
+        supervisor: bool,
+    ) -> Result<(), DeadboltError> {
+        let scope = if supervisor {
+            "supervisor"
+        } else {
+            "admission"
+        };
         require_token(credential_id)?;
         // Credential IDs are immutable and never reused. Read the binding for
         // agent-specific incident/export linkage; mutation still owns its transaction.
@@ -124,8 +175,8 @@ impl Deadbolt {
             let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
             g.conn
                 .query_row(
-                    "SELECT agent_id FROM admission_credentials WHERE credential_id=?1",
-                    params![credential_id],
+                    "SELECT agent_id FROM admission_credentials WHERE credential_id=?1 AND scope=?2",
+                    params![credential_id,scope],
                     |r| r.get(0),
                 )
                 .map_err(|e| match e {
@@ -133,7 +184,7 @@ impl Deadbolt {
                     _ => DeadboltError::StoreUnavailable,
                 })?
         };
-        self.operator_grant("credential_revoke", json!({"credential_id":credential_id,"agent_id":agent_id}), |tx| {
+        self.operator_grant(if supervisor {"supervisor_credential_revoke"} else {"credential_revoke"}, json!({"credential_id":credential_id,"agent_id":agent_id,"scope":scope}), |tx| {
             let count = tx.execute(
                 "UPDATE admission_credentials SET revoked_at=COALESCE(revoked_at,?1) WHERE credential_id=?2",
                 params![now_secs(), credential_id],
@@ -145,12 +196,21 @@ impl Deadbolt {
 
     /// Read credential metadata without renewing leases or disclosing secrets.
     pub fn credentials(&self) -> Result<Vec<CredentialStatus>, DeadboltError> {
+        self.scoped_credentials("admission")
+    }
+
+    /// List renewal credential metadata only. Never exposes bearer values/hashes.
+    pub fn supervisor_credentials(&self) -> Result<Vec<CredentialStatus>, DeadboltError> {
+        self.scoped_credentials("supervisor")
+    }
+
+    fn scoped_credentials(&self, scope: &str) -> Result<Vec<CredentialStatus>, DeadboltError> {
         let store = self.store()?;
         let g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
-        let mut stmt = g.conn.prepare("SELECT credential_id,agent_id,expires_at,revoked_at FROM admission_credentials ORDER BY credential_id")
+        let mut stmt = g.conn.prepare("SELECT credential_id,agent_id,expires_at,revoked_at FROM admission_credentials WHERE scope=?1 ORDER BY credential_id")
             .map_err(|_| DeadboltError::StoreUnavailable)?;
         let rows = stmt
-            .query_map([], |row| {
+            .query_map(params![scope], |row| {
                 Ok(CredentialStatus {
                     credential_id: row.get(0)?,
                     agent_id: row.get(1)?,
@@ -191,7 +251,7 @@ impl Deadbolt {
             )
             .map_err(|_| DeadboltError::StoreUnavailable)?;
             let valid: bool = tx.query_row(
-                "SELECT EXISTS(SELECT 1 FROM admission_credentials WHERE token_hash=?1 AND agent_id=?2 AND expires_at>?3 AND revoked_at IS NULL)",
+                "SELECT EXISTS(SELECT 1 FROM admission_credentials WHERE token_hash=?1 AND agent_id=?2 AND expires_at>?3 AND revoked_at IS NULL AND scope='admission')",
                 params![hash, agent_id, now_secs()], |row| row.get(0),
             ).map_err(|_| DeadboltError::StoreUnavailable)?;
             if !valid {
@@ -210,8 +270,12 @@ impl Deadbolt {
 }
 
 fn credential_hash(secret: &str) -> Result<String, DeadboltError> {
+    credential_hash_for(secret, "dbw1-")
+}
+
+pub(crate) fn credential_hash_for(secret: &str, prefix: &str) -> Result<String, DeadboltError> {
     if secret.len() != 69
-        || !secret.starts_with("dbw1-")
+        || !secret.starts_with(prefix)
         || !secret.as_bytes()[5..]
             .iter()
             .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
@@ -227,7 +291,7 @@ pub(crate) fn authenticate(
     agent_id: &str,
 ) -> Result<(), DeadboltError> {
     let hash = credential_hash(secret)?;
-    let valid:bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM admission_credentials WHERE token_hash=?1 AND agent_id=?2 AND expires_at>?3 AND revoked_at IS NULL)", params![hash,agent_id,now_secs()], |r| r.get(0)).map_err(|_|DeadboltError::StoreUnavailable)?;
+    let valid:bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM admission_credentials WHERE token_hash=?1 AND agent_id=?2 AND expires_at>?3 AND revoked_at IS NULL AND scope='admission')", params![hash,agent_id,now_secs()], |r| r.get(0)).map_err(|_|DeadboltError::StoreUnavailable)?;
     if valid {
         Ok(())
     } else {
