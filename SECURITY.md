@@ -1,5 +1,11 @@
 # Security
 
+Unreleased source creates new Unix core/Witness state privately and refuses
+unsafe existing files/sidecars before SQLite writes. Older stores need an
+explicit quiesced permission migration; Windows ACLs remain operator-managed.
+See [private state](docs/PRIVATE-STATE.md). These checks do not isolate code
+with the same OS identity or access to operator state/administration.
+
 Report a suspected vulnerability through
 [GitHub's private vulnerability reporting](https://github.com/seanebones-lang/deadbolt/security/advisories/new).
 Private reporting is enabled for this repository. Include the source revision,

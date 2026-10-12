@@ -5,6 +5,10 @@ The older `v0.1.1-product` tag is not the standalone hardening release.
 
 ## Unreleased after 2.0.0-rc.1
 
+- Create Unix core/Witness SQLite and JSONL state privately before SQLite writes;
+  refuse unsafe existing files, sidecars and writable parents. Document explicit
+  quiesced permission migration and continuing OS ownership/Windows ACL limits.
+
 - Require operator authentication for both Unix and loopback TCP sidecar startup.
   Preserve older Unix socket-possession authority only through the explicit
   `--legacy-unauthenticated-unix` flag / default-false Rust config. Configured

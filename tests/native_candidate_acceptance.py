@@ -66,6 +66,7 @@ def main():
             ('supervision_client_acceptance.py',['--binary',str(binary)]),
             ('executor_acceptance.py',['--binary',str(binary)]),
             ('unix_authority_acceptance.py',['--binary',str(binary)]),
+            ('private_state_acceptance.py',['--binary',str(binary)]),
         ]:
             result=subprocess.run([sys.executable,str(ROOT/'tests'/script),*tail],cwd=root,env=env,capture_output=True,text=True,timeout=180)
             if result.returncode != 0:

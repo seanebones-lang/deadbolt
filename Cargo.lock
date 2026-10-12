@@ -338,6 +338,7 @@ dependencies = [
  "clap",
  "dirs",
  "getrandom 0.4.3",
+ "libc",
  "rusqlite",
  "serde",
  "serde_jcs",
@@ -346,6 +347,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

@@ -29,6 +29,7 @@ mod credentials;
 mod supervision;
 pub use credentials::CredentialStatus;
 mod mcp;
+mod private_state;
 mod serve;
 mod witness;
 pub use mcp::mcp_proxy;
@@ -340,13 +341,7 @@ pub struct JsonlSqliteSink {
 
 impl JsonlSqliteSink {
     fn open(db: &Path, events_path: &Path) -> Result<Self, SinkError> {
-        if let Some(parent) = db.parent() {
-            fs::create_dir_all(parent).map_err(|_| SinkError::Unavailable)?;
-        }
-        if let Some(parent) = events_path.parent() {
-            fs::create_dir_all(parent).map_err(|_| SinkError::Unavailable)?;
-        }
-        let conn = Connection::open(db).map_err(|e| sqlite_unavailable("store.open", e))?;
+        let (conn, events) = private_state::open(db, events_path)?;
         conn.execute_batch(
             "PRAGMA journal_mode=WAL;
              PRAGMA busy_timeout=5000;
@@ -402,11 +397,6 @@ impl JsonlSqliteSink {
              INSERT INTO event_sequence (id, seq) SELECT 1, COALESCE(MAX(seq), 0) FROM events WHERE true
              ON CONFLICT(id) DO UPDATE SET seq=MAX(event_sequence.seq, excluded.seq);"
         ).map_err(|_| SinkError::Unavailable)?;
-        let events = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(events_path)
-            .map_err(|_| SinkError::Unavailable)?;
         Ok(Self {
             inner: Mutex::new(StoreInner { conn, events }),
         })

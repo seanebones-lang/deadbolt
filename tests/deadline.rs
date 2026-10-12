@@ -221,6 +221,16 @@ fn old_store_migration_keeps_idle_only_leases_and_rejects_in_place_deadline() {
     )
     .unwrap();
     drop(conn);
+    // Operator migration of the quiesced old schema's ordinary SQLite file.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(
+            dir.path().join("deadbolt.db"),
+            std::fs::Permissions::from_mode(0o600),
+        )
+        .unwrap();
+    }
     let gate = Deadbolt::open_at(dir.path(), true, 60);
     assert_eq!(gate.status(Some("old")).unwrap()[0].hard_deadline_at, None);
     assert_eq!(gate.admit("old", "read"), AdmitDecision::Allow);

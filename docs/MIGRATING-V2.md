@@ -84,6 +84,11 @@ See [deadlines](LEASE-DEADLINES.md) and [supervision](SUPERVISION.md).
 
 ## Unreleased HTTP authentication default
 
+Unreleased source also requires private Unix state and an explicit quiesced
+permission migration for old broad-mode DB/events/Witness files and sidecars.
+See [private-state migration](PRIVATE-STATE.md). Kills, grants, credentials,
+deadlines and evidence are retained; files are never silently chmodded.
+
 The new candidate requires an operator token for Unix and TCP sidecar startup.
 Configure `DEADBOLT_TOKEN` privately before starting either listener; the trusted
 server keeps it, and the dispatcher receives only its scoped admission credential.

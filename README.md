@@ -6,6 +6,9 @@ Embed it in Rust, call its local sidecar from another language, or wrap a truste
 stdio MCP server. Free under [Apache-2.0](LICENSE).
 
 Keep DeadBolt state and operator controls outside untrusted agent processes.
+
+Unreleased source also creates private Unix state and requires reviewed permission
+migration for older stores; see [private state](docs/PRIVATE-STATE.md).
 A process that can write the database or invoke the operator CLI has operator
 authority; socket credentials cannot contain it. For untrusted tool execution,
 use separate OS/service ownership and a protected dispatcher. Unreleased source

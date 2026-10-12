@@ -96,6 +96,16 @@ def main():
         with closing(sqlite3.connect(env["DEADBOLT_DB"])) as db:
             before = {row[0] for row in db.execute("SELECT cid FROM events")}
             assert db.execute("SELECT spend_usd FROM leases WHERE agent_id='B'").fetchone()[0] == 1.25
+        # Quiesced, operator-owned legacy fixture: migrate permissions explicitly.
+        # The new engine refuses older broad modes rather than changing live state.
+        if os.name == "posix":
+            for name in (env["DEADBOLT_DB"], env["DEADBOLT_EVENTS"],
+                         env["DEADBOLT_DB"]+"-wal", env["DEADBOLT_DB"]+"-shm",
+                         env["DEADBOLT_DB"]+"-journal"):
+                path = Path(name)
+                if path.exists():
+                    assert path.is_file() and not path.is_symlink()
+                    path.chmod(0o600)
         server = start(new)
         try:
             if old_scoped:

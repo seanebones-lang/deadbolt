@@ -4,7 +4,6 @@
 //! `cid`, and `premises`. Generated rows are refused. This module does not
 //! copy Witness source.
 
-use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -28,20 +27,11 @@ pub struct WitnessSink {
 }
 
 impl WitnessSink {
-    /// Open `db` plus a sibling `.jsonl`. Creates parents. WAL and busy timeout.
+    /// Open private `db` plus a sibling `.jsonl`. WAL and busy timeout.
+    /// Unix existing state must be owned regular 0600 files in trusted parents.
     pub fn open(db: &Path) -> Result<Self, SinkError> {
-        if let Some(parent) = db.parent() {
-            if !parent.as_os_str().is_empty() {
-                fs::create_dir_all(parent).map_err(|_| SinkError::Unavailable)?;
-            }
-        }
         let jsonl = jsonl_beside(db);
-        if let Some(parent) = jsonl.parent() {
-            if !parent.as_os_str().is_empty() {
-                fs::create_dir_all(parent).map_err(|_| SinkError::Unavailable)?;
-            }
-        }
-        let conn = Connection::open(db).map_err(|_| SinkError::Unavailable)?;
+        let (conn, events) = crate::private_state::open(db, &jsonl)?;
         conn.execute_batch(
             "PRAGMA journal_mode=WAL;
              PRAGMA busy_timeout=5000;
@@ -56,11 +46,6 @@ impl WitnessSink {
              );",
         )
         .map_err(|_| SinkError::Unavailable)?;
-        let events = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&jsonl)
-            .map_err(|_| SinkError::Unavailable)?;
         Ok(Self {
             inner: Mutex::new(Inner { conn, events }),
             jsonl,
@@ -154,6 +139,7 @@ mod tests {
     use super::*;
     use crate::EvidenceRecord;
     use serde_json::json;
+    use std::fs;
 
     fn record(class: EpistemicClass, premises: Vec<String>) -> EvidenceRecord {
         EvidenceRecord {

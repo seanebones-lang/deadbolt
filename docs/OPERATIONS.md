@@ -24,11 +24,13 @@ Keep the operator and operator token in trusted infrastructure. Use
 must not choose fresh IDs, alter policy, write the store or bypass the dispatcher.
 Each child needs registration and explicit policy before its runner starts.
 
-Protect every configured state parent with private ownership/modes or ACLs.
-The general Rust/CLI store does not automatically repair existing permissions;
-the Unix socket's 0600 mode does not protect separately located DB/events files.
-Use a private parent (0700 on Unix) and restrictive umask before first startup.
-Review independently configured events, Witness and export paths as well.
+Unreleased source creates new Unix core/Witness state files with mode 0600 and
+new parents with 0700; it refuses unsafe existing files rather than repairing
+them. Quiesce and explicitly migrate older broad modes before opening the store.
+[Private state](PRIVATE-STATE.md) defines ownership, sidecar and path checks.
+Protect every configured parent and separately review exports and secrets.
+Windows ACLs remain operator-managed. The Unix socket's 0600 mode alone does not
+protect separately located state or isolate code running under the same user.
 
 Current source creates the Docker image's state directory with mode 0700.
 Existing named volumes retain their modes; inspect those separately. This

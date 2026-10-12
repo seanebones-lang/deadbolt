@@ -79,6 +79,18 @@ jobs:
       - run: python -m pip install build==1.3.0
       - name: Verify outside-checkout packaging and install the pinned SDK contract
         run: python tests/python_package_acceptance.py --install-sdk
+      - name: Private Unix state under permissive process umasks
+        run: python tests/private_state_acceptance.py --binary target/debug/deadbolt
+        if: runner.os != 'Windows'
+      - name: Foreign-owned state refused in isolated privileged fixtures
+        run: sudo /usr/bin/python3 tests/private_state_acceptance.py --binary target/debug/deadbolt --ownership-only
+        if: runner.os == 'Linux'
+      - name: Linux ACL fixture utility
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq acl
+        if: runner.os == 'Linux'
+      - name: Extended and inherited Linux ACL state refused
+        run: python tests/private_state_acceptance.py --binary target/debug/deadbolt --acl-only
+        if: runner.os == 'Linux'
       - name: Installed heartbeat helper stops with its trusted job
         run: python tests/heartbeat_contract.py
       - name: Real SDK Runner and sidecar acceptance without API requests
