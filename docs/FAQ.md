@@ -84,8 +84,13 @@ after operator review. Other policy checks still apply.
 
 ## Do child agents inherit policy?
 
-No. Register the child before starting its runner, require a live registration,
-and configure its own policy. Registration preserves an existing same-parent
+In unreleased source, every ancestor’s current tool, destination, clip and review
+restrictions form a ceiling, and its spending cap includes its registered subtree.
+A child can narrow that ceiling, not widen it. Policy and grants are not copied;
+approvals bind the actual child. Each MCP child still needs its own explicit tool
+allowlist. Published 2.0.0-rc.1 and 1.x do not supply these ceilings. Register the
+child before starting its runner, require a live registration, and configure its
+actual routes. Registration preserves an existing same-parent
 child and refuses reparenting/self-parenting. An inactive parent cannot create
 new live children. Parent kill revokes descendants; the executor owns cancellation
 of any work already running.

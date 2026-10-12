@@ -297,9 +297,9 @@ pub struct PolicyPatch {
 /// Result of [`Deadbolt::spend_add`].
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SpendAdded {
-    /// Total USD after the add.
+    /// This identity's own reported USD after the add (not a subtree total).
     pub spend_usd: f64,
-    /// True when the cap was crossed and the lease is paused.
+    /// True when this add reaches a cap on this identity or any ancestor.
     pub paused: bool,
 }
 
@@ -1053,6 +1053,8 @@ impl Deadbolt {
         if let Some(code) = ancestor_admission_denial(tx, &lease, now)? {
             return Ok(AdmitDecision::Deny { code });
         }
+        let (ancestor_deny, ancestor_irreversible) =
+            ancestor_policy_denial(tx, &lease, tool, dest, exact)?;
         // Runtime is not operator setup. Check this under the same lock as
         // liveness and grants, including exact actions and scoped credentials.
         if require_policy && lease.tools_allow.is_none() {
@@ -1067,8 +1069,14 @@ impl Deadbolt {
                 params![exp, agent_id],
             )?;
         }
+        // A live, configured activity-mode request renews only its own idle
+        // window, even on a policy denial. Inherited policy has the same
+        // liveness semantics as local policy; grants remain untouched.
+        if let Some(code) = ancestor_deny {
+            return Ok(AdmitDecision::Deny { code });
+        }
         if let Some(cap) = lease.spend_cap_usd {
-            if lease.spend_usd >= cap {
+            if subtree_spend(tx, &lease.agent_id)? >= cap {
                 tx.execute(
                     "UPDATE leases SET state='paused', updated_at=?1 WHERE agent_id=?2 AND state!='killed'",
                     params![now_secs(), agent_id],
@@ -1119,10 +1127,11 @@ impl Deadbolt {
             });
         }
         let shot = !exact
-            && lease
-                .irreversible
-                .as_ref()
-                .is_some_and(|list| list.iter().any(|t| t == tool));
+            && (ancestor_irreversible
+                || lease
+                    .irreversible
+                    .as_ref()
+                    .is_some_and(|list| list.iter().any(|t| t == tool)));
         if shot && !lease.approvals.iter().any(|t| t == tool) {
             return Ok(AdmitDecision::Deny {
                 code: DenyCode::NeedsHuman,
@@ -1389,8 +1398,11 @@ impl Deadbolt {
                 if lease.state == "killed" {
                     return Err(DeadboltError::Killed);
                 }
-                let required:bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM exact_action_requirements WHERE agent_id=?1 AND tool=?2)", params![agent_id,tool], |r|r.get(0)).map_err(|_|DeadboltError::StoreUnavailable)?;
-                if required { return Err(DeadboltError::BadRequest); }
+                let required = exact_required_in_tree(tx, &lease, tool)
+                    .map_err(|_| DeadboltError::StoreUnavailable)?;
+                if required {
+                    return Err(DeadboltError::BadRequest);
+                }
                 if !lease.approvals.iter().any(|t| t == tool) {
                     lease.approvals.push(tool.to_string());
                 }
@@ -1405,14 +1417,15 @@ impl Deadbolt {
         )
     }
 
-    /// Add USD to the lease. Crossing `spend_cap_usd` pauses it.
+    /// Add reported USD to this identity's ledger. A cap covers its entire
+    /// registered subtree. Reaching any ancestor cap pauses that budget owner.
     pub fn spend_add(&self, agent_id: &str, usd: f64) -> Result<SpendAdded, DeadboltError> {
         require_token(agent_id)?;
         if !usd.is_finite() || usd < 0.0 {
             return Err(DeadboltError::BadRequest);
         }
         let store = self.store()?;
-        let payload = json_tokens(&[("agent_id", agent_id), ("usd", &usd_token(usd))]);
+        let mut payload = json_tokens(&[("agent_id", agent_id), ("usd", &usd_token(usd))]);
         let default_sink = self.uses_default_sink(&store);
         let (total, paused, record) = {
             let mut g = store.lock().map_err(|_| DeadboltError::StoreUnavailable)?;
@@ -1429,17 +1442,32 @@ impl Deadbolt {
                 return Err(DeadboltError::Killed);
             }
             let total = lease.spend_usd + usd;
-            let paused = lease.spend_cap_usd.is_some_and(|cap| total >= cap);
-            let state = if paused {
-                "paused"
-            } else {
-                lease.state.as_str()
-            };
+            if !total.is_finite() {
+                return Err(DeadboltError::BadRequest);
+            }
+            let ancestors =
+                ancestor_leases(&tx, &lease).map_err(|_| DeadboltError::StoreUnavailable)?;
             tx.execute(
-                "UPDATE leases SET spend_usd=?1, state=?2, updated_at=?3 WHERE agent_id=?4",
-                params![total, state, now_secs(), agent_id],
+                "UPDATE leases SET spend_usd=?1, updated_at=?2 WHERE agent_id=?3",
+                params![total, now_secs(), agent_id],
             )
             .map_err(|e| sqlite_store_unavailable("spend.update", e))?;
+            let mut budget_paused = Vec::new();
+            for budget in std::iter::once(&lease).chain(ancestors.iter()) {
+                if let Some(cap) = budget.spend_cap_usd {
+                    if subtree_spend(&tx, &budget.agent_id)
+                        .map_err(|_| DeadboltError::StoreUnavailable)?
+                        >= cap
+                    {
+                        tx.execute("UPDATE leases SET state='paused', updated_at=?1 WHERE agent_id=?2 AND state!='killed'",
+                            params![now_secs(), budget.agent_id])
+                            .map_err(|_| DeadboltError::StoreUnavailable)?;
+                        budget_paused.push(budget.agent_id.clone());
+                    }
+                }
+            }
+            let paused = !budget_paused.is_empty();
+            payload["budget_paused"] = json!(budget_paused);
             let record = if default_sink {
                 Some(
                     emit_in_transaction(
@@ -1580,6 +1608,8 @@ impl Deadbolt {
                 "offline_tools": lease.offline_tools,
                 "spend_cap_usd": lease.spend_cap_usd,
                 "spend_usd": lease.spend_usd,
+                "subtree_spend_usd": subtree_spend(&g.conn, agent_id)
+                    .map_err(|_| DeadboltError::StoreUnavailable)?,
                 "irreversible": lease.irreversible,
             }
         });
@@ -2379,13 +2409,36 @@ fn ancestor_admission_denial(
     lease: &Lease,
     now: i64,
 ) -> Result<Option<DenyCode>, rusqlite::Error> {
+    let ancestors = ancestor_leases(conn, lease)?;
+    let mut denial = None;
+    for ancestor in ancestors {
+        let code = if ancestor.state == "killed" {
+            Some(DenyCode::Killed)
+        } else if deadline_reached(&ancestor, now) {
+            Some(DenyCode::DeadlineExceeded)
+        } else if now >= ancestor.expires_at {
+            Some(DenyCode::LeaseExpired)
+        } else if budget_exhausted(conn, &ancestor)? {
+            conn.execute("UPDATE leases SET state='paused', updated_at=?1 WHERE agent_id=?2 AND state!='killed'", params![now, ancestor.agent_id])?;
+            Some(DenyCode::SpendCap)
+        } else if ancestor.state == "paused" {
+            Some(DenyCode::Paused)
+        } else {
+            None
+        };
+        denial = denial.or(code);
+    }
+    Ok(denial)
+}
+
+fn ancestor_leases(conn: &Connection, lease: &Lease) -> Result<Vec<Lease>, rusqlite::Error> {
     if !matches!(lease.state.as_str(), "active" | "paused" | "killed") {
         return Err(rusqlite::Error::InvalidQuery);
     }
     let mut seen = BTreeSet::from([lease.agent_id.clone()]);
     let mut parent = lease.parent_id.clone();
     let mut root_id = lease.agent_id.clone();
-    let mut denial = None;
+    let mut ancestors = Vec::new();
     while let Some(id) = parent {
         if !is_token(&id) || !seen.insert(id.clone()) {
             return Err(rusqlite::Error::InvalidQuery);
@@ -2396,22 +2449,9 @@ fn ancestor_admission_denial(
         {
             return Err(rusqlite::Error::InvalidQuery);
         }
-        let code = if ancestor.state == "killed" {
-            Some(DenyCode::Killed)
-        } else if deadline_reached(&ancestor, now) {
-            Some(DenyCode::DeadlineExceeded)
-        } else if now >= ancestor.expires_at {
-            Some(DenyCode::LeaseExpired)
-        } else if ancestor.state == "paused" {
-            Some(DenyCode::Paused)
-        } else {
-            None
-        };
-        // Preserve the nearest blocking ancestor's reason, but validate the
-        // rest of the lineage so incomplete/cyclic state never grants access.
-        denial = denial.or(code);
         root_id = id;
-        parent = ancestor.parent_id;
+        parent = ancestor.parent_id.clone();
+        ancestors.push(ancestor);
     }
     if lease
         .supervision_root
@@ -2420,7 +2460,97 @@ fn ancestor_admission_denial(
     {
         return Err(rusqlite::Error::InvalidQuery);
     }
-    Ok(denial)
+    Ok(ancestors)
+}
+
+fn subtree_spend(conn: &Connection, root: &str) -> Result<f64, rusqlite::Error> {
+    // Each identity owns one ledger. UNION visits each descendant once and
+    // incorporates previously recorded spend without a schema migration.
+    let mut stmt = conn.prepare("WITH RECURSIVE family(id) AS (SELECT ?1 UNION SELECT leases.agent_id FROM leases JOIN family ON leases.parent_id=family.id) SELECT spend_usd FROM leases WHERE agent_id IN (SELECT id FROM family)")?;
+    let rows = stmt.query_map([root], |r| r.get::<_, f64>(0))?;
+    let mut total = 0.0;
+    for row in rows {
+        let value = row?;
+        if !value.is_finite() || value < 0.0 {
+            return Err(rusqlite::Error::InvalidQuery);
+        }
+        total += value;
+        if !total.is_finite() {
+            return Err(rusqlite::Error::InvalidQuery);
+        }
+    }
+    Ok(total)
+}
+
+fn budget_exhausted(conn: &Connection, lease: &Lease) -> Result<bool, rusqlite::Error> {
+    match lease.spend_cap_usd {
+        Some(cap) if cap.is_finite() && cap >= 0.0 => {
+            Ok(subtree_spend(conn, &lease.agent_id)? >= cap)
+        }
+        Some(_) => Err(rusqlite::Error::InvalidQuery),
+        None => Ok(false),
+    }
+}
+
+fn exact_required_in_tree(
+    conn: &Connection,
+    lease: &Lease,
+    tool: &str,
+) -> Result<bool, rusqlite::Error> {
+    let ancestors = ancestor_leases(conn, lease)?;
+    for policy in std::iter::once(lease).chain(ancestors.iter()) {
+        let required: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM exact_action_requirements WHERE agent_id=?1 AND tool=?2)",
+            params![policy.agent_id, tool],
+            |r| r.get(0),
+        )?;
+        if required {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn ancestor_policy_denial(
+    conn: &Connection,
+    lease: &Lease,
+    tool: &str,
+    dest: Option<&str>,
+    exact: bool,
+) -> Result<(Option<DenyCode>, bool), rusqlite::Error> {
+    let mut irreversible = false;
+    for policy in ancestor_leases(conn, lease)? {
+        if policy.clips.iter().any(|t| t == tool)
+            || policy
+                .tools_allow
+                .as_ref()
+                .is_some_and(|list| !list.iter().any(|t| t == tool))
+        {
+            return Ok((Some(DenyCode::PurposeExceeded), false));
+        }
+        if let Some(allow) = &policy.dest_allow {
+            let foreign = dest.is_some_and(|d| !allow.iter().any(|h| h.eq_ignore_ascii_case(d)));
+            let missing = dest.is_none()
+                && !policy
+                    .offline_tools
+                    .as_ref()
+                    .is_some_and(|list| list.iter().any(|t| t == tool));
+            if foreign || missing {
+                return Ok((Some(DenyCode::PurposeExceeded), false));
+            }
+        }
+        if !exact {
+            let required: bool = conn.query_row("SELECT EXISTS(SELECT 1 FROM exact_action_requirements WHERE agent_id=?1 AND tool=?2)", params![policy.agent_id,tool], |r|r.get(0))?;
+            if required {
+                return Ok((Some(DenyCode::NeedsHuman), false));
+            }
+        }
+        irreversible |= policy
+            .irreversible
+            .as_ref()
+            .is_some_and(|list| list.iter().any(|t| t == tool));
+    }
+    Ok((None, irreversible))
 }
 
 fn descendant_ids(conn: &Connection, root: &str) -> Result<Vec<String>, rusqlite::Error> {
@@ -2659,6 +2789,38 @@ mod tests {
                 code: DenyCode::StoreUnavailable
             }
         );
+    }
+
+    #[test]
+    fn failed_primary_spend_evidence_rolls_back_ancestor_budget_pause_and_charge() {
+        let (dir, db) = gate();
+        db.ensure_agent("parent").unwrap();
+        db.set_policy(
+            "parent",
+            PolicyPatch {
+                spend_cap_usd: Some(1.0),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        db.register_child("parent", "child", None).unwrap();
+        let store = db.store.as_ref().unwrap();
+        store.lock().unwrap().events =
+            std::fs::File::open(dir.path().join("deadbolt-events.jsonl")).unwrap();
+        assert!(matches!(
+            db.spend_add("child", 1.0),
+            Err(DeadboltError::StoreUnavailable)
+        ));
+        let g = store.lock().unwrap();
+        assert_eq!(
+            load_lease(&g.conn, "child").unwrap().unwrap().spend_usd,
+            0.0
+        );
+        assert_eq!(
+            load_lease(&g.conn, "parent").unwrap().unwrap().state,
+            "active"
+        );
+        assert_eq!(subtree_spend(&g.conn, "parent").unwrap(), 0.0);
     }
 
     #[test]

@@ -60,7 +60,9 @@ Issuance cannot convert an existing lease's mode. Rust exposes
 `POST /issue-supervised`. `ensure` remains legacy setup and cannot acknowledge
 requested supervision. A fresh registered child inherits its parent's
 `supervision_root` and deadline, starts no later than its parent's idle expiry,
-and does not inherit its policy. Current unreleased source checks every registered
+and keeps a separate policy and approval ledger. Unreleased source applies
+ancestor capability and reported-spend ceilings without copying policy or grants.
+Current unreleased source checks every registered
 ancestor's liveness during admission, including intermediate parents, before
 refreshing the requested lease or consuming an approval. The chain must end at
 the declared supervision root, with consistent mode bindings and no missing or

@@ -73,7 +73,14 @@ Operator-only. An admission credential cannot access this route. Omitted fields 
 {"agent_id":"shop-bot","usd":1.5}
 ```
 
-Crossing the cap pauses the lease. The body `code` is `spend_cap` or `ok`.
+The body `spend_usd` remains this identity’s own reported ledger. In unreleased
+source, each configured cap covers its registered subtree; reaching any ancestor
+cap pauses that budget owner. The body `code` is `spend_cap` if this report reaches
+any such cap, otherwise `ok`. The observed spend event includes `budget_paused`,
+the affected budget-owner IDs. Report each actual cost once at the identity that
+incurred it; do not report it again on a parent. Published rc.1/1.x engines apply
+only the identity’s own cap. This is accounting over trusted reports, not a
+provider billing source or reservation for future/in-flight effects.
 
 ## POST /ensure
 

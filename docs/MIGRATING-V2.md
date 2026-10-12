@@ -82,6 +82,29 @@ only still-live matching members and cannot extend the fixed cutoff. Keep
 operator, admission and supervisor credentials on their documented planes.
 See [deadlines](LEASE-DEADLINES.md) and [supervision](SUPERVISION.md).
 
+## Unreleased registered-tree authorization tightening
+
+These source changes are not in the published 2.0.0-rc.1 artifacts. Select a new
+immutable candidate before relying on them. Each descendant admission checks all
+ancestor policies dynamically, including later operator edits. Tool/destination
+ceilings and clips apply together; ancestor review requirements must be satisfied
+by a grant for the actual admitted child. A parent's grant never transfers. Each
+MCP child still needs its own explicitly configured tool allowlist.
+
+A parent's spending cap now includes its registered subtree. Existing ledgers
+are preserved and summed once, including terminal descendants. Review incident
+`spend_usd` (own ledger) and `subtree_spend_usd` (budget scope): old recorded child
+costs may immediately exhaust a parent cap after upgrade. Quiesce dispatch and
+review the intended tree budgets before resuming. Report costs only on the
+identity that incurred them; do not repeat child reports on parents. Resume alone
+cannot reopen an exhausted cap. Accounting remains based on trusted reports,
+without cost reservation or cancellation of in-flight work.
+
+Verify an allowed child effect, a child denied by each ancestor restriction,
+unchanged child grants after denial, and sibling reports reaching a shared cap.
+Do not assume a child's own active status means its full ancestry permits work.
+Older engines cannot preserve these ceilings during rollback.
+
 ## Stop, back up, upgrade, evaluate
 
 1. Stop protected dispatch and the sidecar. Do not let two versions administer

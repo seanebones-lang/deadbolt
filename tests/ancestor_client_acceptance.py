@@ -139,6 +139,20 @@ def main():
                 operator("resume", "--agent", parent)
                 for backend in ["embedded", "socket"]:
                     mcp_call("resumed", backend)
+                # Existing children remain bounded by later ancestor policy.
+                require(client.policy(ancestor, tools=[]).get("ok") is True, "parent deny-all policy")
+                for backend in ["embedded", "socket"]:
+                    mcp_call("ancestor-policy", backend, "purpose_exceeded")
+                os.environ["DEADBOLT_ADMISSION_TOKEN"] = worker
+                denied = client.dispatch(grandchild, "read", lambda: require(False, "policy body ran"))
+                require(not denied["executed"] and denied["decision"].get("code") == "purpose_exceeded", "scoped parent policy")
+                os.environ.pop("DEADBOLT_ADMISSION_TOKEN", None)
+                require(client.policy(ancestor, tools=["read"], spend_cap=1.0).get("ok") is True, "parent budget")
+                require(client.spend(grandchild, 1.0).get("code") == "spend_cap", "descendant spending reaches tree cap")
+                for backend in ["embedded", "socket"]:
+                    mcp_call("ancestor-budget", backend, "spend_cap")
+                require(client.policy(ancestor, spend_cap=2.0).get("ok") is True, "increased operator budget")
+                operator("resume", "--agent", ancestor)
                 with closing(sqlite3.connect(root / "state.db")) as sql, sql:
                     sql.execute("UPDATE leases SET expires_at=0 WHERE agent_id=?", (parent,))
                 require(client.status(grandchild)["agents"][0]["state"] == "active", "status is own-lease state")
@@ -146,6 +160,7 @@ def main():
                     mcp_call("expired-parent", backend, "lease_expired")
                 cases.append(mode + "_http_scoped_and_operator_pause_resume")
                 cases.append(mode + "_embedded_and_socket_mcp_pause_resume_and_expiry")
+                cases.append(mode + "_scoped_and_mcp_ancestor_policy_and_subtree_budget")
             print(json.dumps({"ok":True, "cases":cases}))
     finally:
         stop(server)
