@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Evaluate DeadBolt RC2 in VS Code and Cursor · DeadBolt</title>
+<meta name="description" content="Install DeadBolt in VS Code and Cursor and verify denial, approval and revocation with disposable local MCP tools.">
+<link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="assets/site.css">
+<style>.guide{max-width:860px;padding-block:54px 80px}.guide h1{font-size:clamp(2.1rem,5vw,3.8rem);line-height:1.1;letter-spacing:-.045em}.guide h2{font-size:1.65rem;margin-top:2.8rem;letter-spacing:-.02em}.guide p,.guide li{font-size:1.06rem;line-height:1.8}.guide a{overflow-wrap:anywhere;text-underline-offset:3px}.guide pre{padding:22px;background:#151719;color:#f6f2ec;overflow-x:auto;line-height:1.7;border-radius:4px}.guide pre code{font-size:.9rem;white-space:pre}.guide code{font-family:var(--mono);font-size:.88em;overflow-wrap:anywhere}.guide-table-wrap{overflow-x:auto}.guide table{border-collapse:collapse;width:100%}.guide th,.guide td{border:1px solid var(--line);padding:14px;text-align:left;line-height:1.5}.guide-nav{display:flex;flex-wrap:wrap;gap:18px;font-weight:700;margin-bottom:28px}.download-callout{padding:22px;border:1px solid var(--line);margin-bottom:30px;line-height:1.7}.guide footer{border-top:1px solid var(--line);padding-top:25px;margin-top:50px}@media(max-width:760px){.guide{width:calc(100% - 36px)}.guide pre{padding:14px}.topbar nav{gap:1rem}.topbar nav a{font-size:.75rem}}</style>
+</head><body><a class="skip" href="#content">Skip to content</a>
+<header class="topbar"><a class="wordmark" href="index.html">DEADBOLT</a><nav aria-label="Main navigation"><a href="index.html#install">Downloads</a><a href="index.html#watch">Watch</a><a href="https://github.com/seanebones-lang/deadbolt">Source</a></nav></header>
+<main class="guide wrap" id="content"><nav class="guide-nav" aria-label="Editor guides"><a href="editors.html">Editor installation</a><a href="editor-tutorial.html">Practical tutorial</a><a href="assets/editor_setup.py" download="editor_setup.py">Download configuration helper</a></nav>
+<div class="download-callout"><strong>Start locally.</strong> Python 3.9+, Node.js 20+ and a checksum-verified bundle. No model account is needed for the disposable protocol test. Read-only setup provides no active protection.</div>
+<h1>Evaluate DeadBolt RC2 in VS Code and Cursor</h1>
+<p>This route uses the published <strong>MCP bundle 2.0.0-rc.2</strong>, containing the matching
+corrected engine. It is a developer preview. Actual graphical-client/model
+acceptance and independent installation remain open gates; the tests below
+exercise exported commands and real disposable effects through stdio.
+For the unchanged stable route, see <a href="editors.html">bundle 1.1.0 installation</a>.</p>
+<p>You need Python 3.9+, Node.js 20+, and one of macOS ARM/Intel, Linux x64/glibc
+or Windows x64. The Mac engines are signed/notarized; the outer bundle and
+Linux/Windows engines are unsigned. Your editor's AI chat may require an account.
+No model key, cloud account or Rust toolchain is needed for the protocol test.</p>
+<h2>Prepare and verify outside the workspace</h2>
+<ol>
+<li>
+<p>Download <a href="https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v2.0.0-rc.2/deadbolt-2.0.0-rc.2.mcpb">deadbolt-2.0.0-rc.2.mcpb</a>.</p>
+</li>
+<li>
+<p>Download and review <a href="assets/editor_setup_v2.py">editor_setup_v2.py</a>.
+It has no third-party dependencies, makes no network requests and does not
+edit an editor profile. Keep it separate from the stable helper.</p>
+</li>
+<li>
+<p>In the directory holding both downloads, select a <strong>new private directory
+outside any agent-editable workspace</strong>:</p>
+<pre><code class="language-sh">OUT=&quot;$HOME/.local/share/deadbolt/editor-2.0.0-rc.2&quot;
+python3 editor_setup_v2.py prepare --bundle deadbolt-2.0.0-rc.2.mcpb --out &quot;$OUT&quot;
+python3 editor_setup_v2.py verify --out &quot;$OUT&quot;
+</code></pre>
+<p>On Windows PowerShell:</p>
+<pre><code class="language-powershell">$Out = Join-Path $env:LOCALAPPDATA 'NextEleven\DeadBolt\editor-2.0.0-rc.2'
+python editor_setup_v2.py prepare --bundle deadbolt-2.0.0-rc.2.mcpb --out $Out
+python editor_setup_v2.py verify --out $Out
+</code></pre>
+</li>
+</ol>
+<p>The helper verifies the entire bundle before extraction against SHA-256
+<code>a0634e69da89c6e2c38bf72b8c1a1b8ed75e30e77df218841692808998c7b95e</code>.
+A mismatch fails without installing; an existing directory is preserved. Supply
+<code>--node /absolute/path/to/node</code> to <code>prepare</code> if Node is not on PATH. Exported
+configurations contain absolute paths; prepare new configuration if you move it.</p>
+<p>Expected verification: <code>&quot;passed&quot;: true</code> with <strong>nine checks</strong>, including read-only
+setup, allowed writes, off-list denial, required/consumed approval, pause/resume
+and kill. Every denial must leave the marker unchanged. Policy denials are MCP
+tool results with <code>isError: true</code> and the actual reason code, rather than generic
+protocol errors. The test removes its temporary run afterward.</p>
+<h2>Add the read-only setup connection</h2>
+<p>For Cursor, open the generated <code>install.html</code>, review the local command and click
+<strong>Add deadbolt-rc2-setup to Cursor</strong>. The helper follows
+<a href="https://cursor.com/docs/mcp/install-links">Cursor's documented install-link format</a>.
+For VS Code, use <strong>MCP: Open User Configuration</strong>, then merge the generated
+<code>vscode-mcp.json</code> entry into <code>servers</code>, preserving existing servers and <code>inputs</code>.
+Start the connection and review its local-server trust prompt. See
+<a href="https://code.visualstudio.com/docs/agent-customization/mcp-servers">VS Code's MCP guide</a>.
+For another client supporting <code>mcpServers</code>, use the exported <code>portable-mcp.json</code>.
+Do not overwrite an existing profile or workspace configuration.</p>
+<p>Setup exposes only <code>deadbolt_get_integration_guide</code> and <code>deadbolt_check_bundle</code>.
+Ask the guide for <code>{&quot;route&quot;:&quot;stdio_client&quot;}</code>, then check the bundle with <code>{}</code>.
+<strong>Setup has no active protection and starts no downstream server.</strong> A separate
+profile does not necessarily isolate a client's global MCP file; preserve other
+connections when testing and removing this one.</p>
+<h2>Try the protected disposable route</h2>
+<p>Create the run when you are ready:</p>
+<pre><code class="language-sh">python3 editor_setup_v2.py demo --out &quot;$OUT&quot;
+</code></pre>
+<p>The output identifies a fresh <code>demo</code> directory. Set <code>DEMO</code> to that exact path
+(<code>$Demo</code> in PowerShell). Its <code>install.html</code> or <code>vscode-mcp.json</code> configures the
+distinct <strong>deadbolt-rc2-demo</strong> server. It exposes three dummy tools that append
+only their name to this demo's fixed <code>effects.txt</code>. No accounts are connected.</p>
+<p>This short dummy demo explicitly selects <strong>activity renewal</strong>, a <strong>60-second idle
+TTL</strong> and a <strong>fixed deadline ten minutes after preparation</strong>. Connect promptly
+and keep gaps short. Pausing/permission prompts count toward idle time. A dead
+run cannot be resumed by retrying; create a new demo and reconnect. Ordinary
+fresh RC2 roots default to supervisor renewal instead. Provision the separate
+supervisor heartbeat before initial expiry for a real supervised run; see
+<a href="https://github.com/seanebones-lang/deadbolt/blob/main/docs/SUPERVISION.md">supervision</a>. Neither mode can move the fixed deadline.</p>
+<p>Use a fresh editor chat and call <code>demo_write_marker</code> with <code>{}</code>: one marker should
+appear. Call <code>demo_off_list</code>: expect <code>purpose_exceeded</code>, with no marker. Call
+<code>demo_publish_marker</code>: expect <code>needs_human</code>, with no marker. From your operator
+terminal, grant its single broad tool approval:</p>
+<pre><code class="language-sh">python3 editor_setup_v2.py operator --out &quot;$OUT&quot; --demo &quot;$DEMO&quot; approve
+</code></pre>
+<p>Call <code>demo_publish_marker</code> once: one marker. The next call requires approval
+again. This fixture uses a broad one-shot tool grant, not an exact-action grant.
+Operator controls remain outside the model's tool list:</p>
+<pre><code class="language-sh">python3 editor_setup_v2.py operator --out &quot;$OUT&quot; --demo &quot;$DEMO&quot; pause
+# Call demo_write_marker: paused; no new marker.
+python3 editor_setup_v2.py operator --out &quot;$OUT&quot; --demo &quot;$DEMO&quot; resume
+# Call it before expiry: allowed; exactly one new marker.
+python3 editor_setup_v2.py operator --out &quot;$OUT&quot; --demo &quot;$DEMO&quot; kill
+# Call it: killed; no new marker. Reconnecting must not revive it.
+</code></pre>
+<p>Use <code>status</code> through the same helper to inspect this run. Record model tool
+results and the corresponding marker contents when performing a GUI test;
+running <code>verify</code> in a terminal alone does not prove that test passed.</p>
+<h2>Remove the test and integrate deliberately</h2>
+<p>Disable/remove only <code>deadbolt-rc2-demo</code> and <code>deadbolt-rc2-setup</code> from the editor
+before deleting the private test directory. Preserve unrelated connections.
+For real tools, read <a href="https://github.com/seanebones-lang/deadbolt/blob/main/dist/mcpb/README.md">the matching bundle configuration</a>,
+<a href="https://github.com/seanebones-lang/deadbolt/blob/main/docs/MIGRATING-V2.md">migration</a>, <a href="https://github.com/seanebones-lang/deadbolt/blob/main/docs/TRUST.md">trust boundary</a> and <a href="https://github.com/seanebones-lang/deadbolt/blob/main/docs/PRIVACY.md">privacy</a>.
+Keep credentials, policy and operator state outside the model's writable context.</p>
+<p>Only calls routed through the gate are protected. Destination declarations and
+offline exceptions are policy inputs, not OS egress enforcement. A local private
+directory does not defend against another process with the same user privileges.
+Kill stops future admission; cancellation of already running work belongs to
+the executor. Start with one real route and its own effect-based acceptance test.</p>
+<footer>Free and open source · Apache-2.0 · <a href="https://www.nexteleven.dev/deadbolt">Built by NextEleven</a></footer></main></body></html>
