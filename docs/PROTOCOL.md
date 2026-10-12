@@ -17,6 +17,11 @@ Send one request per connection with a valid `Content-Length` when there is a bo
 
 ## POST /admit
 
+An unset `tools_allow` permits any tool name, subject to liveness and the other
+configured restrictions. Trusted setup should set an explicit allowlist before
+worker dispatch; an empty list denies all tools. MCP dispatch must use the stricter
+MCP routes below, which deny an unset allowlist.
+
 ```json
 {"agent_id":"shop-bot","tool":"shell"}
 ```
@@ -68,6 +73,9 @@ Operator-only. An admission credential cannot access this route. Omitted fields 
 ```
 
 ## POST /spend
+
+Operator-only: admission and supervisor credentials cannot call this route.
+Report usage from trusted infrastructure, not a model-controlled worker.
 
 ```json
 {"agent_id":"shop-bot","usd":1.5}

@@ -69,8 +69,12 @@ and MCP admission retain their stricter fail-closed behavior.
 
 The source engine initializes an empty SQLite database only when its configured
 JSONL file is also empty. It accepts complete known unversioned schemas from
-stable 1.0.3 and the 1.1/2.0 previews for migration. Initialization, migrations
-and the SQLite schema-generation marker are committed in one writer transaction.
+stable 1.0.3 and the 1.1/2.0 previews for migration. The exact pre-v1 two-table
+`leases`/`events` schema is also supported: its historical columns must match,
+and its absent sequence table is initialized from retained events. A modern
+store missing its sequence or leases table is not that legacy schema and is
+refused. This compatibility path preserves historical kills and identities.
+Initialization, migrations and the SQLite schema-generation marker are committed in one writer transaction.
 After that marker is present, every required table must exist; partial or newer
 unknown schemas deny `store_unavailable` rather than recreating missing state.
 An enabled sidecar exits unsuccessfully before binding a listener when the initial

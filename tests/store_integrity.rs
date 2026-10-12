@@ -147,3 +147,22 @@ fn denied_unissued_attempt_does_not_reserve_an_operator_run_identity() {
         assert_eq!(gate.admit(id, "read"), AdmitDecision::Allow);
     }
 }
+
+#[test]
+fn unversioned_modern_schema_without_sequence_is_not_a_pre_v1_store() {
+    let dir = tempfile::tempdir().unwrap();
+    let gate = Deadbolt::open_at(dir.path(), true, 60);
+    gate.issue_agent("run", deadline()).unwrap();
+    drop(gate);
+    let conn = Connection::open(dir.path().join("deadbolt.db")).unwrap();
+    conn.execute_batch("PRAGMA user_version=0; DROP TABLE event_sequence;")
+        .unwrap();
+    drop(conn);
+    let gate = Deadbolt::open_at(dir.path(), true, 60);
+    assert_eq!(
+        gate.admit("run", "read"),
+        AdmitDecision::Deny {
+            code: DenyCode::StoreUnavailable
+        }
+    );
+}

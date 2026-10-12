@@ -33,6 +33,8 @@ def main():
     version = tomllib.loads((ROOT / "Cargo.toml").read_text())["package"]["version"]
     assert subprocess.check_output([str(binary), "--version"], text=True).strip() == "deadbolt " + version
     revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    source_diff = subprocess.check_output(["git", "diff", "HEAD", "--"], cwd=ROOT)
+    source_dirty = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT).strip())
     digest = hashlib.sha256(binary.read_bytes()).hexdigest()
     with tempfile.TemporaryDirectory(prefix="deadbolt-source-bundle-") as directory:
         bundle = Path(directory) / "bundle"
@@ -52,10 +54,13 @@ def main():
         output = Path(directory) / "acceptance.json"
         subprocess.run([sys.executable, str(ROOT / "tests/mcpb_acceptance.py"),
                         "--bundle", str(bundle), "--out", str(output),
+                        "--expect-damaged-store-refusal",
                         "--mcpb-module", str(args.mcpb_module.resolve(strict=True))],
                        check=True, timeout=600)
         report = json.loads(output.read_text())
-        report.update(source_commit=revision, binary_sha256=digest, engine_version=version,
+        report.update(source_commit=revision, source_worktree_dirty=source_dirty,
+                      source_diff_sha256=hashlib.sha256(source_diff).hexdigest(),
+                      binary_sha256=digest, engine_version=version,
                       artifact_kind="test-only source overlay", graphical_client_tested=False)
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(json.dumps(report, indent=2) + "\n")

@@ -39,6 +39,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--bundle', type=Path, required=True)
     p.add_argument('--out', type=Path, required=True)
+    p.add_argument('--expect-damaged-store-refusal', action='store_true', help='Check unreleased source correction; published RC2 does not satisfy this restart contract')
     p.add_argument('--mcpb-module', type=Path, required=True, help='Installed official @anthropic-ai/mcpb package directory')
     args = p.parse_args()
     bundle = args.bundle.resolve()
@@ -396,6 +397,17 @@ import(pathToFileURL(entry).href).catch(()=>process.exit(1));
             call('echo', 'store_unavailable')
         finally:
             proc.stdin.close(); proc.wait(timeout=10)
+        if args.expect_damaged_store_refusal:
+            # Restart the same launcher/config against the dropped-table store.
+            # A running-connection denial alone cannot establish this guarantee.
+            count = starts.read_text()
+            effect_count = effects.read_text()
+            invalid = launch(); invalid.communicate(timeout=10)
+            assert invalid.returncode != 0 and starts.read_text() == count
+            assert effects.read_text() == effect_count
+            with closing(sqlite3.connect(c['database'])) as db:
+                assert not db.execute("SELECT 1 FROM sqlite_master WHERE name='leases'").fetchone()
+            checks.append({'case': 'damaged_store_same_configuration_restart_refused_without_child_or_repair', 'passed': True})
         # A broken existing store must not start the configured child.
         c['database'] = str(w/'invalid-store.db')
         Path(c['database']).write_text('not sqlite')

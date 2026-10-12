@@ -161,7 +161,10 @@ def main():
                 cases.append(mode + "_http_scoped_and_operator_pause_resume")
                 cases.append(mode + "_embedded_and_socket_mcp_pause_resume_and_expiry")
                 cases.append(mode + "_scoped_and_mcp_ancestor_policy_and_subtree_budget")
-            print(json.dumps({"ok":True, "cases":cases}))
+            print(json.dumps({"ok":True, "cases":cases,
+                              "operator_forced_idle_expiry":True,
+                              "real_wall_clock_idle_expiry":False,
+                              "expiry_method":"SQL expires_at=0 fixture; not elapsed-time evidence"}))
     finally:
         stop(server)
         os.environ.clear()

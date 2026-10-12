@@ -450,7 +450,45 @@ fn validate_store_schema(conn: &Connection, events_len: u64) -> Result<(), SinkE
     let complete_base = base.iter().all(|name| tables.contains(*name));
     let complete_added = added.iter().all(|name| tables.contains(*name));
     let old_base_only = added.iter().all(|name| !tables.contains(*name));
-    if !complete_base
+    // Pre-v1 persisted its sequence in process memory. Recognize only its
+    // exact two-table/column shape, never a modern store missing sequence state.
+    let pre_sequence = version == 0
+        && tables == BTreeSet::from(["leases".into(), "events".into()])
+        && store_columns(conn, "leases")?
+            == BTreeSet::from(
+                [
+                    "agent_id",
+                    "parent_id",
+                    "state",
+                    "expires_at",
+                    "clips",
+                    "clip_cids",
+                    "swarm_task_id",
+                    "updated_at",
+                    "tools_allow",
+                    "dest_allow",
+                    "spend_cap_usd",
+                    "spend_usd",
+                    "irreversible",
+                    "approvals",
+                ]
+                .map(String::from),
+            )
+        && store_columns(conn, "events")?
+            == BTreeSet::from(
+                [
+                    "seq",
+                    "cid",
+                    "payload_sha256",
+                    "class",
+                    "kind",
+                    "payload",
+                    "premises",
+                    "ts",
+                ]
+                .map(String::from),
+            );
+    if !(complete_base || pre_sequence)
         || !matches!(version, 0 | 1)
         || !(complete_added || (version == 0 && old_base_only))
     {
@@ -461,11 +499,26 @@ fn validate_store_schema(conn: &Connection, events_len: u64) -> Result<(), SinkE
     for sql in [
         "SELECT agent_id,parent_id,state,expires_at,clips,clip_cids,swarm_task_id,updated_at FROM leases LIMIT 0",
         "SELECT seq,cid,payload_sha256,class,kind,payload,premises,ts FROM events LIMIT 0",
-        "SELECT id,seq FROM event_sequence LIMIT 0",
     ] {
         conn.prepare(sql).map_err(|_| SinkError::Unavailable)?;
     }
+    if !pre_sequence {
+        conn.prepare("SELECT id,seq FROM event_sequence LIMIT 0")
+            .map_err(|_| SinkError::Unavailable)?;
+    }
     Ok(())
+}
+
+fn store_columns(conn: &Connection, table: &str) -> Result<BTreeSet<String>, SinkError> {
+    let mut query = conn
+        .prepare("SELECT name FROM pragma_table_info(?1)")
+        .map_err(|_| SinkError::Unavailable)?;
+    let columns = query
+        .query_map([table], |r| r.get(0))
+        .map_err(|_| SinkError::Unavailable)?
+        .collect::<Result<_, _>>()
+        .map_err(|_| SinkError::Unavailable)?;
+    Ok(columns)
 }
 
 impl EvidenceSink for JsonlSqliteSink {
