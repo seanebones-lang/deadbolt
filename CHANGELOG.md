@@ -5,6 +5,11 @@ The older `v0.1.1-product` tag is not the standalone hardening release.
 
 ## Unreleased after 2.0.0-rc.1
 
+- Default fresh Rust, CLI and HTTP roots to supervisor-only idle renewal;
+  preserve existing persisted modes and offer explicit legacy activity setup.
+  Strict HTTP mode parsing rejects duplicate, unknown and nonboolean options.
+  Keep the bundle's deliberate mode choice across old and corrected engines.
+
 - Add exact-byte native CI build attestations and repository/workflow/source
   verification after the full main-branch packaging matrix succeeds. Existing
   releases and later locally signed macOS bytes remain separate proof gates.

@@ -76,8 +76,15 @@ function start(root, file) {
   // Never slide a deadline, migrate an old idle-only lease, or change renewal mode.
   const status = runOperator(exe, c, ['status', '--agent', c.agent], true).trim();
   if (status === 'deadbolt status none') {
-    runOperator(exe, c, [c.renewal_mode === 'supervisor' ? 'supervise' : 'issue',
-      '--agent', c.agent, '--hard-deadline-at', String(c.hard_deadline_at)]);
+    const args = [c.renewal_mode === 'supervisor' ? 'supervise' : 'issue',
+      '--agent', c.agent, '--hard-deadline-at', String(c.hard_deadline_at)];
+    // Corrected engines default to supervision. Older published engines have
+    // no activity opt-in flag and their `issue` command is already activity-only.
+    // Probe only the selected verified engine's read-only CLI contract.
+    if (c.renewal_mode === 'activity' && runOperator(exe, c, ['issue', '--help']).includes('--activity-renewal')) {
+      args.push('--activity-renewal');
+    }
+    runOperator(exe, c, args);
   } else {
     const fields = Object.fromEntries(status.split(' ').map(v => v.split('=')));
     if (fields.agent !== c.agent || fields.hard_deadline_at !== String(c.hard_deadline_at) ||

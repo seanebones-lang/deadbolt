@@ -94,6 +94,14 @@ provider billing source or reservation for future/in-flight effects.
 
 Failure: `{"ok":false,"code":"<token>"}`.
 
+Unreleased corrected source creates a supervisor-renewed root for an absent
+identity. Existing identities retain their mode, timestamps, lineage and state;
+success is not acknowledgement that an existing run is supervised. Inspect
+status and provision a separate renewal credential before initial idle expiry.
+Explicit legacy activity setup sends `"activity_renewal":true`. The field must
+be a JSON boolean; duplicate and unknown fields are refused. Published rc.1
+and 1.x retain their previous activity default.
+
 ## POST /issue (current source, unreleased)
 
 Operator-only. Requires a fresh ID and a fixed future integer Unix timestamp:
@@ -109,6 +117,10 @@ credentials cannot issue or extend a run. The deadline is immutable and inherite
 by registered children; `/ensure` cannot change it. See [deadline setup and
 limits](LEASE-DEADLINES.md). New admissions deny `deadline_exceeded` at the
 fixed cutoff, before idle expiry. No in-flight cancellation is performed.
+
+Unreleased corrected source defaults this fresh root to supervisor renewal.
+Explicit legacy activity mode adds `"activity_renewal":true`, a strict boolean.
+Either mode remains bounded by the immutable deadline.
 
 ## POST /register_child
 

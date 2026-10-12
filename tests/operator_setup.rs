@@ -150,3 +150,39 @@ fn inactive_child_registration_exits_unsuccessfully_and_cannot_be_reissued() {
         }
     );
 }
+
+#[test]
+fn cli_fresh_defaults_are_supervised_and_activity_requires_explicit_selection() {
+    let dir = tempfile::tempdir().unwrap();
+    let deadline = (now() + 600).to_string();
+    for id in ["default", "activity"] {
+        let mut args = vec!["ensure", "--agent", id];
+        if id == "activity" {
+            args.push("--activity-renewal");
+        }
+        assert!(operator(dir.path(), &args).status.success());
+    }
+    for id in ["fixed-default", "fixed-activity"] {
+        let mut args = vec!["issue", "--agent", id, "--hard-deadline-at", &deadline];
+        if id == "fixed-activity" {
+            args.push("--activity-renewal");
+        }
+        assert!(operator(dir.path(), &args).status.success());
+    }
+    let gate = Deadbolt::open_at(dir.path(), true, 60);
+    for id in ["default", "fixed-default"] {
+        assert_eq!(
+            gate.status(Some(id)).unwrap()[0]
+                .supervision_root
+                .as_deref(),
+            Some(id)
+        );
+    }
+    for id in ["activity", "fixed-activity"] {
+        assert_eq!(gate.status(Some(id)).unwrap()[0].supervision_root, None);
+        assert!(operator(dir.path(), &["ensure", "--agent", id])
+            .status
+            .success());
+        assert_eq!(gate.status(Some(id)).unwrap()[0].supervision_root, None);
+    }
+}

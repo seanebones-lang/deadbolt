@@ -16,7 +16,7 @@ fn tree(dir: &std::path::Path, supervised: bool) -> Deadbolt {
         gate.issue_supervised_agent("root", Some(now() + 600))
             .unwrap();
     } else {
-        gate.ensure_agent("root").unwrap();
+        gate.ensure_activity_agent("root").unwrap();
     }
     assert!(gate.register_child("root", "child", None).unwrap());
     assert!(gate.register_child("child", "grandchild", None).unwrap());

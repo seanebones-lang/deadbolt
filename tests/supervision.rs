@@ -21,7 +21,7 @@ fn workload_cannot_keep_supervised_run_alive_while_legacy_mode_still_slides() {
     let gate = Deadbolt::open_at(dir.path(), true, 2);
     gate.issue_supervised_agent("allowed", None).unwrap();
     gate.issue_supervised_agent("denied", None).unwrap();
-    gate.ensure_agent("legacy").unwrap();
+    gate.ensure_activity_agent("legacy").unwrap();
     gate.set_policy(
         "denied",
         PolicyPatch {
@@ -126,7 +126,7 @@ fn separate_credentials_cannot_cross_roles_or_agents_and_revoke_is_scoped() {
     let gate = Deadbolt::open_at(dir.path(), true, 60);
     gate.issue_supervised_agent("root", None).unwrap();
     gate.issue_supervised_agent("other", None).unwrap();
-    gate.ensure_agent("legacy").unwrap();
+    gate.ensure_activity_agent("legacy").unwrap();
     let secret = key(&gate, dir.path(), "root", "sup");
     gate.issue_credential("root", "worker", 60, &dir.path().join("worker"))
         .unwrap();

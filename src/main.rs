@@ -35,10 +35,13 @@ enum Command {
         #[arg(long)]
         swarm_task_id: Option<String>,
     },
-    /// Explicit operator-only idle-lease setup. Does not renew existing runs.
+    /// Ensure supervisor-renewed setup. Does not renew or convert existing runs.
     Ensure {
         #[arg(long)]
         agent: String,
+        /// Explicit legacy activity renewal for a fresh identity only.
+        #[arg(long)]
+        activity_renewal: bool,
     },
     /// Issue a fresh supervised run. Only its separate supervisor credential renews TTL.
     Supervise {
@@ -60,6 +63,9 @@ enum Command {
         /// Absolute Unix seconds; never extended. Existing agent IDs are refused.
         #[arg(long)]
         hard_deadline_at: i64,
+        /// Explicit legacy activity renewal; the fixed deadline still wins.
+        #[arg(long)]
+        activity_renewal: bool,
     },
     /// Review, approve and revoke exact actions. Operator-only.
     Action {
@@ -317,8 +323,15 @@ fn run() -> Result<(), DeadboltError> {
                 return Err(DeadboltError::ChildInactive);
             }
         }
-        Command::Ensure { agent } => {
-            db.ensure_agent(&agent)?;
+        Command::Ensure {
+            agent,
+            activity_renewal,
+        } => {
+            if activity_renewal {
+                db.ensure_activity_agent(&agent)?;
+            } else {
+                db.ensure_agent(&agent)?;
+            }
             println!("deadbolt ensured {agent}");
         }
         Command::Supervise {
@@ -464,8 +477,13 @@ fn run() -> Result<(), DeadboltError> {
         Command::Issue {
             agent,
             hard_deadline_at,
+            activity_renewal,
         } => {
-            db.issue_agent(&agent, hard_deadline_at)?;
+            if activity_renewal {
+                db.issue_activity_agent(&agent, hard_deadline_at)?;
+            } else {
+                db.issue_agent(&agent, hard_deadline_at)?;
+            }
             println!("agent={agent} hard_deadline_at={hard_deadline_at}");
         }
         Command::Pause { agent } => {

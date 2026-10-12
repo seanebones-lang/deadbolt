@@ -125,8 +125,9 @@ function call(method, urlPath, body) {
   });
 }
 
-function ensure(agentId) {
-  return call("POST", "/ensure", { agent_id: agentId });
+function ensure(agentId, { activityRenewal = false } = {}) {
+  if (typeof activityRenewal !== 'boolean') throw new TypeError('activityRenewal must be a boolean');
+  return call("POST", "/ensure", { agent_id: agentId, ...(activityRenewal ? { activity_renewal: true } : {}) });
 }
 
 function admit(agentId, tool, dest) {
