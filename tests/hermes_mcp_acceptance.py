@@ -89,9 +89,20 @@ async def acceptance(args, work):
             assert expected in str(exc), str(exc)
             assert not path.exists(), f"denied body ran: {name}"
         else:
-            assert expected is None, f"expected {expected}, got {result}"
-            assert not result.isError, result
-            assert path.read_text() == name
+            if expected is not None:
+                # MCP admission denials are tool failures rather than malformed
+                # protocol requests. Verify the result and the withheld effect.
+                response = result.model_dump(by_alias=True)
+                assert response.get("isError") is True, response
+                metadata = response.get("_meta", {}).get("io.github.seanebones-lang/deadbolt", {})
+                assert metadata.get("code") == expected, response
+                assert any(item.get("type") == "text" and
+                           item.get("text", "").startswith(f"DeadBolt denied: {expected}.")
+                           for item in response.get("content", [])), response
+                assert not path.exists(), f"denied body ran: {name}"
+            else:
+                assert not result.isError, result
+                assert path.read_text() == name
         checks.append({"case": name, "decision": expected or "allow",
                        "body_ran": path.exists()})
 
