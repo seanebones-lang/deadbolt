@@ -30,6 +30,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--install-sdk", action="store_true",
                         help="Install the verified wheel plus its SDK extra into this Python environment")
+    parser.add_argument("--install-wheel", action="store_true",
+                        help="Install the verified base wheel into this Python environment")
     args = parser.parse_args()
     cargo = tomllib.loads((ROOT / "Cargo.toml").read_text())["package"]["version"]
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
@@ -89,9 +91,10 @@ print("installed base wheel: import, fail-closed body, no SDK dependency passed"
                              "unavailable sidecar leaves body untouched", "installed CLI"]}
         (OUT / "package-acceptance.json").write_text(json.dumps(report, indent=2) + "\n")
         print(json.dumps(report, indent=2))
-        if args.install_sdk:
+        if args.install_sdk or args.install_wheel:
             run([sys.executable, "-m", "pip", "install", "--force-reinstall", "--no-deps",
                  str(OUT / wheel.name)], cwd=temp)
+        if args.install_sdk:
             run([sys.executable, "-m", "pip", "install", "-r", str(ROOT / "tests/openai-agents-requirements.txt")], cwd=temp)
 
 

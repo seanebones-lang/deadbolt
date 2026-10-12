@@ -1,4 +1,15 @@
-# Python client and OpenAI function tools (1.1.0-rc.1 prerelease)
+# Python client and OpenAI function tools
+
+## Matching 2.0 candidate source
+
+This checkout builds `n11-deadbolt-client` version **2.0.0rc1**, matched to engine
+**2.0.0-rc.1**. Install the reviewed candidate wheel from your local build or its
+validated versioned release; existing PyPI `1.1.0rc1` remains its original package.
+[Migration and installation](MIGRATING-V2.md) covers source compatibility and
+which new controls require the new engine. The older registry instructions below
+apply to the original prerelease. The new wheel includes `deadbolt_supervisor`
+and the explicit `renew_supervised` call, without adding a base runtime dependency.
+
 
 The 1.1.0-rc.1 prerelease provides an installable Python client and an optional
 OpenAI Agents SDK adapter. The same reviewed wheel and source archive are
@@ -222,20 +233,20 @@ nonces persist after use/revocation. Existing unconfigured integrations retain
 their behavior. This is available in 1.1.0-rc.1. Older binaries cannot enforce these new
 requirements; quiesce protected dispatch before any rollback.
 
-## Optional owned-process executor (unreleased source)
+## Optional owned-process executor (2.0 candidate)
 
 For commands already running, see the [trusted supervisor reference](EXECUTOR-CANCELLATION.md).
-It adds POSIX process-group cleanup to source-built wheels; the published RC wheel
+It adds POSIX process-group cleanup to 2.0 candidate wheels; the published 1.1.0rc1 wheel
 does not contain it. It uses read-only status, never repeated admissions, and
 refuses unsupported hosts before starting work. This is separate from the normal
 callback wrappers and does not turn them into cancellable processes.
 
-## Optional supervised idle expiry (unreleased source)
+## Optional supervised idle expiry (2.0 candidate)
 
 [Supervisor-only renewal](SUPERVISION.md) is a separate opt-in control for fresh
 root runs. Admissions do not refresh those leases; a separate root-bound
 credential maintains only still-live members. A fixed deadline remains immutable
 and wins even during heartbeat activity. The explicit Python renewal call never
-uses operator/workload environment authentication. Existing published artifacts
+uses operator/workload environment authentication. Published 1.x artifacts
 do not include this feature; source, migration and release gates apply. Running
 work still needs executor-owned cancellation and OS isolation where appropriate.

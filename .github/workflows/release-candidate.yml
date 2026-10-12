@@ -41,22 +41,29 @@ jobs:
           toolchain: 1.85.0
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
-          python-version: '3.12'
+          python-version: '3.14'
       - run: cargo build --locked --release --bin deadbolt
         env:
           RUSTFLAGS: ${{ matrix.rustflags }}
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
-      - name: Verify optimized sidecar, exact-action clients and MCP effects
-        run: python tests/client_contract.py
-        env:
-          DEADBOLT_BIN: ${{ matrix.binary }}
+      - run: python -m pip install build==1.3.0
+      - name: Build and install the matching wheel from an outside-checkout sdist
+        run: python tests/python_package_acceptance.py --install-wheel
       - run: python dist/package_release.py --binary ${{ matrix.binary }} --target ${{ matrix.target }}
+      - name: Verify extracted downloads and upgrades from both published versions
+        run: python tests/native_candidate_acceptance.py --target ${{ matrix.target }} --published-upgrades > native-candidate.json
+        env:
+          GH_TOKEN: ${{ github.token }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: deadbolt-${{ matrix.target }}
-          path: release-artifacts/*
+          path: |
+            release-artifacts/*.zip
+            release-artifacts/*.sha256
+            release-artifacts/python/*
+            native-candidate.json
           retention-days: 7
           if-no-files-found: error
   hermes-mcp:

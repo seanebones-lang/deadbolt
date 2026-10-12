@@ -1,8 +1,8 @@
 # Stop work owned by a trusted executor
 
-This **unreleased source addition** supplies `deadbolt_supervisor.run_owned` in
-source-built Python wheels. The published `n11-deadbolt-client==1.1.0rc1` wheel
-predates it. Install from this checkout using the [Python build instructions](PYTHON.md).
+The **2.0 candidate** supplies `deadbolt_supervisor.run_owned` in its matching
+Python wheel. The published `n11-deadbolt-client==1.1.0rc1` wheel
+predates it. Follow the [2.0 migration guide](MIGRATING-V2.md) and [Python build instructions](PYTHON.md).
 A source check does not upgrade an existing native binary, plugin or registry package.
 
 The core gate denies the next connected admission. It does not stop a callback or

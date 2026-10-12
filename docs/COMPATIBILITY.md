@@ -97,7 +97,7 @@ requirements; quiesce protected dispatch before any rollback.
 
 ## Fixed lease deadline source addition
 
-Current unreleased source adds a nullable SQLite `hard_deadline_at` column,
+The 2.0 candidate adds a nullable SQLite `hard_deadline_at` column,
 operator-only `issue`/`POST /issue`, a status field and `deadline_exceeded`.
 Existing rows migrate to idle-only leases with no fixed deadline. New deadline
 runs require fresh IDs; setup cannot attach or change one in place. Child
@@ -106,14 +106,14 @@ the timestamp. Rust `AgentStatus` and `ExportRow` add public fields; downstream
 struct literals must supply them. Clients must withhold effects on every denial,
 including codes they have not seen before.
 
-Published engine/MCPB/plugin versions do not include this addition. Older
+Published 1.x engine/MCPB/plugin versions do not include this addition. Older
 executables ignore the column, so rollback does not preserve the guarantee.
 Quiesce protected dispatch before changing binaries. See
 [deadline setup, evidence and limits](LEASE-DEADLINES.md).
 
 ## Supervised liveness source addition
 
-Unreleased source adds nullable `leases.supervision_root` and a credential `scope`
+The 2.0 candidate adds nullable `leases.supervision_root` and a credential `scope`
 column defaulting to admission. Existing identities and credentials preserve
 legacy authority and renewal behavior. Supervised runs require fresh operator
 issuance; children inherit mode. New renewal credentials cannot admit or control
@@ -122,8 +122,8 @@ reconstruct the prior schema and preserve old admission credentials and kills.
 
 Rust `AgentStatus` adds `supervision_root`; `ExportRow` adds `supervision_root`,
 `expires_at` and `renewed`. These public struct additions require changes in
-consumers constructing literals and belong in a reviewed major release after
-1.0, along with the new deadline enum variant. JSON consumers tolerate added
+consumers constructing literals and are included in the selected 2.0 candidate,
+along with the new deadline enum variant. JSON consumers tolerate added
 fields while preserving strict allow/deny decisions. Do not publish this source
 as a compatible stable 1.1 update without resolving that version boundary.
 
@@ -131,3 +131,12 @@ Older executables ignore supervision, so rollback does not preserve its liveness
 guarantee. Quiesce protected dispatch first and follow the backup/rollback plan.
 No existing release or plugin is upgraded by merging this source. See
 [supervision](SUPERVISION.md) and the consolidated release gates.
+
+## Selected 2.0 candidate
+
+The candidate manifest is now `2.0.0-rc.1`, with Python `2.0.0rc1`, resolving the
+major-version boundary described above. [The migration guide](MIGRATING-V2.md)
+and compile acceptance cover original exhaustive matches and public struct
+literals, as well as a migrated downstream consumer. Versioned publication,
+registry installation, native signing and editor/plugin adoption remain separately
+verified actions. Old release/tag identities are immutable.

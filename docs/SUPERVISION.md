@@ -1,10 +1,11 @@
-# Supervisor-only liveness (current source, unreleased)
+# Supervisor-only liveness (2.0 candidate)
 
 Use this optional mode when the trusted supervisor's continued participation,
-not the agent's activity, should keep a run live. Build the current reviewed
-source and install its client wheel. Existing engine downloads, PyPI packages,
-MCPB bundles and editor plugins do **not** contain this addition. Record the
-source revision; the unchanged candidate version string is not its identity.
+not the agent's activity, should keep a run live. Use the reviewed 2.0 candidate
+engine and matching `2.0.0rc1` client wheel. The published 1.x engines, PyPI
+packages, MCPB bundles and editor plugins do **not** contain this addition.
+Follow [2.0 migration and artifact verification](MIGRATING-V2.md), including
+the source revision and checksums; publication is a separate release gate.
 
 Two independent controls answer different questions:
 

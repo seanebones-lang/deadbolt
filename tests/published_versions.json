@@ -1,0 +1,20 @@
+{
+  "1.0.3": {
+    "source_commit": "3a857f8438dcda4bdaadb414d37f128508dc44f1",
+    "archives": {
+      "deadbolt-1.0.3-aarch64-apple-darwin.zip": "d8af0582d347e56ae4d618f6ac2e4380d52b4b01ffc57a9e385e5cc33cc36a41",
+      "deadbolt-1.0.3-x86_64-apple-darwin.zip": "3534804199a637e75f53179399f9130e86c53206dcc7cbfe2253fc6eae224f04",
+      "deadbolt-1.0.3-x86_64-unknown-linux-gnu.zip": "6fbf51e9a58016a1a50b2dfd8496d8ddccc80b918d8ba59442b025fcb6029f5d",
+      "deadbolt-1.0.3-x86_64-pc-windows-msvc.zip": "6bdcb6901cf2c5e708d0d53e19bb97d4dc24354782de9b87a19883911604ebe0"
+    }
+  },
+  "1.1.0-rc.1": {
+    "source_commit": "52a2085155b658f3d1dda5a73a8d95a7a1d88fad",
+    "archives": {
+      "deadbolt-1.1.0-rc.1-aarch64-apple-darwin.zip": "9dabeee245ee967bc3e5dca0db54c9c262472e47aa2d487bfff2634cac98afcb",
+      "deadbolt-1.1.0-rc.1-x86_64-apple-darwin.zip": "72b7c9e0ad49f4f20ae21250553b3346c6a3cfaa93b37113ff5e871faa3830aa",
+      "deadbolt-1.1.0-rc.1-x86_64-pc-windows-msvc.zip": "aa82cd9e6b02c63bb47e144ff1ec1c1cfa1cfe9aadef3d1d51ce7c44e33f5831",
+      "deadbolt-1.1.0-rc.1-x86_64-unknown-linux-gnu.zip": "1f81dfceef7db020f3afe3aff6340115f9e2fb21fece32a6c45940f91698fcad"
+    }
+  }
+}

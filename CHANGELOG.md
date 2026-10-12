@@ -3,8 +3,11 @@
 Versioned GitHub releases identify publication and the exact source revision.
 The older `v0.1.1-product` tag is not the standalone hardening release.
 
-## Unreleased source additions
+## 2.0.0-rc.1 candidate (publication is a separate gate)
 
+- Select a major Rust engine version and matching Python candidate spelling.
+  Document downstream enum/struct migration and validate installed native ZIPs
+  and published-version state upgrades separately from source tests.
 - Add optional supervisor-only idle renewal for fresh root runs and registered
   descendants. Agent allow/deny activity cannot keep this mode alive; immutable
   fixed deadlines remain independent and always win. Existing leases keep their

@@ -209,3 +209,5 @@ jobs:
       - run: cargo package --locked
       - name: Verify an outside-checkout embedded consumer
         run: python tests/packaged_consumer.py
+      - name: Compile original v1 and migrated v2 Rust consumers
+        run: python tests/rust_api_migration.py

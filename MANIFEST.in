@@ -1,3 +1,5 @@
 include LICENSE NOTICE Cargo.toml
 include docs/PYTHON.md docs/ACTION-APPROVALS.md docs/CREDENTIALS.md
 include docs/EXECUTOR-CANCELLATION.md
+include docs/DESTINATION-POLICY.md
+include docs/SUPERVISION.md docs/LEASE-DEADLINES.md docs/MIGRATING-V2.md docs/PRIVACY.md
