@@ -39,6 +39,11 @@ The second command clears all offline exceptions. Omitted fields preserve the
 stored policy. The operator-only HTTP `POST /policy` accepts `offline_tools` as
 an array of tool-name strings; `[]` clears it. Malformed offline fields are
 refused. A scoped admission credential cannot configure these exceptions.
+Each explicit list replacement, including a clear, is recorded as Observed
+policy evidence. JSONL/text exports retain the replacement list; incident exports
+include `offline_policy_changes` in order alongside the current policy. Omitted
+fields do not claim an exception change. Records identify the lease and token-
+authorized operation, not the human who held the operator credential.
 
 ## Migration and recovery
 

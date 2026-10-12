@@ -85,6 +85,9 @@ def main():
             assert client.admit("B", "other")["code"] == "purpose_exceeded"
             assert client.admit("B", "fetch", "other.example")["code"] == "purpose_exceeded"
             assert client.admit("B", "fetch", "example.com")["decision"] == "allow"
+            # Migrated destination policy defaults to no offline exceptions.
+            assert client.admit("B", "shell")["code"] == "purpose_exceeded"
+            operator(new, "policy", "--agent", "B", "--offline-tools", "shell")
             assert client.admit("B", "shell")["decision"] == "allow"
             assert client.admit("B", "shell")["code"] == "needs_human"
             assert client.spend("B", 3.75)["code"] == "spend_cap"

@@ -1189,7 +1189,11 @@ impl Deadbolt {
         {
             return Err(DeadboltError::BadRequest);
         }
-        self.operator_grant("policy", json_tokens(&[("agent_id", agent_id), ("state", "set")]), |tx| {
+        let mut evidence = json_tokens(&[("agent_id", agent_id), ("state", "set")]);
+        if let Some(offline_tools) = &patch.offline_tools {
+            evidence["offline_tools"] = json!(offline_tools);
+        }
+        self.operator_grant("policy", evidence, |tx| {
             let lease = load_lease(tx, agent_id)
                 .map_err(|_| DeadboltError::StoreUnavailable)?
                 .ok_or(DeadboltError::NotFound)?;
@@ -1350,6 +1354,7 @@ impl Deadbolt {
         let mut first_seen: Option<i64> = None;
         let mut decisions = Vec::new();
         let mut inferred = Vec::new();
+        let mut policy_changes = Vec::new();
         for row in scanned {
             let (cid, class, kind, payload, premises, ts) =
                 row.map_err(|_| DeadboltError::StoreUnavailable)?;
@@ -1377,6 +1382,11 @@ impl Deadbolt {
                     "premises": premises,
                     "ts": ts,
                 }));
+            } else if kind == "policy" && payload.get("offline_tools").is_some() {
+                policy_changes.push(json!({
+                    "class": "observed", "kind": "policy", "cid": cid,
+                    "agent_id": row_agent, "offline_tools": payload["offline_tools"], "ts": ts,
+                }));
             } else if kind == "decision" {
                 decisions.push(json!({
                     "class": "observed",
@@ -1400,6 +1410,7 @@ impl Deadbolt {
             "killed_at": killed_at,
             "decisions": decisions,
             "inferred": inferred,
+            "offline_policy_changes": policy_changes,
             "policy": {
                 "tools_allow": lease.tools_allow,
                 "dest_allow": lease.dest_allow,
@@ -1497,6 +1508,9 @@ impl Deadbolt {
                     .get("code")
                     .and_then(|v| v.as_str())
                     .map(str::to_string),
+                offline_tools: payload
+                    .get("offline_tools")
+                    .and_then(|v| serde_json::from_value(v.clone()).ok()),
                 ts,
             });
         }
@@ -2196,6 +2210,10 @@ pub struct ExportRow {
     pub decision: Option<String>,
     /// Deny or ok code, when the record has one.
     pub code: Option<String>,
+    /// Explicit offline exception replacement on an observed policy change.
+    /// None means this event did not change the list; an empty list clears it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offline_tools: Option<Vec<String>>,
     /// Unix seconds from the store row.
     pub ts: i64,
 }
@@ -2211,7 +2229,7 @@ pub fn format_export(rows: &[ExportRow], json: bool) -> String {
             }
         } else {
             out.push_str(&format!(
-                "class={} kind={} cid={} payload_sha256={} premises={} agent_id={} tool={} decision={} code={} ts={}\n",
+                "class={} kind={} cid={} payload_sha256={} premises={} agent_id={} tool={} decision={} code={} ts={} offline_tools={}\n",
                 row.class,
                 row.kind,
                 row.cid,
@@ -2225,7 +2243,9 @@ pub fn format_export(rows: &[ExportRow], json: bool) -> String {
                 row.tool.as_deref().unwrap_or("-"),
                 row.decision.as_deref().unwrap_or("-"),
                 row.code.as_deref().unwrap_or("-"),
-                row.ts
+                row.ts,
+                row.offline_tools.as_ref().map(|v| serde_json::to_string(v).unwrap())
+                    .unwrap_or_else(|| "-".to_string())
             ));
         }
     }
@@ -3085,6 +3105,54 @@ mod tests {
         );
         let report: Value = serde_json::from_str(&db.incident("A").unwrap()).unwrap();
         assert_eq!(report["policy"]["offline_tools"], json!(["read_file"]));
+    }
+
+    #[test]
+    fn offline_exception_grants_and_clears_are_observed_and_exported() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Deadbolt::open_at(dir.path(), true, 60);
+        db.ensure_agent("A").unwrap();
+        for list in [vec!["read_file".to_string()], vec![]] {
+            db.set_policy(
+                "A",
+                PolicyPatch {
+                    offline_tools: Some(list),
+                    ..PolicyPatch::default()
+                },
+            )
+            .unwrap();
+        }
+        db.set_policy(
+            "A",
+            PolicyPatch {
+                tools_allow: Some(vec!["read_file".into()]),
+                ..PolicyPatch::default()
+            },
+        )
+        .unwrap();
+        let rows = db.export("A", false).unwrap();
+        let changes: Vec<_> = rows.iter().filter(|r| r.offline_tools.is_some()).collect();
+        assert_eq!(changes.len(), 2);
+        assert!(changes
+            .iter()
+            .all(|r| r.class == "observed" && r.kind == "policy"));
+        assert_eq!(changes[0].offline_tools, Some(vec!["read_file".into()]));
+        assert_eq!(changes[1].offline_tools, Some(vec![]));
+        let jsonl = format_export(&rows, true);
+        assert!(jsonl.contains("\"offline_tools\":[\"read_file\"]"));
+        assert!(jsonl.contains("\"offline_tools\":[]"));
+        let text = format_export(&rows, false);
+        assert!(text.contains("offline_tools=[\"read_file\"]"));
+        assert!(text.contains("offline_tools=[]"));
+        let incident: Value = serde_json::from_str(&db.incident("A").unwrap()).unwrap();
+        assert_eq!(
+            incident["offline_policy_changes"].as_array().unwrap().len(),
+            2
+        );
+        assert_eq!(
+            incident["offline_policy_changes"][1]["offline_tools"],
+            json!([])
+        );
     }
 
     #[test]
