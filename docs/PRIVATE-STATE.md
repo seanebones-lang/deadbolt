@@ -75,7 +75,8 @@ and its absent sequence table is initialized from retained events. A modern
 store missing its sequence or leases table is not that legacy schema and is
 refused. This compatibility path preserves historical kills and identities.
 Initialization, migrations and the SQLite schema-generation marker are committed in one writer transaction.
-After that marker is present, every required table must exist; partial or newer
+After that marker is present, every required table and policy/credential column
+must exist; partial or newer
 unknown schemas deny `store_unavailable` rather than recreating missing state.
 An enabled sidecar exits unsuccessfully before binding a listener when the initial
 store check fails; a later live-store outage still denies admissions.

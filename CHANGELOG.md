@@ -8,7 +8,8 @@ The older `v0.1.1-product` tag is not the standalone hardening release.
 - Refuse routed MCP arguments declaring multiple distinct recognized destination
   hosts, before admission, grant consumption or forwarding. Repeated declarations
   of one host retain exact-action spelling. Published RC2 still selects one host.
-- Refuse partial SQLite schemas at startup rather than recreating missing state.
+- Refuse partial SQLite schemas at startup rather than recreating missing state
+  or modern policy/credential columns with defaults.
   Refuse enabled sidecar startup before binding when its initial store check fails.
   Initialize/migrate complete supported stores transactionally with a schema
   generation marker. Refuse a missing identity with retained issuance/kill history across

@@ -506,6 +506,18 @@ fn validate_store_schema(conn: &Connection, events_len: u64) -> Result<(), SinkE
         conn.prepare("SELECT id,seq FROM event_sequence LIMIT 0")
             .map_err(|_| SinkError::Unavailable)?;
     }
+    if version == 1 {
+        // Current-generation damage is never an invitation to add default policy
+        // or credential fields. Only unversioned historical stores may migrate.
+        for sql in [
+            "SELECT tools_allow,dest_allow,offline_tools,hard_deadline_at,supervision_root,spend_cap_usd,spend_usd,irreversible,approvals FROM leases LIMIT 0",
+            "SELECT agent_id,tool FROM exact_action_requirements LIMIT 0",
+            "SELECT agent_id,nonce,tool,fingerprint,expires_at,consumed_at,revoked_at,created_at FROM action_grants LIMIT 0",
+            "SELECT credential_id,agent_id,token_hash,expires_at,revoked_at,created_at,scope FROM admission_credentials LIMIT 0",
+        ] {
+            conn.prepare(sql).map_err(|_| SinkError::Unavailable)?;
+        }
+    }
     Ok(())
 }
 
@@ -3919,8 +3931,10 @@ mod tests {
             .lock()
             .unwrap()
             .conn
-            .execute("ALTER TABLE leases DROP COLUMN offline_tools", [])
+            .execute_batch("ALTER TABLE leases DROP COLUMN offline_tools; PRAGMA user_version=0;")
             .unwrap();
+        // A historical schema has no generation marker; modern missing policy
+        // columns are damage, covered separately by store_integrity.
         drop(db);
         let db = Deadbolt::open_at(dir.path(), true, 60);
         assert_eq!(

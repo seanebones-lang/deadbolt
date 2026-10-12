@@ -166,3 +166,45 @@ fn unversioned_modern_schema_without_sequence_is_not_a_pre_v1_store() {
         }
     );
 }
+
+#[test]
+fn versioned_policy_and_credential_columns_are_not_repaired_with_defaults() {
+    for (table, column) in [
+        ("leases", "tools_allow"),
+        ("leases", "offline_tools"),
+        ("leases", "hard_deadline_at"),
+        ("leases", "supervision_root"),
+        ("leases", "irreversible"),
+        ("leases", "approvals"),
+        ("admission_credentials", "scope"),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let gate = Deadbolt::open_at(dir.path(), true, 60);
+        gate.issue_agent("damaged", deadline()).unwrap();
+        drop(gate);
+        let conn = Connection::open(dir.path().join("deadbolt.db")).unwrap();
+        conn.execute_batch(&format!("ALTER TABLE {table} DROP COLUMN {column}"))
+            .unwrap();
+        drop(conn);
+        let reopened = Deadbolt::open_at(dir.path(), true, 60);
+        assert_eq!(
+            reopened.admit("damaged", "read"),
+            AdmitDecision::Deny {
+                code: DenyCode::StoreUnavailable
+            },
+            "{table}.{column}"
+        );
+        let conn = Connection::open(dir.path().join("deadbolt.db")).unwrap();
+        let columns: Vec<String> = conn
+            .prepare(&format!("PRAGMA table_info({table})"))
+            .unwrap()
+            .query_map([], |r| r.get(1))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert!(
+            !columns.iter().any(|name| name == column),
+            "repaired {table}.{column}"
+        );
+    }
+}
