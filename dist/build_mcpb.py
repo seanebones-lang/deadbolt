@@ -42,7 +42,7 @@ def build(downloads, out):
             native.mkdir(parents=True)
             (native / executable).write_bytes(content)
             (native / executable).chmod(0o755)
-            (native / 'BUILD.json').write_text(json.dumps(meta, indent=2) + '\n')
+            (native / 'BUILD.json').write_bytes((json.dumps(meta, indent=2) + '\n').encode('utf-8'))
             provenance['binaries'][target] = {**meta, 'archive_sha256': digest, 'archive_url': f'https://github.com/seanebones-lang/deadbolt/releases/download/v2.0.0-rc.3/{name}'}
             if target == TARGETS[0]:
                 for file in ('LICENSE', 'NOTICE', 'THIRD-PARTY-NOTICES.txt', 'THIRD-PARTY.md'):
@@ -51,7 +51,7 @@ def build(downloads, out):
                     dst = staging / 'engine-docs' / Path(file).name
                     dst.parent.mkdir(exist_ok=True)
                     dst.write_bytes(z.read(prefix + file))
-    (staging / 'PROVENANCE.json').write_text(json.dumps(provenance, indent=2) + '\n')
+    (staging / 'PROVENANCE.json').write_bytes((json.dumps(provenance, indent=2) + '\n').encode('utf-8'))
     return staging
 
 if __name__ == '__main__':

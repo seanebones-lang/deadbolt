@@ -73,7 +73,12 @@ deadbolt policy --agent my-run-001 --tools write_file
 # Then issue the admission credential and launch the dispatcher with it.
 ```
 
-Check that `ensure` returns `ok: true`. Do not expose `ensure`, policy, approval,
+`ensure` returning `ok: true` confirms the record exists, not that the run is
+currently authorized. Existing expiry, deadlines, pause and kill state are
+preserved. The CLI also prints the record's effective state and expiry; its
+success exit code means record reconciliation succeeded. Check `status` for
+diagnostics and use each dispatch's admission decision before running effects.
+Do not expose `ensure`, policy, approval,
 resume, spend or child-registration methods as model tools. Lease creation and
 explicit `ensure` calls belong to the trusted executor; this decorator never
 calls `ensure`. Published RC1 and existing activity-mode leases retain a sliding

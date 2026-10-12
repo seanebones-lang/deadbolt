@@ -186,3 +186,44 @@ fn cli_fresh_defaults_are_supervised_and_activity_requires_explicit_selection() 
         assert_eq!(gate.status(Some(id)).unwrap()[0].supervision_root, None);
     }
 }
+
+#[test]
+fn cli_ensure_reports_inactive_records_without_reviving_them() {
+    let dir = tempfile::tempdir().unwrap();
+    let gate = Deadbolt::open_at(dir.path(), true, 60);
+    for id in ["paused", "killed", "expired", "deadline"] {
+        gate.ensure_agent(id).unwrap();
+    }
+    gate.pause("paused").unwrap();
+    gate.kill("killed").unwrap();
+    // Deterministic status fixtures, not elapsed-time expiry evidence.
+    let conn = rusqlite::Connection::open(dir.path().join("deadbolt.db")).unwrap();
+    conn.execute(
+        "UPDATE leases SET expires_at=1 WHERE agent_id='expired'",
+        [],
+    )
+    .unwrap();
+    conn.execute(
+        "UPDATE leases SET hard_deadline_at=1 WHERE agent_id='deadline'",
+        [],
+    )
+    .unwrap();
+    for (id, state, denial) in [
+        ("paused", "paused", DenyCode::Paused),
+        ("killed", "killed", DenyCode::Killed),
+        ("expired", "expired", DenyCode::LeaseExpired),
+        ("deadline", "deadline_exceeded", DenyCode::DeadlineExceeded),
+    ] {
+        let before = gate.status(Some(id)).unwrap()[0].clone();
+        let result = operator(dir.path(), &["ensure", "--agent", id]);
+        assert!(result.status.success()); // Existing reconciliation contract.
+        let output = String::from_utf8(result.stdout).unwrap();
+        assert!(output.contains(&format!("state={state}")));
+        assert!(output.contains("record present; not a readiness check"));
+        let after = gate.status(Some(id)).unwrap()[0].clone();
+        assert_eq!(after.state, before.state);
+        assert_eq!(after.expires_at, before.expires_at);
+        assert_eq!(after.hard_deadline_at, before.hard_deadline_at);
+        assert_eq!(gate.admit(id, "read"), AdmitDecision::Deny { code: denial });
+    }
+}
