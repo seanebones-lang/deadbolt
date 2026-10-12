@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import platform
 import queue
+import secrets
 import shutil
 import socket
 import sqlite3
@@ -313,7 +314,7 @@ import(pathToFileURL(entry).href).catch(()=>process.exit(1));
         with socket.socket() as probe:
             probe.bind(('127.0.0.1', 0))
             endpoint = f'127.0.0.1:{probe.getsockname()[1]}'
-        token = 'disposable-mcpb-setup-token'
+        token = secrets.token_hex(32)
         op_env = {k:v for k,v in os.environ.items() if not k.startswith('DEADBOLT_')}
         op_env.update(DEADBOLT_DB=c['database'], DEADBOLT_EVENTS=c['events'])
         server = subprocess.Popen([str(exe), 'serve', '--bind', endpoint],

@@ -197,7 +197,19 @@ class ExecutorAcceptance(unittest.TestCase):
         try:
             self.run_body('import time; time.sleep(10)',max_secs=.15)
             self.assertIsNone(other.poll())
-            before=marker.read_text(); time.sleep(.1); self.assertNotEqual(before,marker.read_text())
+            # File creation can precede its first write; a loaded runner also
+            # need not schedule this unrelated process within a fixed 100ms.
+            deadline=time.monotonic()+5
+            baseline=None
+            while time.monotonic()<deadline:
+                self.assertIsNone(other.poll())
+                value=marker.read_text() if marker.exists() else ''
+                if value:
+                    if baseline is None: baseline=value
+                    elif value!=baseline: break
+                time.sleep(.02)
+            else:
+                self.fail('unrelated process stopped updating its marker')
         finally:
             os.killpg(other.pid,9); other.wait(timeout=5)
 

@@ -31,6 +31,7 @@ def main():
         subprocess.run(['git','fetch','origin',OLD],cwd=ROOT,check=True,timeout=90)
     content=subprocess.check_output(['git','archive',OLD,'Cargo.toml','Cargo.lock','src','examples/build_in.rs','README.md','LICENSE','NOTICE'],cwd=ROOT)
     migrated=ORIGINAL.replace('DenyCode::StoreUnavailable =>','DenyCode::DeadlineExceeded => "deadline_exceeded", DenyCode::StoreUnavailable =>')
+    migrated=migrated.replace('DenyCode::NeedsHuman => "needs_human",', 'DenyCode::NeedsHuman => "needs_human", DenyCode::PolicyRequired => "policy_required",')
     migrated=migrated.replace('swarm_task_id:None }','swarm_task_id:None,hard_deadline_at:None,supervision_root:None }')
     migrated=migrated.replace('code:None,ts:0 }','code:None,ts:0,offline_tools:None,hard_deadline_at:None,supervision_root:None,expires_at:None,renewed:None }')
     reports=[]
