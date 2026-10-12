@@ -1,15 +1,37 @@
 # Install DeadBolt
 
-## New 2.0 candidate
+## Published 2.0 developer candidate
 
-The current checkout prepares engine `2.0.0-rc.1` and Python client `2.0.0rc1`.
-Use [the migration guide](MIGRATING-V2.md) for reviewed-source/wheel installation,
-new controls, state preservation and rollback limits. Versioned candidate files
-become downloadable only after release validation and publication. Published 1.x
-commands below remain valid for their original artifacts and do not include the
-new deadline/supervision/destination behavior. Editor/MCPB bundles keep their own
-versions and pinned engine identity.
+Engine **2.0.0-rc.1** and matching Python client **2.0.0rc1** are available in
+[the versioned GitHub release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.1). Download the native ZIP and its
+checksum for your target, or use the immutable Git tag for a Rust source build.
+Read [the migration guide](MIGRATING-V2.md) before opening existing state or
+changing an embedded Rust consumer. The final Mac ZIPs are signed/notarized;
+Linux and Windows binaries are unsigned. See the release’s acceptance receipt
+for the tested targets and remaining installation boundaries.
 
+For the Rust CLI:
+
+```sh
+cargo install --git https://github.com/seanebones-lang/deadbolt --tag v2.0.0-rc.1 --locked --bin deadbolt
+```
+
+For an embedded Rust library:
+
+```toml
+deadbolt = { package = "n11-deadbolt", git = "https://github.com/seanebones-lang/deadbolt", tag = "v2.0.0-rc.1" }
+```
+
+For Python, verify the release’s `SHA256SUMS`, then install the wheel in your
+application’s virtual environment. Install the matching native engine separately:
+
+```sh
+python -m pip install /absolute/path/to/n11_deadbolt_client-2.0.0rc1-py3-none-any.whl
+```
+
+The published 1.x registry/Homebrew commands below select their original
+artifacts. They do not install the 2.0 deadline/supervision/destination controls.
+Editor/MCPB bundles keep their own versions and pinned engine identity.
 
 Choose a published native executable for a quick evaluation, or a reviewed source
 candidate for the new APIs. The Python client connects to a **separately installed
@@ -17,7 +39,7 @@ executable**; installing the client does not start a sidecar.
 
 | Path | You need | What you get |
 | --- | --- | --- |
-| Native archive | Matching OS/CPU; Python 3.9+ only for the evaluation | Stable v1.0.3 or prerelease 1.1.0-rc.1 executable, source clients, examples and docs |
+| Native archive | Matching OS/CPU; Python 3.9+ only for the evaluation | Stable v1.0.3, older 1.1.0-rc.1 or new 2.0.0-rc.1 executable, source clients, examples and docs |
 | [Homebrew tap](HOMEBREW.md) | macOS Apple Silicon or Intel and Homebrew | Signed prebuilt stable CLI or explicitly selected preview; no Rust build |
 | Local MCP bundle (MCPB) | Compatible local MCP client, Node.js 20+ and a trusted downstream stdio server | Bundle 1.1.0 with stable v1.0.3 binaries and a configuration-file launcher |
 | [Docker stdio MCP](DOCKER-MCP.md) | Git and a running Docker Linux engine, ARM64 or AMD64 | Source-built package 1.0.0 with stable engine 1.0.3; catalog review pending |
@@ -26,7 +48,7 @@ executable**; installing the client does not start a sidecar.
 | Python source installation | Python 3.10+, pip and a reviewed checkout | Base client with no third-party runtime dependencies |
 | Python package | Python 3.9+ and pip; pinned PyPI wheel or reviewed `.whl` | Prerelease client; engine installed separately; no Rust needed for the wheel |
 | Optional SDK adapter | Python 3.10+ and the `openai-agents` extra | Pinned tested SDK 0.23.1 integration |
-| [FastMCP source recipe](FASTMCP.md) | Python 3.10+, FastMCP 4.1.0, client 1.1.0rc1 and engine 1.1.0-rc.1 | A check inside each protected MCP tool; offline stdio demo |
+| [FastMCP source recipe](FASTMCP.md) | Python 3.10+, FastMCP 4.1.0, a matching 1.1 or 2.0 client/engine pair | A check inside each protected MCP tool; offline stdio demo |
 | Bundled Node client | Node (22 tested) | CommonJS source module; no npm installation |
 
 No model key, Harness, cloud account or database server is needed for setup or
@@ -49,7 +71,7 @@ channel switching and state-preserving removal.
 ## Native archive (no Rust required)
 
 Choose [stable v1.0.3](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.0.3)
-or [developer prerelease v1.1.0-rc.1](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.1.0-rc.1).
+or [new developer candidate v2.0.0-rc.1](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.1) or [older prerelease v1.1.0-rc.1](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.1.0-rc.1).
 The prerelease includes callback dispatch, scoped credentials and exact-action review;
 use it to evaluate those new APIs before stable promotion. Download the ZIP **and
 its matching `.zip.sha256` file**. Use the same version throughout these commands:
