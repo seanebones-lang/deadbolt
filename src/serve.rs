@@ -535,9 +535,18 @@ fn policy(gate: &Deadbolt, body: &str) -> (u16, String) {
     let Some(agent_id) = v.get("agent_id").and_then(|x| x.as_str()) else {
         return (400, json!({"code":"bad_request"}).to_string());
     };
+    if let Some(value) = v.get("offline_tools") {
+        if !value
+            .as_array()
+            .is_some_and(|items| items.iter().all(|x| x.as_str().is_some()))
+        {
+            return (400, json!({"code":"bad_request"}).to_string());
+        }
+    }
     let patch = crate::PolicyPatch {
         tools_allow: string_list(v.get("tools")),
         dest_allow: string_list(v.get("dest")),
+        offline_tools: string_list(v.get("offline_tools")),
         spend_cap_usd: v.get("spend_cap").and_then(|x| x.as_f64()),
         irreversible: string_list(v.get("irreversible")),
     };
@@ -657,6 +666,64 @@ mod credential_tests {
 
     fn request(method: &str, path: &str, headers: &str, body: &str) -> String {
         format!("{method} {path} HTTP/1.1\r\nhost: localhost\r\n{headers}content-length: {}\r\n\r\n{body}", body.len())
+    }
+
+    #[test]
+    fn operator_offline_policy_is_validated_and_workload_cannot_change_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let gate = Deadbolt::open_at(dir.path(), true, 60);
+        gate.ensure_agent("A").unwrap();
+        let headers = "X-Deadbolt-Token: operator\r\n";
+        let set = r#"{"agent_id":"A","dest":["github.com"],"offline_tools":["read_file"]}"#;
+        let (status, body) = dispatch_http(
+            &gate,
+            &request("POST", "/policy", headers, set),
+            Some("operator"),
+        );
+        assert_eq!(status, 200);
+        assert!(body.contains("\"ok\":true"));
+        assert_eq!(gate.admit("A", "read_file"), AdmitDecision::Allow);
+        for bad in [
+            r#"{"agent_id":"A","offline_tools":"shell"}"#,
+            r#"{"agent_id":"A","offline_tools":["read_file",42]}"#,
+        ] {
+            assert_eq!(
+                dispatch_http(
+                    &gate,
+                    &request("POST", "/policy", headers, bad),
+                    Some("operator")
+                )
+                .0,
+                400
+            );
+        }
+        gate.issue_credential("A", "key", 60, &dir.path().join("key"))
+            .unwrap();
+        let secret = fs::read_to_string(dir.path().join("key")).unwrap();
+        let workload = format!("X-Deadbolt-Admission: {secret}\r\n");
+        assert_eq!(
+            dispatch_http(
+                &gate,
+                &request("POST", "/policy", &workload, set),
+                Some("operator")
+            )
+            .0,
+            403
+        );
+        let clear = r#"{"agent_id":"A","offline_tools":[]}"#;
+        let (status, body) = dispatch_http(
+            &gate,
+            &request("POST", "/policy", headers, clear),
+            Some("operator"),
+        );
+        assert_eq!(status, 200);
+        assert!(body.contains("\"ok\":true"));
+        assert_eq!(
+            gate.admit("A", "read_file"),
+            AdmitDecision::Deny {
+                code: crate::DenyCode::PurposeExceeded
+            }
+        );
     }
 
     #[test]

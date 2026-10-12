@@ -1119,6 +1119,38 @@ mod tests {
     }
 
     #[test]
+    fn mcp_destination_policy_denies_unknown_tools_without_destination() {
+        let (dir, gate) = temp_gate();
+        gate.ensure_agent("shop-bot").unwrap();
+        gate.set_policy(
+            "shop-bot",
+            crate::PolicyPatch {
+                dest_allow: Some(vec!["github.com".into()]),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let (seen, out) = drive(
+            &gate,
+            &[
+                r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"shell","arguments":{"command":"dummy"}}}"#,
+                r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"custom_fetch","arguments":{}}}"#,
+            ],
+        );
+        assert!(
+            seen.is_empty(),
+            "missing destination must never reach child: {seen:?}"
+        );
+        assert_eq!(
+            out.iter()
+                .filter(|x| x.contains("purpose_exceeded"))
+                .count(),
+            2
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn mcp_proxy_irreversible_does_not_call_child() {
         let (dir, gate) = temp_gate();
         gate.ensure_agent("shop-bot").unwrap();

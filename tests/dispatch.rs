@@ -2,6 +2,53 @@ use deadbolt::{Deadbolt, DenyCode, PolicyPatch};
 use std::sync::{Arc, Barrier};
 
 #[test]
+fn destination_policy_withholds_custom_effects_without_operator_offline_classification() {
+    let state = tempfile::tempdir().unwrap();
+    let gate = Deadbolt::open_at(state.path(), true, 60);
+    gate.ensure_agent("worker").unwrap();
+    gate.set_policy(
+        "worker",
+        PolicyPatch {
+            dest_allow: Some(vec!["github.com".into()]),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let file = state.path().join("effect");
+    std::fs::write(&file, "before").unwrap();
+    for tool in ["shell", "python", "curl", "custom_download", "FETCH"] {
+        assert_eq!(
+            gate.dispatch("worker", tool, None, || std::fs::write(&file, "wrong")
+                .unwrap()),
+            Err(DenyCode::PurposeExceeded)
+        );
+        assert_eq!(std::fs::read(&file).unwrap(), b"before");
+    }
+    gate.set_policy(
+        "worker",
+        PolicyPatch {
+            offline_tools: Some(vec!["write_note".into()]),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert!(gate
+        .dispatch("worker", "write_note", None, || std::fs::write(
+            &file, "allowed"
+        ))
+        .unwrap()
+        .is_ok());
+    assert_eq!(std::fs::read(&file).unwrap(), b"allowed");
+    assert_eq!(
+        gate.dispatch("worker", "write_note", Some("evil.example"), || {
+            std::fs::write(&file, "wrong").unwrap()
+        }),
+        Err(DenyCode::PurposeExceeded)
+    );
+    assert_eq!(std::fs::read(&file).unwrap(), b"allowed");
+}
+
+#[test]
 fn async_dispatch_rechecks_when_polled_and_preserves_results() {
     use std::future::Future;
     use std::task::{Context, Poll, Waker};

@@ -269,11 +269,12 @@ pub trait ToolAdmit: Send + Sync {
 pub struct PolicyPatch {
     /// If set, a tool not on the list is `purpose_exceeded`.
     pub tools_allow: Option<Vec<String>>,
-    /// If set, a present foreign dest is `purpose_exceeded`. A missing dest is
-    /// `purpose_exceeded` only for a network-class tool (`http`, `fetch`,
-    /// `browser`, `web_search`). A local tool with no host is not denied for
-    /// this list alone.
+    /// Allowed declared destination tokens. When set, every tool needs a destination
+    /// unless explicitly listed in `offline_tools`. This is not OS egress enforcement.
     pub dest_allow: Option<Vec<String>>,
+    /// Trusted operator classification of tools with no network effects. Only these
+    /// tools may omit a destination when `dest_allow` is set. `Some(vec![])` clears it.
+    pub offline_tools: Option<Vec<String>>,
     /// Crossing this pauses the lease. Admit then returns `spend_cap`.
     pub spend_cap_usd: Option<f64>,
     /// Tools that deny `needs_human` until one `approve`.
@@ -299,6 +300,7 @@ struct Lease {
     swarm_task_id: Option<String>,
     tools_allow: Option<Vec<String>>,
     dest_allow: Option<Vec<String>>,
+    offline_tools: Option<Vec<String>>,
     spend_cap_usd: Option<f64>,
     spend_usd: f64,
     irreversible: Option<Vec<String>>,
@@ -490,10 +492,6 @@ fn io_unavailable(stage: &str, err: std::io::Error) -> SinkError {
     SinkError::Unavailable
 }
 
-fn network_class(tool: &str) -> bool {
-    matches!(tool, "http" | "fetch" | "browser" | "web_search")
-}
-
 fn keeps_deny_code(decision: AdmitDecision) -> bool {
     matches!(
         decision,
@@ -632,6 +630,7 @@ impl Deadbolt {
                 swarm_task_id: None,
                 tools_allow: None,
                 dest_allow: None,
+                offline_tools: None,
                 spend_cap_usd: None,
                 spend_usd: 0.0,
                 irreversible: None,
@@ -706,6 +705,7 @@ impl Deadbolt {
                     swarm_task_id: swarm_task_id.map(str::to_string),
                     tools_allow: None,
                     dest_allow: None,
+                    offline_tools: None,
                     spend_cap_usd: None,
                     spend_usd: 0.0,
                     irreversible: None,
@@ -924,8 +924,12 @@ impl Deadbolt {
         }
         if let Some(allow) = &lease.dest_allow {
             let foreign = dest.is_some_and(|d| !allow.iter().any(|h| h.eq_ignore_ascii_case(d)));
-            let missing_network = dest.is_none() && network_class(tool);
-            if foreign || missing_network {
+            let missing_required = dest.is_none()
+                && !lease
+                    .offline_tools
+                    .as_ref()
+                    .is_some_and(|tools| tools.iter().any(|t| t == tool));
+            if foreign || missing_required {
                 return Ok(AdmitDecision::Deny {
                     code: DenyCode::PurposeExceeded,
                 });
@@ -1166,9 +1170,14 @@ impl Deadbolt {
     /// Set blast-radius fields. Omitted fields stay as stored. Unset lists stay open.
     pub fn set_policy(&self, agent_id: &str, patch: PolicyPatch) -> Result<(), DeadboltError> {
         require_token(agent_id)?;
-        for list in [&patch.tools_allow, &patch.dest_allow, &patch.irreversible]
-            .into_iter()
-            .flatten()
+        for list in [
+            &patch.tools_allow,
+            &patch.dest_allow,
+            &patch.offline_tools,
+            &patch.irreversible,
+        ]
+        .into_iter()
+        .flatten()
         {
             for item in list {
                 require_token(item)?;
@@ -1180,7 +1189,11 @@ impl Deadbolt {
         {
             return Err(DeadboltError::BadRequest);
         }
-        self.operator_grant("policy", json_tokens(&[("agent_id", agent_id), ("state", "set")]), |tx| {
+        let mut evidence = json_tokens(&[("agent_id", agent_id), ("state", "set")]);
+        if let Some(offline_tools) = &patch.offline_tools {
+            evidence["offline_tools"] = json!(offline_tools);
+        }
+        self.operator_grant("policy", evidence, |tx| {
             let lease = load_lease(tx, agent_id)
                 .map_err(|_| DeadboltError::StoreUnavailable)?
                 .ok_or(DeadboltError::NotFound)?;
@@ -1190,10 +1203,11 @@ impl Deadbolt {
             let tools = json_list(patch.tools_allow.as_deref());
             let dest = json_list(patch.dest_allow.as_deref());
             let irrev = json_list(patch.irreversible.as_deref());
+            let offline = json_list(patch.offline_tools.as_deref());
             tx
                 .execute(
-                    "UPDATE leases SET tools_allow=COALESCE(?1, tools_allow), dest_allow=COALESCE(?2, dest_allow), spend_cap_usd=COALESCE(?3, spend_cap_usd), irreversible=COALESCE(?4, irreversible), updated_at=?5 WHERE agent_id=?6",
-                    params![tools, dest, patch.spend_cap_usd, irrev, now_secs(), agent_id],
+                    "UPDATE leases SET tools_allow=COALESCE(?1, tools_allow), dest_allow=COALESCE(?2, dest_allow), spend_cap_usd=COALESCE(?3, spend_cap_usd), irreversible=COALESCE(?4, irreversible), offline_tools=COALESCE(?5, offline_tools), updated_at=?6 WHERE agent_id=?7",
+                    params![tools, dest, patch.spend_cap_usd, irrev, offline, now_secs(), agent_id],
                 )
                 .map_err(|_| DeadboltError::StoreUnavailable)?;
             Ok(())
@@ -1340,6 +1354,7 @@ impl Deadbolt {
         let mut first_seen: Option<i64> = None;
         let mut decisions = Vec::new();
         let mut inferred = Vec::new();
+        let mut policy_changes = Vec::new();
         for row in scanned {
             let (cid, class, kind, payload, premises, ts) =
                 row.map_err(|_| DeadboltError::StoreUnavailable)?;
@@ -1367,6 +1382,11 @@ impl Deadbolt {
                     "premises": premises,
                     "ts": ts,
                 }));
+            } else if kind == "policy" && payload.get("offline_tools").is_some() {
+                policy_changes.push(json!({
+                    "class": "observed", "kind": "policy", "cid": cid,
+                    "agent_id": row_agent, "offline_tools": payload["offline_tools"], "ts": ts,
+                }));
             } else if kind == "decision" {
                 decisions.push(json!({
                     "class": "observed",
@@ -1390,9 +1410,11 @@ impl Deadbolt {
             "killed_at": killed_at,
             "decisions": decisions,
             "inferred": inferred,
+            "offline_policy_changes": policy_changes,
             "policy": {
                 "tools_allow": lease.tools_allow,
                 "dest_allow": lease.dest_allow,
+                "offline_tools": lease.offline_tools,
                 "spend_cap_usd": lease.spend_cap_usd,
                 "spend_usd": lease.spend_usd,
                 "irreversible": lease.irreversible,
@@ -1486,6 +1508,9 @@ impl Deadbolt {
                     .get("code")
                     .and_then(|v| v.as_str())
                     .map(str::to_string),
+                offline_tools: payload
+                    .get("offline_tools")
+                    .and_then(|v| serde_json::from_value(v.clone()).ok()),
                 ts,
             });
         }
@@ -1885,11 +1910,15 @@ impl EvidenceRecord {
     }
 }
 
-/// True for names that must never appear in the model tool list.
+/// Diagnostic heuristic for common operator-control names, not an authorization rule.
+/// Keep all operator capabilities outside model-facing tools regardless of their name.
+/// A false result does not establish that a tool is safe to expose.
 pub fn is_shutdown_tool(name: &str) -> bool {
     matches!(
-        name,
+        name.to_ascii_lowercase().as_str(),
         "shutdown"
+            | "shutdown_agent"
+            | "stop"
             | "kill"
             | "deadbolt"
             | "halt"
@@ -2051,6 +2080,7 @@ fn migrate_leases(conn: &Connection) -> Result<(), SinkError> {
     for sql in [
         "ALTER TABLE leases ADD COLUMN tools_allow TEXT",
         "ALTER TABLE leases ADD COLUMN dest_allow TEXT",
+        "ALTER TABLE leases ADD COLUMN offline_tools TEXT",
         "ALTER TABLE leases ADD COLUMN spend_cap_usd REAL",
         "ALTER TABLE leases ADD COLUMN spend_usd REAL NOT NULL DEFAULT 0",
         "ALTER TABLE leases ADD COLUMN irreversible TEXT",
@@ -2099,7 +2129,7 @@ fn save_lease(conn: &Connection, lease: &Lease) -> Result<(), rusqlite::Error> {
 
 fn load_lease(conn: &Connection, agent_id: &str) -> Result<Option<Lease>, rusqlite::Error> {
     let mut stmt = conn.prepare(
-        "SELECT agent_id, parent_id, state, expires_at, clips, clip_cids, swarm_task_id, tools_allow, dest_allow, spend_cap_usd, spend_usd, irreversible, approvals FROM leases WHERE agent_id=?1",
+        "SELECT agent_id, parent_id, state, expires_at, clips, clip_cids, swarm_task_id, tools_allow, dest_allow, spend_cap_usd, spend_usd, irreversible, approvals, offline_tools FROM leases WHERE agent_id=?1",
     )?;
     let mut rows = stmt.query(params![agent_id])?;
     let Some(r) = rows.next()? else {
@@ -2110,7 +2140,7 @@ fn load_lease(conn: &Connection, agent_id: &str) -> Result<Option<Lease>, rusqli
 
 fn load_all(conn: &Connection) -> Result<Vec<Lease>, rusqlite::Error> {
     let mut stmt = conn.prepare(
-        "SELECT agent_id, parent_id, state, expires_at, clips, clip_cids, swarm_task_id, tools_allow, dest_allow, spend_cap_usd, spend_usd, irreversible, approvals FROM leases ORDER BY agent_id",
+        "SELECT agent_id, parent_id, state, expires_at, clips, clip_cids, swarm_task_id, tools_allow, dest_allow, spend_cap_usd, spend_usd, irreversible, approvals, offline_tools FROM leases ORDER BY agent_id",
     )?;
     let rows = stmt.query_map([], lease_from_row)?;
     rows.collect()
@@ -2130,6 +2160,7 @@ fn lease_from_row(r: &rusqlite::Row<'_>) -> Result<Lease, rusqlite::Error> {
         swarm_task_id: r.get(6)?,
         tools_allow: opt_list(r.get(7)?),
         dest_allow: opt_list(r.get(8)?),
+        offline_tools: opt_list(r.get(13)?),
         spend_cap_usd: r.get(9)?,
         spend_usd: r.get(10)?,
         irreversible: opt_list(r.get(11)?),
@@ -2179,6 +2210,10 @@ pub struct ExportRow {
     pub decision: Option<String>,
     /// Deny or ok code, when the record has one.
     pub code: Option<String>,
+    /// Explicit offline exception replacement on an observed policy change.
+    /// None means this event did not change the list; an empty list clears it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offline_tools: Option<Vec<String>>,
     /// Unix seconds from the store row.
     pub ts: i64,
 }
@@ -2194,7 +2229,7 @@ pub fn format_export(rows: &[ExportRow], json: bool) -> String {
             }
         } else {
             out.push_str(&format!(
-                "class={} kind={} cid={} payload_sha256={} premises={} agent_id={} tool={} decision={} code={} ts={}\n",
+                "class={} kind={} cid={} payload_sha256={} premises={} agent_id={} tool={} decision={} code={} ts={} offline_tools={}\n",
                 row.class,
                 row.kind,
                 row.cid,
@@ -2208,7 +2243,9 @@ pub fn format_export(rows: &[ExportRow], json: bool) -> String {
                 row.tool.as_deref().unwrap_or("-"),
                 row.decision.as_deref().unwrap_or("-"),
                 row.code.as_deref().unwrap_or("-"),
-                row.ts
+                row.ts,
+                row.offline_tools.as_ref().map(|v| serde_json::to_string(v).unwrap())
+                    .unwrap_or_else(|| "-".to_string())
             ));
         }
     }
@@ -2653,6 +2690,9 @@ mod tests {
     #[test]
     fn shutdown_names_are_flagged() {
         assert!(is_shutdown_tool("shutdown"));
+        assert!(is_shutdown_tool("Kill"));
+        assert!(is_shutdown_tool("STOP"));
+        assert!(is_shutdown_tool("shutdown_agent"));
         assert!(is_shutdown_tool("kill"));
         assert!(is_shutdown_tool("deadbolt"));
         assert!(!is_shutdown_tool("read_file"));
@@ -2824,7 +2864,12 @@ mod tests {
             },
         )
         .unwrap();
-        assert!(matches!(db.admit("A", "shell"), AdmitDecision::Allow));
+        assert!(matches!(
+            db.admit("A", "shell"),
+            AdmitDecision::Deny {
+                code: DenyCode::PurposeExceeded
+            }
+        ));
         assert!(matches!(
             db.admit_dest("A", "shell", Some("github.com")),
             AdmitDecision::Deny {
@@ -2913,7 +2958,7 @@ mod tests {
     }
 
     #[test]
-    fn dest_allow_does_not_block_write_file_without_host() {
+    fn dest_allow_requires_explicit_offline_classification() {
         let (_dir, db) = gate();
         db.ensure_agent("A").unwrap();
         db.set_policy(
@@ -2924,8 +2969,57 @@ mod tests {
             },
         )
         .unwrap();
+        for tool in [
+            "write_file",
+            "shell",
+            "python",
+            "curl",
+            "custom_fetch",
+            "FETCH",
+        ] {
+            assert!(matches!(
+                db.admit("A", tool),
+                AdmitDecision::Deny {
+                    code: DenyCode::PurposeExceeded
+                }
+            ));
+        }
+        db.set_policy(
+            "A",
+            PolicyPatch {
+                offline_tools: Some(vec!["write_file".into()]),
+                ..PolicyPatch::default()
+            },
+        )
+        .unwrap();
         assert!(matches!(db.admit("A", "write_file"), AdmitDecision::Allow));
-        assert!(matches!(db.admit("A", "shell"), AdmitDecision::Allow));
+        assert!(matches!(
+            db.admit("A", "shell"),
+            AdmitDecision::Deny {
+                code: DenyCode::PurposeExceeded
+            }
+        ));
+        // Even an offline-classified tool cannot declare a foreign destination.
+        assert!(matches!(
+            db.admit_dest("A", "write_file", Some("evil.example")),
+            AdmitDecision::Deny {
+                code: DenyCode::PurposeExceeded
+            }
+        ));
+        db.set_policy(
+            "A",
+            PolicyPatch {
+                offline_tools: Some(vec![]),
+                ..PolicyPatch::default()
+            },
+        )
+        .unwrap();
+        assert!(matches!(
+            db.admit("A", "write_file"),
+            AdmitDecision::Deny {
+                code: DenyCode::PurposeExceeded
+            }
+        ));
     }
 
     #[test]
@@ -2975,6 +3069,133 @@ mod tests {
                 "{tool}"
             );
         }
+    }
+
+    #[test]
+    fn offline_policy_persists_and_is_not_inherited() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Deadbolt::open_at(dir.path(), true, 60);
+        db.ensure_agent("A").unwrap();
+        db.set_policy(
+            "A",
+            PolicyPatch {
+                dest_allow: Some(vec!["github.com".into()]),
+                offline_tools: Some(vec!["read_file".into()]),
+                ..PolicyPatch::default()
+            },
+        )
+        .unwrap();
+        assert!(db.register_child("A", "B", None).unwrap());
+        db.set_policy(
+            "B",
+            PolicyPatch {
+                dest_allow: Some(vec!["github.com".into()]),
+                ..PolicyPatch::default()
+            },
+        )
+        .unwrap();
+        drop(db);
+        let db = Deadbolt::open_at(dir.path(), true, 60);
+        assert_eq!(db.admit("A", "read_file"), AdmitDecision::Allow);
+        assert_eq!(
+            db.admit("B", "read_file"),
+            AdmitDecision::Deny {
+                code: DenyCode::PurposeExceeded
+            }
+        );
+        let report: Value = serde_json::from_str(&db.incident("A").unwrap()).unwrap();
+        assert_eq!(report["policy"]["offline_tools"], json!(["read_file"]));
+    }
+
+    #[test]
+    fn offline_exception_grants_and_clears_are_observed_and_exported() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Deadbolt::open_at(dir.path(), true, 60);
+        db.ensure_agent("A").unwrap();
+        for list in [vec!["read_file".to_string()], vec![]] {
+            db.set_policy(
+                "A",
+                PolicyPatch {
+                    offline_tools: Some(list),
+                    ..PolicyPatch::default()
+                },
+            )
+            .unwrap();
+        }
+        db.set_policy(
+            "A",
+            PolicyPatch {
+                tools_allow: Some(vec!["read_file".into()]),
+                ..PolicyPatch::default()
+            },
+        )
+        .unwrap();
+        let rows = db.export("A", false).unwrap();
+        let changes: Vec<_> = rows.iter().filter(|r| r.offline_tools.is_some()).collect();
+        assert_eq!(changes.len(), 2);
+        assert!(changes
+            .iter()
+            .all(|r| r.class == "observed" && r.kind == "policy"));
+        assert_eq!(changes[0].offline_tools, Some(vec!["read_file".into()]));
+        assert_eq!(changes[1].offline_tools, Some(vec![]));
+        let jsonl = format_export(&rows, true);
+        assert!(jsonl.contains("\"offline_tools\":[\"read_file\"]"));
+        assert!(jsonl.contains("\"offline_tools\":[]"));
+        let text = format_export(&rows, false);
+        assert!(text.contains("offline_tools=[\"read_file\"]"));
+        assert!(text.contains("offline_tools=[]"));
+        let incident: Value = serde_json::from_str(&db.incident("A").unwrap()).unwrap();
+        assert_eq!(
+            incident["offline_policy_changes"].as_array().unwrap().len(),
+            2
+        );
+        assert_eq!(
+            incident["offline_policy_changes"][1]["offline_tools"],
+            json!([])
+        );
+    }
+
+    #[test]
+    fn legacy_destination_policy_migrates_to_strict_default() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Deadbolt::open_at(dir.path(), true, 60);
+        db.ensure_agent("A").unwrap();
+        db.set_policy(
+            "A",
+            PolicyPatch {
+                dest_allow: Some(vec!["github.com".into()]),
+                ..PolicyPatch::default()
+            },
+        )
+        .unwrap();
+        db.store()
+            .unwrap()
+            .lock()
+            .unwrap()
+            .conn
+            .execute("ALTER TABLE leases DROP COLUMN offline_tools", [])
+            .unwrap();
+        drop(db);
+        let db = Deadbolt::open_at(dir.path(), true, 60);
+        assert_eq!(
+            db.admit("A", "shell"),
+            AdmitDecision::Deny {
+                code: DenyCode::PurposeExceeded
+            }
+        );
+        assert_eq!(
+            db.admit_dest("A", "custom_request", Some("github.com")),
+            AdmitDecision::Allow
+        );
+        db.set_policy(
+            "A",
+            PolicyPatch {
+                offline_tools: Some(vec!["read_file".into()]),
+                ..PolicyPatch::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(db.admit("A", "read_file"), AdmitDecision::Allow);
     }
 
     #[test]

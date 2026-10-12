@@ -93,6 +93,9 @@ enum Command {
         /// Comma-separated host allow-list.
         #[arg(long)]
         dest: Option<String>,
+        /// Comma-separated trusted offline tools that may omit dest. Empty clears the list.
+        #[arg(long)]
+        offline_tools: Option<String>,
         /// USD cap. Crossing it pauses the lease.
         #[arg(long)]
         spend_cap: Option<f64>,
@@ -381,6 +384,7 @@ fn run() -> Result<(), DeadboltError> {
             agent,
             tools,
             dest,
+            offline_tools,
             spend_cap,
             irreversible,
         } => {
@@ -389,6 +393,7 @@ fn run() -> Result<(), DeadboltError> {
                 PolicyPatch {
                     tools_allow: split_list(tools),
                     dest_allow: split_list(dest),
+                    offline_tools: split_list(offline_tools),
                     spend_cap_usd: spend_cap,
                     irreversible: split_list(irreversible),
                 },
@@ -441,5 +446,21 @@ fn main() -> ExitCode {
             eprintln!("{err}");
             ExitCode::from(1)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn policy_cli_accepts_explicit_offline_clear() {
+        let cli =
+            Cli::try_parse_from(["deadbolt", "policy", "--agent", "A", "--offline-tools", ""])
+                .unwrap();
+        let Command::Policy { offline_tools, .. } = cli.command else {
+            panic!("wrong command")
+        };
+        assert_eq!(split_list(offline_tools), Some(Vec::new()));
     }
 }

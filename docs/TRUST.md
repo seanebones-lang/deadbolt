@@ -45,7 +45,7 @@ which still denies subsequent admissions rather than cancelling running bodies.
 
 `ensure` issues the lease. Default TTL is 60 seconds. Every admit rechecks it. Expiry is deny `lease_expired`.
 
-A live admit, allow or deny, renews the TTL inside `evaluate` before the deny return. `killed` and `lease_expired` return before that update and are not slid. Silence does not renew.
+A live admit, allow or deny, renews the TTL inside `evaluate` before the deny return. `killed` and `lease_expired` return before that update and are not slid. Silence does not renew. This is an idle timer, not an absolute deadline or a supervisor dead-man switch. A stream of denied requests can keep a live lease active. Scoped admission credentials have a separate fixed expiry and cannot renew it; choose a bounded credential lifetime for workload access. Absolute run lifetime and supervisor-only lease renewal are not implemented.
 
 ## Agent id
 
@@ -69,7 +69,16 @@ No frontier shutdown. No shadow-agent discovery. No fleet halt. No proof that a 
 
 ## Blast radius
 
-Unset policy is open. A set `tools_allow` denies `purpose_exceeded`. `dest_allow` denies `purpose_exceeded` when dest is present and not on the list, or when the tool is network-class (`http`, `fetch`, `browser`, `web_search`) and dest is missing. A local tool with no host is not denied for `dest_allow` alone. The deny is inferred, with the attempt cid in premises. Crossing `spend_cap_usd` pauses the lease. The next admit is `spend_cap`, not a generic pause. An irreversible tool is `needs_human` until `deadbolt approve --agent ID --tool TOOL` grants one shot. `deadbolt resume --agent ID --approve TOOL` is the same shot after a pause. There is no model-facing approve tool. A live admit, allow or deny, renews the TTL in `evaluate`. Silence does not. An expired lease is not slid.
+Unset policy is open. A set `tools_allow` denies `purpose_exceeded` for tools outside the list.
+
+**Current source tightens destination policy:** when `dest_allow` is set, every tool must declare an allowed destination unless the operator explicitly lists it in the per-lease `offline_tools`. A present foreign destination is denied even for an offline-classified tool. Empty `offline_tools` clears the exceptions. This replaces name-based classification; arbitrary names such as `shell`, `python`, `curl` and custom MCP tools no longer receive an implicit missing-destination exception. Existing destination policies migrate to no offline exceptions. Each child needs its own policy.
+
+The new behavior is not in stable 1.0.3 or the original 1.1.0-rc.1 release. Review the [destination migration guide](DESTINATION-POLICY.md) before upgrading. This is admission policy over executor-declared tokens, **not network egress enforcement**: it cannot verify DNS, redirects, sockets, subprocess networking or a dishonest caller's declared host. Derive destinations from trusted execution parameters and pair sensitive workloads with OS/container egress controls. Never classify general code execution as offline merely because its tool name sounds local.
+
+Crossing `spend_cap_usd` pauses the lease. The next admit is `spend_cap`, not a generic pause. Spend is reported by trusted infrastructure through `spend_add` (the MCP proxy's argument-number discovery is only a convention). It is not provider billing measurement, prepaid reservation or an upper bound on in-flight charges. Scoped workload credentials cannot report spend. Integrate authoritative provider usage in the trusted supervisor and reconcile lag; do not accept an agent's proposed cost as actual usage.
+
+An irreversible tool is `needs_human` until the operator grants one broad agent/tool shot. There is no model-facing approve tool. Operator controls must be excluded by capability/credential separation, not by matching tool names; `is_shutdown_tool` is only a diagnostic heuristic and cannot establish safety for arbitrary aliases.
+
 
 Harness is one consumer of this crate. This repository does not include it.
 
