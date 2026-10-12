@@ -46,7 +46,7 @@ class SigningPreflight(unittest.TestCase):
                         self.assertEqual(architecture.call_args.args[0][0], "lipo")
 
     def test_stable_and_candidate_archives_reach_architecture_check(self):
-        for version in ("1.0.3", "1.1.0-rc.1", "1.1.0-rc.1+build.7", "2.0.0-rc.1", "2.0.0-rc.2"):
+        for version in ("1.0.3", "1.1.0-rc.1", "1.1.0-rc.1+build.7", "2.0.0-rc.1", "2.0.0-rc.2", "2.0.0-rc.3"):
             with self.subTest(version=version), self.assertRaisesRegex(RuntimeError, "reached architecture"):
                 self.run_archive(version)
 
