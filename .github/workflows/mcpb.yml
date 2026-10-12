@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: mcp-bundle-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   installed-bundle:
     timeout-minutes: 12

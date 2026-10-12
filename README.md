@@ -23,6 +23,13 @@ requires operator authentication for both Unix and TCP sidecars by default.
 
 ## Evaluate the 2.0 developer candidate
 
+**Corrected source candidate: 2.0.0-rc.2 / Python 2.0.0rc2, not yet published.**
+It adds supervisor renewal by default for fresh roots, complete ancestor policy
+checks, authenticated operator setup, private persisted state and model-readable
+denials. Existing stored renewal modes stay unchanged. Use a reviewed commit
+when building this source; the RC1 downloads below retain their earlier behavior.
+New immutable downloads and graphical-client acceptance are separate release gates.
+
 [Download engine 2.0.0-rc.1 and matching Python wheel 2.0.0rc1](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.1)
 for immutable run deadlines, optional supervisor-only idle renewal and explicit
 operator-owned offline destination exceptions. The release includes four native
