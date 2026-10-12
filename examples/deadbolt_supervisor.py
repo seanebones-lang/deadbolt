@@ -51,7 +51,14 @@ class SupervisorHeartbeat:
 
     def _beat(self):
         try:
-            if self._stop.is_set() or self._continue() is not True or self._stop.is_set():
+            # An intentional close may race the timer or lifecycle callback.
+            # It stops renewal normally; it is not a failed liveness check.
+            if self._stop.is_set():
+                return False
+            continuing = self._continue()
+            if self._stop.is_set():
+                return False
+            if continuing is not True:
                 raise HeartbeatLost("supervisor liveness lost")
             result = self._renew(self._agent, self._secret)
             if type(result) is not dict or set(result) != {"ok"} or result["ok"] is not True:

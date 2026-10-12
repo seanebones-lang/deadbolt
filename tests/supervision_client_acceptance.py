@@ -148,15 +148,16 @@ def main():
             require(client.renew_supervised("run", secret).get("ok") is True, "credential persists after restart")
             expiry = client.status("run")["agents"][0]["expires_at"]
             cases.append("mode_and_credential_survive_restart")
-            with SupervisorHeartbeat('run',secret,should_continue=lambda:True,interval_secs=.1) as heartbeat:
+            with SupervisorHeartbeat('run',secret,should_continue=lambda:True,interval_secs=1) as heartbeat:
                 heartbeat.check()
                 mcp_call('s1')
             expiry = client.status("run")["agents"][0]["expires_at"]
             os.environ["DEADBOLT_ADMISSION_TOKEN"] = worker
             while time.time() < expiry:
                 decision = client.admit("run", "read")
-                require(decision.get("decision") == "allow" or decision.get("code") == "lease_expired", "busy workload decision")
-                time.sleep(.15)
+                require(decision.get("decision") == "allow" or decision.get("code") == "lease_expired",
+                        "busy workload decision: " + str(decision.get("code", decision.get("decision"))))
+                time.sleep(.5)
             for agent in ["run", "child"]:
                 os.environ.pop("DEADBOLT_ADMISSION_TOKEN", None)
                 effect = root / f"{agent}-after-expiry"
@@ -230,7 +231,8 @@ def main():
             cli_run=subprocess.run([str(Path(sysconfig.get_path('scripts')) / ('deadbolt-supervisor-heartbeat.exe' if os.name=='nt' else 'deadbolt-supervisor-heartbeat')),
                                     "--agent","helper-cli","--credential-file",str(root / "helper-cli-sup"),"--max-secs",".2","--interval-secs",".05"],
                                    capture_output=True,text=True,timeout=10)
-            require(cli_run.returncode==0 and cli_secret not in cli_run.stdout+cli_run.stderr, "finite CLI maintains live run privately")
+            require(cli_run.returncode==0 and cli_secret not in cli_run.stdout+cli_run.stderr,
+                    "finite CLI maintains live run privately; exit="+str(cli_run.returncode))
             before_cli=operator("export","--agent","helper-cli")
             require('supervisor_renew' in before_cli, "finite CLI performs renewal")
             time.sleep(.15)

@@ -44,6 +44,28 @@ class HeartbeatContract(unittest.TestCase):
                 h.check()
         self.assertEqual(len(calls),1)
 
+    def test_intentional_close_during_lifecycle_check_is_not_liveness_loss(self):
+        entered=threading.Event(); release=threading.Event(); calls=[]; checks=[]
+        def continuing():
+            checks.append(True)
+            if len(checks)>1:
+                entered.set()
+                self.assertTrue(release.wait(1))
+            return True
+        h=SupervisorHeartbeat('dummy','dummy-secret',should_continue=continuing,
+                              interval_secs=.01,renew=lambda *args:calls.append(args) or {'ok':True})
+        def finish_close():
+            self.assertTrue(h._stop.wait(1))
+            release.set()
+        with h:
+            self.assertTrue(entered.wait(1))
+            releaser=threading.Thread(target=finish_close)
+            releaser.start()
+        releaser.join(1)
+        self.assertFalse(h._lost.is_set())
+        self.assertFalse(h._thread.is_alive())
+        self.assertEqual(len(calls),1)
+
     def test_transport_exception_is_not_echoed_and_thread_stops(self):
         calls=[]
         def renew(*args):
