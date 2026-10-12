@@ -108,8 +108,8 @@ A directory listing is not a hosted operator endpoint or a certification.
 
 ## Cargo registry CLI and embedded Rust
 
-Once 2.0.0 is visible on [crates.io](https://crates.io/crates/n11-deadbolt), install
-with the reviewed package lockfile:
+[Stable 2.0.0 is published on crates.io](https://crates.io/crates/n11-deadbolt/2.0.0).
+Install with the reviewed package lockfile:
 
 ```sh
 cargo install n11-deadbolt --version 2.0.0 --locked --bin deadbolt
@@ -131,7 +131,7 @@ requires no publishing token. Commit your application's own Cargo.lock and use
 
 ## Published source
 
-Use the release tag once published, or a reviewed exact source revision:
+Use the published stable release tag, or its exact source revision:
 
 ```sh
 git clone --branch v2.0.0 --depth 1 https://github.com/seanebones-lang/deadbolt.git

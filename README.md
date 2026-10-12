@@ -60,8 +60,8 @@ deadbolt drill
 ```
 
 The matching [Python client 2.0.0](https://pypi.org/project/n11-deadbolt-client/2.0.0/) is published.
-Use the Cargo registry command once version 2.0.0 appears on crates.io; until
-then use the verified native archives or pinned source route in the installation guide:
+The matching [Rust package 2.0.0](https://crates.io/crates/n11-deadbolt/2.0.0) is also published.
+Install the CLI from Cargo, or the Python client in your application environment:
 
 ```sh
 cargo install n11-deadbolt --version 2.0.0 --locked --bin deadbolt
