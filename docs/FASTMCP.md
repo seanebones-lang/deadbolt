@@ -103,9 +103,12 @@ pause/resume, clip, kill and credential issuance stay in a separate trusted
 process. The disposable demo shows that separation in code; it is not an
 operator service for real accounts.
 
-The run has a sliding lease. Ordinary admission renews a live lease; this server
-never calls `ensure` and cannot revive a dead identity. Idle expiry needs an
-operator-created new run, not automatic self-approval or a retry loop.
+The published 1.1/2.0 RC1 demonstration pairs use an admission-renewed idle
+lease. Fresh corrected RC2 source runs default to supervisor renewal; for an
+ongoing server, provision a separate trusted [heartbeat](SUPERVISION.md) before
+initial expiry, or explicitly opt into activity mode during operator setup.
+This server never calls `ensure` and cannot revive a dead identity. Idle expiry
+needs an operator-created fresh run rather than automatic self-approval or retries.
 
 ## What the recipe protects
 

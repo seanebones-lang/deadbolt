@@ -1,4 +1,4 @@
-# Migrating to the 2.0.0-rc.1 candidate
+# Migrating to the 2.0 developer candidates
 
 This candidate consolidates explicit destination exceptions, immutable run
 deadlines, optional supervisor-only liveness and a Python owned-process reference.
@@ -8,7 +8,11 @@ A source merge does not upgrade a package, running sidecar or editor plugin.
 
 ## Choose a matching engine and client
 
-Rust uses `2.0.0-rc.1`; the Python wheel uses `2.0.0rc1`. Install a reviewed
+Corrected source uses engine `2.0.0-rc.2` and Python `2.0.0rc2`. Its additional
+changes are marked unreleased below; publication and client-host acceptance
+remain separate gates. [Build the source pair from one reviewed revision](PYPI.md#evaluate-the-corrected-source-candidate).
+
+The published pair uses Rust `2.0.0-rc.1` and Python `2.0.0rc1`. Install a reviewed
 candidate wheel in your own virtual environment and install its engine separately:
 
 ```sh
