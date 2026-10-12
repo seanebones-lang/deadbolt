@@ -5,6 +5,10 @@ The older `v0.1.1-product` tag is not the standalone hardening release.
 
 ## Unreleased after 2.0.0-rc.1
 
+- Require distribution hashes for the complete OpenAI Agents, Hermes and FastMCP
+  Python acceptance dependency sets, retaining their tested versions and adding
+  missing conditional platform dependencies.
+
 - Report changed operator action reviews with the nonsecret
   `fingerprint_mismatch` error, without granting permission or echoing arguments.
 

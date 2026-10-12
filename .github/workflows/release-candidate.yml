@@ -86,7 +86,7 @@ jobs:
         run: |
           git clone --filter=blob:none --no-checkout https://github.com/NousResearch/hermes-agent.git "$RUNNER_TEMP/hermes"
           git -C "$RUNNER_TEMP/hermes" checkout 5eb1381f3965fd96454d1c32f6bbefcd99cda347
-          python -m pip install -r tests/hermes-acceptance-requirements.txt
+          python -m pip install --require-hashes -r tests/hermes-acceptance-requirements.txt
           npm install --prefix "$RUNNER_TEMP/mcp-reference" --ignore-scripts --no-audit --no-fund @modelcontextprotocol/server-filesystem@2026.8.31
       - name: Verify actual tool effects through Hermes MCP
         shell: bash

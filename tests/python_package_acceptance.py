@@ -103,7 +103,7 @@ print("installed base wheel: import, fail-closed body, no SDK dependency passed"
             run([sys.executable, "-m", "pip", "install", "--force-reinstall", "--no-deps",
                  str(OUT / wheel.name)], cwd=temp)
         if args.install_sdk:
-            run([sys.executable, "-m", "pip", "install", "-r", str(ROOT / "tests/openai-agents-requirements.txt")], cwd=temp)
+            run([sys.executable, "-m", "pip", "install", "--require-hashes", "-r", str(ROOT / "tests/openai-agents-requirements.txt")], cwd=temp)
 
 
 if __name__ == "__main__":
