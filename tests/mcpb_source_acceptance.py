@@ -55,6 +55,7 @@ def main():
         subprocess.run([sys.executable, str(ROOT / "tests/mcpb_acceptance.py"),
                         "--bundle", str(bundle), "--out", str(output),
                         "--expect-damaged-store-refusal",
+                        "--expect-conflicting-destination-refusal",
                         "--mcpb-module", str(args.mcpb_module.resolve(strict=True))],
                        check=True, timeout=600)
         report = json.loads(output.read_text())

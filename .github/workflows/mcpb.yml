@@ -29,14 +29,14 @@ jobs:
         with:
           node-version: '22'
       - name: Download pinned published engine
-        run: gh release download v2.0.0-rc.2 --repo seanebones-lang/deadbolt --pattern '*.zip' --dir build/downloads
+        run: gh release download v2.0.0-rc.3 --repo seanebones-lang/deadbolt --pattern '*.zip' --dir build/downloads
         env:
           GH_TOKEN: ${{ github.token }}
       - run: python dist/build_mcpb.py --downloads build/downloads --out build/mcpb
       - run: npm install --prefix build/tools --ignore-scripts --no-audit --no-fund @anthropic-ai/mcpb@2.1.2
       - run: node build/tools/node_modules/@anthropic-ai/mcpb/dist/cli/cli.js pack build/mcpb/bundle build/deadbolt.mcpb
       - run: node build/tools/node_modules/@anthropic-ai/mcpb/dist/cli/cli.js unpack build/deadbolt.mcpb build/installed
-      - run: python tests/mcpb_acceptance.py --bundle build/installed --mcpb-module build/tools/node_modules/@anthropic-ai/mcpb --out build/acceptance.json
+      - run: python tests/mcpb_acceptance.py --bundle build/installed --mcpb-module build/tools/node_modules/@anthropic-ai/mcpb --expect-damaged-store-refusal --expect-conflicting-destination-refusal --out build/acceptance.json
       - uses: dtolnay/rust-toolchain@3230091d7ef9483f601620abacc570c22cf44d22
         with:
           toolchain: 1.85.0
