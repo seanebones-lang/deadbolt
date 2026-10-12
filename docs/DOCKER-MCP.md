@@ -98,6 +98,16 @@ Linux engine and private state. Do not concurrently open/edit that SQLite state
 with host-native macOS/Windows processes; the supported test path keeps database
 locking and updates on the Linux side of Docker Desktop's mounts.
 
+For a runnable operator-side example, use the separate
+[RC2 container supervisor reference](https://github.com/seanebones-lang/deadbolt-docker-mcp/blob/8592bc61bac2246ea52b1e25fc50f1be36baa62f/examples/supervisor/README.md).
+It builds an operator image with the matching checksum-pinned Python client,
+puts the authenticated sidecar socket in a private Linux volume, and mounts
+only that socket and one read-only renewal key into the finite heartbeat.
+The downstream receives neither the control socket nor credential mounts.
+This later example source does not replace the frozen RC2 MCP image/tag.
+The downstream still shares writable state and remains trusted; the reference
+does not make same-user state tamper-proof or cancel running tool bodies.
+
 Use `--network none` for local-only tools. Remote services require deliberate
 network configuration and credentials. Do not mount your home directory or
 Docker socket, and do not use privileged mode. These limits are part of the
@@ -126,6 +136,13 @@ ARM64 with the official Docker MCP Gateway v0.42.0. These are protocol/container
 checks, not model-mediated client testing or independent customer adoption.
 [Published RC2 container evidence](evidence/docker-rc2-2026-10-12.json)
 records exact source/image and CI checks.
+
+The separate supervisor lifecycle suite crosses the actual default 60-second
+idle expiry with real renewal, then stops its heartbeat while tools keep calling.
+It checks idle-expiry denials without effects, refused late renewal/reconnect,
+and the fixed deadline winning over continued heartbeats. It uses no forced
+SQLite expiry edits. Follow the reference's own checkout/build commands; this
+additional suite is not present in the earlier frozen Docker RC2 source tag.
 
 Remove your client entry and stop its container to disconnect. `--rm` removes
 the container; private bind-mounted state remains. Back up or deliberately
