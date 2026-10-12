@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gate a FastMCP tool and prove its denied effects stay untouched · DeadBolt</title>
+<meta name="description" content="A runnable FastMCP walkthrough: check permission inside a Python MCP tool, test real file effects, and keep operator authority separate.">
+<link rel="canonical" href="https://seanebones-lang.github.io/deadbolt/fastmcp-tutorial.html">
+<link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="assets/site.css">
+<style>.guide{max-width:900px;padding-block:54px 80px;min-width:0}.guide h1{font-size:clamp(2.1rem,5vw,3.8rem);line-height:1.12;letter-spacing:-.045em}.guide h2{font-size:1.65rem;margin-top:2.8rem;letter-spacing:-.02em;scroll-margin-top:25px}.guide p,.guide li{font-size:1.06rem;line-height:1.8}.guide a{overflow-wrap:anywhere;text-underline-offset:3px}.guide pre{padding:22px;background:#151719;color:#f6f2ec;overflow-x:auto;line-height:1.7;border-radius:4px;max-width:100%}.guide pre code{font-size:.88rem;white-space:pre;background:transparent;color:inherit;padding:0}.guide code{font-family:var(--mono);font-size:.88em;overflow-wrap:anywhere}.guide-nav{display:flex;flex-wrap:wrap;gap:18px;font-weight:700;margin-bottom:28px}.callout{padding:22px;border-left:4px solid var(--orange);background:#e3ded6;line-height:1.7}.guide details{border-block:1px solid var(--line);padding:18px 0;margin-top:24px}.guide footer{border-top:1px solid var(--line);padding-top:25px;margin-top:50px}.table-wrap{overflow-x:auto}.guide table{border-collapse:collapse;width:100%;line-height:1.6}.guide th,.guide td{border:1px solid var(--line);padding:14px;text-align:left;vertical-align:top}@media(max-width:760px){.guide{width:calc(100% - 36px)}.guide pre{padding:14px}.topbar nav{gap:1rem}.topbar nav a{font-size:.75rem}}</style>
+</head><body><a class="skip" href="#content">Skip to content</a>
+<header class="topbar"><a class="wordmark" href="index.html">DEADBOLT</a><nav aria-label="Main navigation"><a href="index.html#install">Install</a><a href="index.html#watch">Watch</a><a href="https://github.com/seanebones-lang/deadbolt">Source</a></nav></header>
+<main class="guide wrap" id="content"><nav class="guide-nav" aria-label="Tutorial sections"><a href="#run">Run the demo</a><a href="#pattern">Inside the tool</a><a href="#results">Read the evidence</a><a href="#adapt">Adapt one route</a></nav>
+<p class="eyebrow">PYTHON / FASTMCP / LOCAL STDIO</p>
+<h1>Gate a FastMCP tool. Prove a denied call leaves its effect untouched.</h1>
+<p>If you own a Python MCP server, you can put the permission check immediately before its actual file, database or API operation. FastMCP handles the tool schema and transport. DeadBolt admits the enclosed operation only when the configured run and policy allow it.</p>
+<p>This walkthrough runs a separate MCP server process and checks a temporary note file after each call. It needs no model key or real account. An error response alone is not the test: the denied call must leave the file's bytes unchanged.</p>
+<div class="callout"><strong>Evaluation versions:</strong> FastMCP 4.1.0, Python client 1.1.0rc1 and engine 1.1.0-rc.1. The DeadBolt versions are prereleases. The recipe lives in current source and was added after those releases; it is not in the original release archives or Python wheel. The stable 1.0.3 engine in MCP bundle 1.1.0 cannot run this recipe.</div>
+<p><strong>Authorship disclosure:</strong> an AI coding assistant wrote this guide for NextEleven and checked its commands against the source and actual local tool effects. The linked automated tests are evidence about this integration, not independent certification or customer adoption.</p>
+<h2 id="run">1. Run it in a new local lab</h2>
+<p>The source-build route below requires Git, Python 3.10+ (3.12 recommended), Rust 1.85+ and a native C compiler/linker for bundled SQLite. On Windows, use Rust's MSVC toolchain, C++ Build Tools and Windows SDK. The first build needs Internet access and can take several minutes. No system-wide DeadBolt installation is replaced.</p>
+<p>The commands pin a reviewed source revision, install a pinned dependency set with the published Python client, and copy only the two recipe files out of the checkout. This makes the demonstration use the installed client rather than the adjacent source client.</p>
+<pre tabindex="0" aria-label="macOS and Linux lab commands"><code class="language-sh"># macOS / Linux: use a folder name that does not already exist.
+mkdir deadbolt-fastmcp-lab
+cd deadbolt-fastmcp-lab
+git clone https://github.com/seanebones-lang/deadbolt.git source
+git -C source checkout --detach 97bfe6ba5038279d671132c7289577f91ec4b56c
+cargo build --manifest-path source/Cargo.toml --locked --bin deadbolt
+python3 -m venv .venv
+.venv/bin/python -m pip install -r source/tests/fastmcp-requirements.txt n11-deadbolt-client==1.1.0rc1
+mkdir consumer
+cp source/examples/fastmcp_demo.py source/examples/fastmcp_server.py consumer/
+.venv/bin/python consumer/fastmcp_demo.py --binary source/target/debug/deadbolt</code></pre>
+<details><summary>Windows PowerShell commands</summary><pre tabindex="0"><code class="language-powershell">mkdir deadbolt-fastmcp-lab
+cd deadbolt-fastmcp-lab
+git clone https://github.com/seanebones-lang/deadbolt.git source
+git -C source checkout --detach 97bfe6ba5038279d671132c7289577f91ec4b56c
+cargo build --manifest-path source/Cargo.toml --locked --bin deadbolt
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r source/tests/fastmcp-requirements.txt n11-deadbolt-client==1.1.0rc1
+mkdir consumer
+Copy-Item source/examples/fastmcp_demo.py,source/examples/fastmcp_server.py consumer/
+.\.venv\Scripts\python.exe consumer/fastmcp_demo.py --binary source/target/debug/deadbolt.exe</code></pre><p>Confirm <code>py -3 --version</code> selects Python 3.10 or newer before creating the environment. These direct interpreter commands do not require changing PowerShell's execution policy.</p></details>
+<p><strong>Already have the matching native engine?</strong> Download its ZIP and matching checksum from the <a href="https://github.com/seanebones-lang/deadbolt/releases/tag/v1.1.0-rc.1">1.1.0-rc.1 release</a>, verify it using the <a href="https://github.com/seanebones-lang/deadbolt/blob/97bfe6ba5038279d671132c7289577f91ec4b56c/docs/INSTALL.md#native-archive-no-rust-required">native installation guide</a>, and skip the Cargo build. Replace the final <code>--binary</code> value with the actual executable path. The current source clone is still needed for the new recipe files.</p>
+<p>The demo creates private temporary state, starts a loopback sidecar and a separate stdio MCP child, checks the note's bytes, then removes its temporary state and stops its processes. The lab folder and virtual environment remain for your inspection. After it finishes, you can delete this disposable lab folder.</p>
+<h2 id="pattern">2. Put the effect inside the callback</h2>
+<p>The complete <a href="https://github.com/seanebones-lang/deadbolt/blob/97bfe6ba5038279d671132c7289577f91ec4b56c/examples/fastmcp_server.py">server source</a> selects its output path and run identity in trusted startup code. Its MCP input contains only a bounded note string. This is the relevant function, inside the server factory:</p>
+<pre tabindex="0" aria-label="Protected FastMCP tool example"><code class="language-python">@server.tool(annotations={"readOnlyHint": False, "destructiveHint": True,
+                          "idempotentHint": True, "openWorldHint": False})
+async def demo_write_note(
+    content: Annotated[str, Field(min_length=1, max_length=4096)],
+) -&gt; str:
+    async def effect() -&gt; str:
+        await asyncio.to_thread(output.write_text, content, encoding="utf-8")
+        return "written"
+
+    outcome = await dispatch_async(agent_id, "demo_write_note", effect)
+    if not outcome["executed"]:
+        code = outcome["decision"].get("code", "unknown")
+        raise ToolError(f"deadbolt:{code}; the note was not written. Contact the operator.")
+    return outcome["result"]</code></pre>
+<p>Imports and startup configuration are in the complete file. <code>dispatch_async</code> performs admission I/O in a worker thread and invokes the callback only after explicit allow. Every protected effect belongs inside that callback. A write before it, a background task launched before it, or a second ungated tool defeats that route's boundary. Do not cache admission decisions.</p>
+<p><a href="https://gofastmcp.com/servers/tools">FastMCP's tool annotations</a> describe behavior for clients; they do not enforce permission. The MCP tool name must match the name checked by the gate and the operator's policy.</p>
+<h2 id="results">3. Read the evidence, including the failures</h2>
+<p>The final JSON should include <code>"passed": true</code>, <code>"count": 17</code>, <code>"provider_requests": 0</code> and <code>"engine": "deadbolt 1.1.0-rc.1"</code>. The case names describe what actually ran or stayed untouched:</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Situation</th><th scope="col">Required observation</th></tr></thead><tbody>
+<tr><td>Allowed call</td><td>The note changes to the requested content.</td></tr>
+<tr><td>Off-policy, invalid arguments, paused or clipped run</td><td>The previous note bytes remain unchanged.</td></tr>
+<tr><td>Approval required</td><td>No write until the operator grants one approval; the next replay requires approval again.</td></tr>
+<tr><td>Invalid, wrong-run, revoked or expired credential</td><td>The effect stays untouched.</td></tr>
+<tr><td>Killed run, including a new MCP connection</td><td>Reconnecting does not revive the run or allow another write.</td></tr>
+<tr><td>Unavailable sidecar</td><td>The server withholds the effect rather than continuing without admission.</td></tr>
+</tbody></table></div>
+<p>The <a href="https://github.com/seanebones-lang/deadbolt/blob/97bfe6ba5038279d671132c7289577f91ec4b56c/tests/fastmcp_acceptance.py">20-case acceptance script</a> adds three startup refusals: missing sidecar address, missing admission key and an operator key present in the workload environment. <a href="https://github.com/seanebones-lang/deadbolt/actions/runs/38193039210">The recipe CI run</a> passed on Linux, macOS and Windows using an installed client wheel outside the checkout. The 17-case demo uses the MCP protocol; it does not require a model to choose tool calls.</p>
+<details><summary>If the lab does not finish successfully</summary><ul>
+<li><strong>Wrong engine version:</strong> run the chosen executable with <code>--version</code>. This recipe requires 1.1.0-rc.1, not stable 1.0.3 or the MCP bundle's engine.</li>
+<li><strong>Import or framework errors:</strong> use the lab's virtual-environment interpreter and its pinned requirements. Confirm Python 3.10+; a system Python 3.9 cannot run FastMCP 4.1.0.</li>
+<li><strong>Build errors:</strong> check Rust and native compiler prerequisites, or use the checksum-verified matching native archive.</li>
+<li><strong>Failed effect check:</strong> stop and inspect the failure. Do not loosen policy, pass the operator key to the tool process or turn a failure into automatic approval.</li>
+</ul><p>Report versions, OS and the failing case with dummy data in a <a href="https://github.com/seanebones-lang/deadbolt/issues/new/choose">GitHub issue</a>. Keep credentials and real message content out of reports.</p></details>
+<h2 id="adapt">4. Adapt one real route deliberately</h2>
+<ol><li>Pick one bounded action and place its trusted validation and actual effect inside the callback. Test allowed and denied calls against the real executor.</li><li>Assign a fresh run in trusted application code. Configure tool policy and issue a scoped admission credential through a separate operator process.</li><li>Give the MCP workload only <code>DEADBOLT_SOCK</code> and <code>DEADBOLT_ADMISSION_TOKEN</code>. Keep the operator key and durable state outside that process.</li><li>Display tool denials or request operator intervention. An MCP error does not stop the whole agent; avoid blind retry loops.</li><li>For a public or multi-user server, authenticate and assign each run separately. This fixed-run local demo is not a shared-user operator service.</li></ol>
+<p>A live run has a sliding lease; admission renews it. An expired or killed identity needs a fresh operator-created run. The server must not call <code>ensure</code> to revive itself.</p>
+<div class="callout"><strong>Know the boundary.</strong> This recipe gates only the enclosed callback. Resources, prompts, startup, middleware, other tools, background tasks and arbitrary OS/network access remain outside it. Same-user processes are not an OS sandbox. Admission does not cancel an already-running operation or make permission and execution atomic. Cancelling an async call cannot stop a file write already running in a worker thread.</div>
+<p>The demo's approval is one use for an agent/tool pair. It is <strong>not bound to exact content, arguments or recipients</strong>. If reviewed content must match the executed action, evaluate the separate <a href="https://github.com/seanebones-lang/deadbolt/blob/97bfe6ba5038279d671132c7289577f91ec4b56c/docs/ACTION-APPROVALS.md">exact-action protocol</a>. Additional process/resource isolation is required for untrusted workload code.</p>
+<h2>Help make the next integration easier</h2>
+<p>A useful first developer report covers one route: time to first successful run, the confusing step, one allowed effect, one denied effect that stayed untouched, and one revoked run. Share a dummy-data reproduction through <a href="https://github.com/seanebones-lang/deadbolt/issues/new/choose">GitHub issues</a>. That feedback helps improve installation and examples without making claims about untested deployments.</p>
+<p><a href="https://github.com/seanebones-lang/deadbolt/blob/97bfe6ba5038279d671132c7289577f91ec4b56c/docs/FASTMCP.md">Full integration recipe</a> · <a href="editor-tutorial.html">Bolt on to an existing stdio server</a> · <a href="index.html#watch">Captioned overview and walkthrough</a></p>
+<footer>Free and open source · Apache-2.0 · <a href="https://www.nexteleven.dev/deadbolt">Built by NextEleven</a></footer></main></body></html>
