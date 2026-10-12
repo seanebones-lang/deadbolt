@@ -2,7 +2,7 @@
 
 Approve one specific effect rather than the next call to a tool. This opt-in
 addition is not in published v1.0.3 binaries. It is available in the published
-1.1.0-rc.1 and 2.0.0-rc.1 candidates, and the corrected 2.0 source. Select a
+1.1.0-rc.1, 2.0.0-rc.1 and corrected 2.0.0-rc.2 candidates. Select a
 versioned candidate tag or a reviewed commit
 and keep the executor, operator CLI, database and review storage trusted.
 It needs no model provider, API key or paid service.
@@ -55,7 +55,7 @@ deadbolt action approve --file review.json --fingerprint sha256:PASTE_THE_REVIEW
 Approval rechecks the supplied fingerprint against the file, refusing a file
 changed since review. It also enables exact-only policy for that run/tool.
 
-Unreleased source reports `deadbolt:fingerprint_mismatch` and exits nonzero when
+Published RC2 reports `deadbolt:fingerprint_mismatch` and exits nonzero when
 the supplied review fingerprint differs. No grant is written and no arguments
 are echoed by that error. Inspect/review the changed request before approving it.
 Published rc.1 retains the older `bad_request` label.

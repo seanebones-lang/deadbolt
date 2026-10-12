@@ -75,7 +75,7 @@ deadbolt serve --bind "$DEADBOLT_SOCK"
 
 The server waits for requests. Leave this terminal running. The token file is
 created exclusively: if it already exists, reuse your intended private demo token
-instead of overwriting it. Keep it out of logs and Git. Unreleased source requires
+instead of overwriting it. Keep it out of logs and Git. Published RC2 requires
 the token for Unix startup; this authenticated recipe also works on older engines.
 See [HTTP authentication](HTTP-AUTHENTICATION.md) for the version boundary.
 
@@ -95,7 +95,7 @@ OS shell or contact a model. This trusted demonstration uses operator access to
 create its lease. A real workload dispatcher should receive only a separately
 issued [admission credential](CREDENTIALS.md) after trusted setup.
 
-With the corrected RC2 source, this fresh run defaults to supervisor renewal.
+With published RC2, this fresh run defaults to supervisor renewal.
 For this short demonstration, perform the kill step within the default
 60-second idle window. If it expires first, the sample prints `lease_expired`
 and exits without reviving it. For ongoing use, provision the separate

@@ -288,9 +288,9 @@ cooperative: your executor must prevent any direct dispatch that skips them.
 
 ## Bolt on: stdio MCP proxy
 
-**Unreleased 2.0 candidate:** the raw proxy no longer creates leases at runtime.
+**Published RC2:** the raw proxy no longer creates leases at runtime.
 Before starting it, trusted operator setup must create a fresh run and set its
-tool allowlist. For a local idle-only demonstration:
+tool allowlist. For a short local demonstration within the initial idle window:
 
 ```sh
 deadbolt ensure --agent my-mcp-run-001
@@ -300,7 +300,7 @@ deadbolt mcp-proxy --agent my-mcp-run-001 -- python3 your_mcp_server.py
 
 Use your server's actual tool names. The short demonstration runs within the
 initial idle window. For ongoing work, provision the supervisor and heartbeat
-described above; corrected source defaults fresh `ensure` roots to that mode.
+described above; published RC2 defaults fresh `ensure` roots to that mode.
 Explicit `--activity-renewal` is available for a deliberately selected legacy
 activity run. A missing lease denies `no_lease`; an unset tool policy denies
 `policy_required`; an empty allowlist denies every tool. The check also applies
