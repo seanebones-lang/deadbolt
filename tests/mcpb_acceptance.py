@@ -12,6 +12,7 @@ import sqlite3
 import subprocess
 import tempfile
 import threading
+import time
 
 FIXTURE = r'''
 const fs = require('node:fs');
@@ -22,7 +23,7 @@ readline.createInterface({input: process.stdin}).on('line', line => {
  if (!Object.hasOwn(r, 'id')) return;
  let result;
  if (r.method === 'initialize') result = {protocolVersion: '2025-03-26', capabilities: {tools:{}}, serverInfo:{name:'disposable-fixture', version:'1.0.0'}};
- else if (r.method === 'tools/list') result = {tools:['echo','write_marker','off_list'].map(name=>({name,description:'Disposable acceptance fixture',inputSchema:{type:'object',properties:{},additionalProperties:true}}))};
+ else if (r.method === 'tools/list') result = {tools:['echo','write_marker','off_list','shell','custom_fetch'].map(name=>({name,description:'Disposable acceptance fixture',inputSchema:{type:'object',properties:{},additionalProperties:true}}))};
  else if (r.method === 'tools/call') {
    fs.appendFileSync(process.argv[3], r.params.name + '\n');
    result = {content:[{type:'text', text:'fixture body ran'}]};
@@ -52,7 +53,7 @@ def main():
         fixture = w / 'fixture.cjs'
         fixture.write_text(FIXTURE)
         starts, effects = w / 'starts', w / 'effects'
-        c = {'version': 1, 'agent': 'bundle-test', 'database': str(w / 'state.db'), 'events': str(w / 'events.jsonl'),
+        c = {'version': 2, 'hard_deadline_at': int(time.time()) + 600, 'renewal_mode': 'activity', 'offline_tools': ['echo', 'write_marker'], 'agent': 'bundle-test', 'database': str(w / 'state.db'), 'events': str(w / 'events.jsonl'),
              'command': node, 'args': [str(fixture), str(starts), str(effects)], 'tools': ['echo', 'write_marker'],
              'destinations': [], 'irreversible_tools': ['write_marker'], 'spend_cap_usd': 10}
         config = w / 'config.json'
@@ -153,7 +154,7 @@ import(pathToFileURL(entry).href).catch(()=>process.exit(1));
                     return data
                 verified = setup_call('deadbolt_check_bundle', {})
                 assert verified['checksum_matches'] and verified['active_protection'] is False
-                assert verified['target'] == target and verified['engine_version'] == '1.0.3'
+                assert verified['target'] == target and verified['engine_version'] == '2.0.0-rc.1'
                 for route in ('claude_desktop', 'stdio_client', 'rust', 'http'):
                     g = setup_call('deadbolt_get_integration_guide', {'route':route})
                     assert g['route'] == route and 'no tools are protected' in g['boundary']
@@ -174,9 +175,9 @@ import(pathToFileURL(entry).href).catch(()=>process.exit(1));
         assert invalid.returncode != 0 and not stdout and not starts.exists()
         checks.append({'case':'supplied_missing_config_never_falls_back_to_setup', 'passed':True})
         proc = launch()
-        def call(tool, deny=None):
+        def call(tool, deny=None, arguments=None):
             before = effects.read_text() if effects.exists() else ''
-            response = rpc('tools/call', {'name': tool, 'arguments': {}})
+            response = rpc('tools/call', {'name': tool, 'arguments': arguments or {}})
             after = effects.read_text() if effects.exists() else ''
             if deny:
                 assert deny in response['error']['message'], response
@@ -187,7 +188,7 @@ import(pathToFileURL(entry).href).catch(()=>process.exit(1));
             checks.append({'case': tool + ':' + (deny or 'allow'), 'body_ran': before != after})
         try:
             assert rpc('initialize')['result']['serverInfo']['name'] == 'disposable-fixture'
-            assert len(rpc('tools/list')['result']['tools']) == 3
+            assert len(rpc('tools/list')['result']['tools']) == 5
             call('echo')
             call('off_list', 'purpose_exceeded')
             call('write_marker', 'needs_human')
@@ -217,13 +218,13 @@ import(pathToFileURL(entry).href).catch(()=>process.exit(1));
         checks.append({'case': 'killed_restart_never_starts_configured_child', 'passed': True})
         assert 'disposable-never-forwarded' not in stderr and str(w) not in stderr
         for mutation in ({'tools': []}, {'command': 'node'}, {'args': 'echo hi'}, {'unexpected': True},
-                         {'database': str(w/'missing'/'db')}, {'spend_cap_usd': -1}):
+                         {'database': str(w/'missing'/'db')}, {'spend_cap_usd': -1}, {'version': 1}, {'offline_tools':['off_list']}, {'offline_tools':'echo'}, {'hard_deadline_at':0}, {'hard_deadline_at':True}, {'hard_deadline_at':1.5}, {'renewal_mode':'anything'}):
             bad = w / 'bad.json'
-            bad.write_text(json.dumps({**c, **mutation}))
+            bad.write_text(json.dumps({**c, 'agent': 'invalid-config-'+str(abs(hash(json.dumps(mutation, sort_keys=True)))), **mutation}))
             invalid = launch(bad)
             invalid.communicate(timeout=10)
             assert invalid.returncode != 0 and starts.read_text() == count
-        checks.append({'case': 'invalid_configuration_never_starts_configured_child', 'cases': 6, 'passed': True})
+        checks.append({'case': 'invalid_configuration_never_starts_configured_child', 'cases': 13, 'passed': True})
         c['agent'] = 'expiry-test'
         config.write_text(json.dumps(c))
         proc = launch()
@@ -237,13 +238,16 @@ import(pathToFileURL(entry).href).catch(()=>process.exit(1));
         finally:
             proc.stdin.close()
             proc.wait(timeout=10)
-        checks.append({'case': 'expiry_forced_by_disposable_operator_store', 'passed': True})
+        count = starts.read_text()
+        invalid = launch(); invalid.communicate(timeout=10)
+        assert invalid.returncode != 0 and starts.read_text() == count
+        checks.append({'case': 'expiry_and_restart_refusal_forced_by_disposable_operator_store', 'passed': True})
         c['agent'] = 'embedded-host-test'
         config.write_text(json.dumps(c))
         proc = launch(embedded=True)
         try:
             assert 'result' in rpc('initialize')
-            assert len(rpc('tools/list')['result']['tools']) == 3
+            assert len(rpc('tools/list')['result']['tools']) == 5
             call('echo')
             call('off_list', 'purpose_exceeded')
             call('write_marker', 'needs_human')
@@ -258,6 +262,101 @@ import(pathToFileURL(entry).href).catch(()=>process.exit(1));
         dead.communicate(timeout=10)
         assert dead.returncode != 0 and starts.read_text() == count
         checks.append({'case': 'embedded_import_host_stream_bridge_no_self_exec_and_killed_restart', 'passed': True})
+        # Strict destination rules apply to every routed tool, including unknown
+        # network-capable names. Exceptions are explicit operator policy only.
+        c.update(agent='dest-test', destinations=['allowed.example'], tools=['echo','write_marker','shell','custom_fetch'])
+        c.pop('offline_tools')  # Omission means no exceptions, never a hidden default grant.
+        config.write_text(json.dumps(c))
+        proc = launch()
+        try:
+            assert 'result' in rpc('initialize')
+            call('echo', 'purpose_exceeded')
+            call('shell', 'purpose_exceeded')
+            call('custom_fetch', 'purpose_exceeded')
+            call('echo', 'purpose_exceeded', {'url':'https://foreign.example/'})
+            call('echo', arguments={'url':'https://allowed.example/'})
+        finally:
+            proc.stdin.close(); proc.wait(timeout=10)
+        c['offline_tools'] = ['echo']
+        config.write_text(json.dumps(c))
+        proc = launch()
+        try:
+            assert 'result' in rpc('initialize')
+            call('echo')
+            call('echo', 'purpose_exceeded', {'url':'https://foreign.example/'})
+        finally:
+            proc.stdin.close(); proc.wait(timeout=10)
+        records = [json.loads(v) for v in Path(c['events']).read_text().splitlines()]
+        assert any(v.get('kind') == 'policy' and v.get('class') == 'observed' and
+                   v.get('payload', {}).get('agent_id') == c['agent'] and
+                   v.get('payload', {}).get('offline_tools') == ['echo'] for v in records), records[-5:]
+        checks.append({'case':'explicit_offline_exception_recorded_as_observed', 'passed':True})
+        # No restart, config edit or mode change may silently extend a run.
+        count = starts.read_text()
+        for mutation in ({'hard_deadline_at':c['hard_deadline_at']+60}, {'renewal_mode':'supervisor'}):
+            mismatch = w/'mismatch.json'
+            mismatch.write_text(json.dumps({**c, **mutation}))
+            invalid = launch(mismatch); invalid.communicate(timeout=10)
+            assert invalid.returncode != 0 and starts.read_text() == count
+        checks.append({'case':'existing_deadline_and_renewal_mode_cannot_change', 'passed':True})
+        c['agent'] = 'legacy-idle-only-test'
+        operator('mcp-proxy', '--agent', c['agent'], '--', str(exe), '--version')
+        config.write_text(json.dumps(c))
+        invalid = launch(); invalid.communicate(timeout=10)
+        assert invalid.returncode != 0 and starts.read_text() == count
+        checks.append({'case':'legacy_idle_only_run_not_silently_converted', 'passed':True})
+        c.update(agent='deadline-test', hard_deadline_at=int(time.time())+4)
+        config.write_text(json.dumps(c))
+        proc = launch()
+        try:
+            assert 'result' in rpc('initialize')
+            call('echo')
+            # Real wall-clock expiration, not a fabricated database update.
+            while time.time() < c['hard_deadline_at'] + 0.1:
+                time.sleep(0.1)
+            call('echo', 'deadline_exceeded')
+        finally:
+            proc.stdin.close(); proc.wait(timeout=10)
+        count = starts.read_text()
+        invalid = launch(); invalid.communicate(timeout=10)
+        assert invalid.returncode != 0 and starts.read_text() == count
+        checks.append({'case':'fixed_deadline_survives_restart_without_child_effects', 'passed':True})
+        # Supervisor mode does not provision or pass a renewal key and workload
+        # admissions cannot keep its 60-second TTL alive.
+        c.update(agent='supervised-test', renewal_mode='supervisor', hard_deadline_at=int(time.time())+600)
+        config.write_text(json.dumps(c))
+        proc = launch()
+        try:
+            assert 'result' in rpc('initialize')
+            with closing(sqlite3.connect(c['database'])) as db:
+                expiry = db.execute('SELECT expires_at FROM leases WHERE agent_id=?', (c['agent'],)).fetchone()[0]
+            call('echo')
+            with closing(sqlite3.connect(c['database'])) as db:
+                assert db.execute('SELECT expires_at FROM leases WHERE agent_id=?', (c['agent'],)).fetchone()[0] == expiry
+            while time.time() < expiry - 1:
+                call('echo')
+                time.sleep(min(5, max(0, expiry - 1 - time.time())))
+            while time.time() < expiry + 0.1:
+                time.sleep(0.1)
+            call('echo', 'lease_expired')
+        finally:
+            proc.stdin.close(); proc.wait(timeout=10)
+        count = starts.read_text()
+        invalid = launch(); invalid.communicate(timeout=10)
+        assert invalid.returncode != 0 and starts.read_text() == count
+        checks.append({'case':'supervisor_mode_workload_activity_cannot_renew_and_expired_restart_refused', 'passed':True})
+        # Lose the operator database while a real child is already connected.
+        c.update(agent='store-loss-test', renewal_mode='activity')
+        config.write_text(json.dumps(c))
+        proc = launch()
+        try:
+            assert 'result' in rpc('initialize')
+            call('echo')
+            with closing(sqlite3.connect(c['database'])) as db:
+                with db: db.execute('DROP TABLE leases')
+            call('echo', 'store_unavailable')
+        finally:
+            proc.stdin.close(); proc.wait(timeout=10)
         # A broken existing store must not start the configured child.
         c['database'] = str(w/'invalid-store.db')
         Path(c['database']).write_text('not sqlite')

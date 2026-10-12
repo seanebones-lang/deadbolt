@@ -1,12 +1,22 @@
 {
-  "version": 1,
+  "version": 2,
   "agent": "my-mcp-run-001",
   "database": "/absolute/private/state/deadbolt.db",
   "events": "/absolute/private/state/deadbolt-events.jsonl",
   "command": "/absolute/path/to/node",
-  "args": ["/absolute/path/to/your-trusted-mcp-server.js"],
-  "tools": ["read_file", "write_file"],
+  "args": [
+    "/absolute/path/to/your-trusted-mcp-server.js"
+  ],
+  "tools": [
+    "read_file",
+    "write_file"
+  ],
   "destinations": [],
-  "irreversible_tools": ["write_file"],
-  "spend_cap_usd": 10
+  "irreversible_tools": [
+    "write_file"
+  ],
+  "spend_cap_usd": 10,
+  "offline_tools": [],
+  "hard_deadline_at": 0,
+  "renewal_mode": "activity"
 }
