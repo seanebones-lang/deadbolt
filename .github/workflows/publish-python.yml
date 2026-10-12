@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: 'Publish the verified 1.1.0rc1 release to PyPI (irreversible version allocation)'
+        description: 'Publish the verified 2.0.0rc1 release to PyPI (irreversible version allocation)'
         type: boolean
         default: false
         required: true
@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: 52a2085155b658f3d1dda5a73a8d95a7a1d88fad
+          ref: d14f81f974c556446e520d896acf7761f73861e6
           persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
@@ -33,40 +33,41 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          test "$(git rev-parse HEAD)" = '52a2085155b658f3d1dda5a73a8d95a7a1d88fad'
+          test "$(git rev-parse HEAD)" = 'd14f81f974c556446e520d896acf7761f73861e6'
           mkdir -p python-publish-dist engine
-          gh release download v1.1.0-rc.1 --repo seanebones-lang/deadbolt \
+          gh release download v2.0.0-rc.1 --repo seanebones-lang/deadbolt \
             --pattern 'n11_deadbolt_client-*' --dir python-publish-dist
-          gh release download v1.1.0-rc.1 --repo seanebones-lang/deadbolt \
-            --pattern 'deadbolt-1.1.0-rc.1-x86_64-unknown-linux-gnu.zip' --dir engine
+          gh release download v2.0.0-rc.1 --repo seanebones-lang/deadbolt \
+            --pattern 'deadbolt-2.0.0-rc.1-x86_64-unknown-linux-gnu.zip' --dir engine
           python - <<'PY'
           import email, hashlib, pathlib, zipfile
           expected = {
-              'python-publish-dist/n11_deadbolt_client-1.1.0rc1-py3-none-any.whl': 'e8ac19f1f8aeb544e95504bafbf69f87e53e6fc85e1826802a57c98a1abc7153',
-              'python-publish-dist/n11_deadbolt_client-1.1.0rc1.tar.gz': 'd83629e52b2cc620b550d54aa6b3e155e8cdfa8ac7734f8159e7edc0a466ade5',
-              'engine/deadbolt-1.1.0-rc.1-x86_64-unknown-linux-gnu.zip': '1f81dfceef7db020f3afe3aff6340115f9e2fb21fece32a6c45940f91698fcad',
+              'python-publish-dist/n11_deadbolt_client-2.0.0rc1-py3-none-any.whl': '1e728a7c742652249228e27eee381a5753159bbe5a552613faa809bec8ddac6b',
+              'python-publish-dist/n11_deadbolt_client-2.0.0rc1.tar.gz': '68e6e082e9f2be1409798f74f8f740ffd72e3cba93b0db279e1cff0cc35a5cbc',
+              'engine/deadbolt-2.0.0-rc.1-x86_64-unknown-linux-gnu.zip': '0559183a38ca8e08c95e20133462847cf42d2dc1f87f8c09f7248cee098cc229',
           }
           assert sorted(p.name for p in pathlib.Path('python-publish-dist').iterdir()) == sorted(pathlib.Path(p).name for p in expected if p.startswith('python-publish-dist/'))
           for name, sha in expected.items():
               assert hashlib.sha256(pathlib.Path(name).read_bytes()).hexdigest() == sha, name
-          with zipfile.ZipFile('python-publish-dist/n11_deadbolt_client-1.1.0rc1-py3-none-any.whl') as z:
-              for module in ('deadbolt_client', 'deadbolt_openai_agents'):
+          with zipfile.ZipFile('python-publish-dist/n11_deadbolt_client-2.0.0rc1-py3-none-any.whl') as z:
+              for module in ('deadbolt_client', 'deadbolt_openai_agents', 'deadbolt_supervisor'):
                   assert z.read(module+'.py') == pathlib.Path('examples', module+'.py').read_bytes()
-              meta = email.message_from_bytes(z.read('n11_deadbolt_client-1.1.0rc1.dist-info/METADATA'))
-              assert meta['Name'] == 'n11-deadbolt-client' and meta['Version'] == '1.1.0rc1'
+              meta = email.message_from_bytes(z.read('n11_deadbolt_client-2.0.0rc1.dist-info/METADATA'))
+              assert meta['Name'] == 'n11-deadbolt-client' and meta['Version'] == '2.0.0rc1'
               assert meta['Requires-Python'] == '>=3.9'
               assert meta.get_all('Requires-Dist') == ['openai-agents==0.23.1; extra == "openai-agents"']
-          with zipfile.ZipFile('engine/deadbolt-1.1.0-rc.1-x86_64-unknown-linux-gnu.zip') as z:
+          with zipfile.ZipFile('engine/deadbolt-2.0.0-rc.1-x86_64-unknown-linux-gnu.zip') as z:
               z.extractall('engine')
-          pathlib.Path('engine/deadbolt-1.1.0-rc.1-x86_64-unknown-linux-gnu/deadbolt').chmod(0o755)
+          pathlib.Path('engine/deadbolt-2.0.0-rc.1-x86_64-unknown-linux-gnu/deadbolt').chmod(0o755)
           PY
       - name: Verify installed base client without optional dependencies
         run: |
           python -m venv /tmp/deadbolt-base
           /tmp/deadbolt-base/bin/python -m pip install --no-deps --no-index python-publish-dist/*.whl
           DEADBOLT_SOCK=/tmp/deadbolt-nonexistent.sock /tmp/deadbolt-base/bin/python -I - <<'PY'
-          import importlib.util, pathlib, sys, deadbolt_client, deadbolt_openai_agents
-          assert pathlib.Path(deadbolt_client.__file__).is_relative_to(pathlib.Path(sys.prefix))
+          import importlib.util, pathlib, sys, deadbolt_client, deadbolt_openai_agents, deadbolt_supervisor
+          for module in (deadbolt_client, deadbolt_openai_agents, deadbolt_supervisor):
+              assert pathlib.Path(module.__file__).is_relative_to(pathlib.Path(sys.prefix))
           assert importlib.util.find_spec('agents') is None
           def forbidden():
               raise AssertionError('denied body ran')
@@ -81,8 +82,27 @@ jobs:
           python -m pip install -r tests/openai-agents-requirements.txt
           python -m pip install --no-deps --no-index python-publish-dist/*.whl
           python -m pip check
-          DEADBOLT_BIN="$PWD/engine/deadbolt-1.1.0-rc.1-x86_64-unknown-linux-gnu/deadbolt" \
+          DEADBOLT_BIN="$PWD/engine/deadbolt-2.0.0-rc.1-x86_64-unknown-linux-gnu/deadbolt" \
             python -I tests/openai_agents_acceptance.py
+      - name: Verify installed deadline and supervisor behavior against the released engine
+        run: |
+          /tmp/deadbolt-base/bin/python -I tests/deadline_client_acceptance.py \
+            --binary "$PWD/engine/deadbolt-2.0.0-rc.1-x86_64-unknown-linux-gnu/deadbolt"
+          /tmp/deadbolt-base/bin/python -I tests/supervision_client_acceptance.py \
+            --binary "$PWD/engine/deadbolt-2.0.0-rc.1-x86_64-unknown-linux-gnu/deadbolt"
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.14'
+      - name: Verify installed POSIX process supervisor on its supported Python runtime
+        run: |
+          python -m venv /tmp/deadbolt-executor
+          /tmp/deadbolt-executor/bin/python -m pip install --no-deps --no-index python-publish-dist/*.whl
+          /tmp/deadbolt-executor/bin/python -I - <<'PY'
+          import deadbolt_supervisor
+          assert deadbolt_supervisor.supported(), 'acceptance must exercise POSIX cancellation, not skip it'
+          PY
+          /tmp/deadbolt-executor/bin/python -I tests/executor_acceptance.py \
+            --binary "$PWD/engine/deadbolt-2.0.0-rc.1-x86_64-unknown-linux-gnu/deadbolt"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: verified-python-distributions
@@ -97,7 +117,7 @@ jobs:
     timeout-minutes: 10
     environment:
       name: pypi
-      url: https://pypi.org/project/n11-deadbolt-client/1.1.0rc1/
+      url: https://pypi.org/project/n11-deadbolt-client/2.0.0rc1/
     permissions:
       id-token: write
     steps:
