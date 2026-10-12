@@ -5,7 +5,7 @@ review artifacts for seven days. It does not publish a release or registry
 package. Standard GitHub-hosted runners are used; no larger runner is required.
 An additional Linux job repeats the pinned Hermes MCP/filesystem acceptance.
 
-Unreleased workflow changes add a separate provenance job after the complete
+The release workflow includes a separate provenance job after the complete
 native matrix succeeds on `main`. PR jobs retain read-only credentials and
 cannot generate these release-build attestations. The provenance job attests
 the exact inner native ZIP, then verifies its repository, signer workflow,
@@ -218,7 +218,7 @@ source client, not an npm package.
 ## Python registry publication
 
 `publish-python.yml` is a manually dispatched, single-release workflow for the
-existing `v1.1.0-rc.1` Python wheel and source archive. It does not rebuild them
+existing `v2.0.0-rc.2` Python wheel and source archive. It does not rebuild them
 from current `main` or run on pushes, tags or pull requests. With `publish=false`
 (the default), it verifies hashes, package identity, installed base-client
 behavior and the real optional SDK Runner against the released Linux engine.
@@ -248,7 +248,7 @@ Before a first publication:
    checkout. Repeat fail-closed and real SDK/sidecar acceptance before updating
    installation documentation or declaring registry distribution complete.
 
-This workflow deliberately permits only `1.1.0rc1` with the reviewed release
+This workflow deliberately permits only `2.0.0rc2` with the reviewed release
 asset hashes. A future version needs a reviewed workflow update and its own
 acceptance evidence. `skip-existing=false` exposes retries/collisions; do not
 silently skip a file or treat a partial upload as complete. Once public, a PyPI

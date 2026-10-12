@@ -84,7 +84,7 @@ after operator review. Other policy checks still apply.
 
 ## Do child agents inherit policy?
 
-In unreleased source, every ancestor’s current tool, destination, clip and review
+In RC2, every ancestor’s current tool, destination, clip and review
 restrictions form a ceiling, and its spending cap includes its registered subtree.
 A child can narrow that ceiling, not widen it. Policy and grants are not copied;
 approvals bind the actual child. Each MCP child still needs its own explicit tool

@@ -1,18 +1,18 @@
 # Supervisor-only liveness (2.0 candidate)
 
 Use supervisor liveness when the trusted supervisor's continued participation,
-not the agent's activity, should keep a run live. Unreleased corrected source
+not the agent's activity, should keep a run live. Published RC2
 defaults fresh `ensure`/`issue` runs to this mode through Rust, CLI and HTTP.
 Published 2.0.0-rc.1 still requires explicit supervisor setup and its matching
-`2.0.0rc1` wheel. Corrected source is engine `2.0.0-rc.2` with client `2.0.0rc2`;
-build both from the same reviewed revision as described in [the package guide](PYPI.md#evaluate-the-corrected-source-candidate).
-The published 1.x engines, PyPI
-packages, MCPB bundles and editor plugins do **not** contain this addition.
+`2.0.0rc1` wheel. The corrected release is engine `2.0.0-rc.2` with client `2.0.0rc2`;
+install its matching files or build both from one reviewed revision as described in [the package guide](PYPI.md#evaluate-the-corrected-source-candidate).
+The published 1.x engines, 1.x Python packages, 1.x MCPB bundles and
+older stable editor plugins do **not** contain supervisor renewal.
 The separately published [MCPB 2.0 preview](INSTALL.md#mcpb-20-preview) supports
 explicit supervisor mode, but renewal must be provisioned and operated separately;
 its launcher never reads a renewal credential.
 Follow [2.0 migration and artifact verification](MIGRATING-V2.md), including
-the source revision and checksums; publication is a separate release gate.
+the source revision and checksums; actual GUI/model acceptance and independent reproduction remain separate gates.
 
 Two independent controls answer different questions:
 
@@ -22,7 +22,7 @@ Two independent controls answer different questions:
 | Idle TTL, supervised mode | Time since issuance or a valid supervisor heartbeat | A separate renewal credential, while still live |
 | Optional fixed `hard_deadline_at` | The latest time a run may receive a new admission | Nothing; a new run requires a fresh operator-issued ID |
 
-The default CLI idle TTL is 60 seconds. Unreleased source accepts the global
+The default CLI idle TTL is 60 seconds. RC2 accepts the global
 `--lease-ttl-secs 1..86400` option; use the same value for trusted issuance,
 registration and the running sidecar. It sets the window for future issuance
 and renewal; it does not rewrite a persisted expiry or revive a run. A longer
@@ -55,7 +55,7 @@ deadbolt credential issue --agent review-run-002 --id review-worker-002 \
 deadbolt supervisor list
 ```
 
-In unreleased source, register children from the same operator shell:
+In RC2 source, register children from the same operator shell:
 
 ```sh
 deadbolt register-child --parent review-run-002 --agent review-child-002 \
@@ -79,7 +79,7 @@ admission IDs share an immutable namespace; revoked IDs cannot be reused.
 
 Issuance cannot convert an existing lease's mode. Rust exposes
 `issue_supervised_agent(agent_id, optional_deadline)`; trusted HTTP setup uses
-`POST /issue-supervised`. In unreleased corrected source, `ensure_agent` and
+`POST /issue-supervised`. In published RC2, `ensure_agent` and
 `issue_agent` also create supervised roots. CLI `ensure`/`issue` default likewise;
 explicit activity renewal uses `--activity-renewal`. Rust compatibility callers
 use `ensure_activity_agent`/`issue_activity_agent`, and HTTP setup uses the
@@ -88,9 +88,9 @@ converts an existing row: inspect its persisted `supervision_root` before
 assuming an old identity uses supervision. Use a fresh identity for a new mode.
 A fresh registered child inherits its parent's
 `supervision_root` and deadline, starts no later than its parent's idle expiry,
-and keeps a separate policy and approval ledger. Unreleased source applies
+and keeps a separate policy and approval ledger. RC2 applies
 ancestor capability and reported-spend ceilings without copying policy or grants.
-Current unreleased source checks every registered
+Published RC2 checks every registered
 ancestor's liveness during admission, including intermediate parents, before
 refreshing the requested lease or consuming an approval. The chain must end at
 the declared supervision root, with consistent mode bindings and no missing or
@@ -99,7 +99,7 @@ inactive intermediate parent. Keep all workload paths behind fresh admission.
 
 ## Run the heartbeat only in trusted supervision
 
-The installed Python source-candidate client provides an explicit call:
+The installed RC2 Python client provides an explicit call:
 
 ```python
 from pathlib import Path
@@ -133,7 +133,7 @@ renewal-only credentials cannot read it.
 The heartbeat maintains the root and still-live registered descendants carrying
 the same supervision root, in one writer transaction. Renewal considers each
 lease individually: a still-live grandchild may receive a new idle expiry while
-its expired intermediate parent remains expired. In current unreleased source,
+its expired intermediate parent remains expired. In current RC2 source,
 fresh admission still denies that grandchild because the full ancestor chain is
 checked. Own-lease status is not permission to execute. Renewal cannot revive an
 expired or killed root or child, unpause a lease, clear clips, change policy,
@@ -143,12 +143,12 @@ Revoking a supervisor credential stops its future heartbeats, not the existing
 idle window or another authorized supervisor credential. Use operator kill for
 immediate admission revocation.
 
-## Job-scoped helper (unreleased source)
+## Job-scoped helper (RC2 source)
 
-Current source adds `SupervisorHeartbeat` to `deadbolt_supervisor` and the finite
+The RC2 release adds `SupervisorHeartbeat` to `deadbolt_supervisor` and the finite
 `deadbolt-supervisor-heartbeat` operator command. The published `2.0.0rc1` wheel
-does not contain them yet. Install a reviewed checkout in your virtual environment
-to evaluate this addition; do not assume updating documentation changes a wheel.
+does not contain them. Install the matching `2.0.0rc2` release wheel or reviewed
+source; updating documentation alone does not change an installed package.
 
 Provision the run and its private renewal credential as above, then start the
 helper **within the 60-second idle window**. For the preview MCPB, the launcher
@@ -219,7 +219,7 @@ That protocol test does not replace a graphical model rerun of a new bundle.
   authorize continuation even when represented as HTTP 200 with `ok:false`.
 - A supervisor header on any other route returns 403. An admission header cannot
   renew; a full operator header alone has no renewal route (404). Mixed or
-  duplicate role headers return 401. Unreleased source requires an operator token
+  duplicate role headers return 401. RC2 requires an operator token
   for Unix startup by default. In explicit legacy Unix mode, anonymous authority
   is disabled after **any** scoped credential issuance, including supervisor-only issuance; it
   stays disabled after all credentials expire or are revoked.

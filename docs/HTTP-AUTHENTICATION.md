@@ -1,6 +1,6 @@
 # Authenticate the local sidecar
 
-**Unreleased source behavior:** Unix and loopback TCP sidecars require a nonempty
+**Published RC2 behavior:** Unix and loopback TCP sidecars require a nonempty
 operator token at startup. Published 2.0.0-rc.1 and 1.x Unix engines retain their
 older socket-possession default. Select a new immutable candidate before relying
 on the changed default; documentation cannot upgrade an installed executable.

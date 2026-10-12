@@ -9,7 +9,8 @@ You need macOS and an existing [Homebrew installation](https://brew.sh/).
 The cask links `deadbolt` on your Homebrew PATH and retains the release's
 examples and documentation. It does not start a service, create operator
 credentials or configure protection. Set an explicit policy and put the gate
-at your application's dispatch boundary; an unset policy is open.
+at your application's dispatch boundary. RC2 raw MCP requires a preissued lease
+and explicit tool policy; review the version-specific configuration.
 
 ## Stable installation
 
@@ -64,7 +65,7 @@ dispatcher's behavior, not containment of every tool an agent can access.
 
 ## Explicitly select the prerelease
 
-The separate preview cask installs engine **2.0.0-rc.1**, including callback
+The separate preview cask installs engine **2.0.0-rc.2**, including callback
 dispatch helpers, scoped admission credentials, exact-action approvals, immutable
 run deadlines, supervisor-only renewal and explicit offline destination exceptions.
 Read [the 2.0 migration guide](MIGRATING-V2.md) before upgrading.
@@ -77,17 +78,17 @@ deadbolt --version
 deadbolt drill
 ```
 
-Expected version: `deadbolt 2.0.0-rc.1`. If required, trust only
+Expected version: `deadbolt 2.0.0-rc.2`. If required, trust only
 `seanebones-lang/tap/n11-deadbolt-preview` using the same steps above.
 For its included evaluation:
 
 ```sh
-DEADBOLT_RELEASE="$(brew --caskroom)/n11-deadbolt-preview/2.0.0-rc.1/deadbolt-2.0.0-rc.1-$(uname -m | sed 's/arm64/aarch64/')-apple-darwin"
+DEADBOLT_RELEASE="$(brew --caskroom)/n11-deadbolt-preview/2.0.0-rc.2/deadbolt-2.0.0-rc.2-$(uname -m | sed 's/arm64/aarch64/')-apple-darwin"
 python3 "$DEADBOLT_RELEASE/examples/evaluate.py" --binary "$DEADBOLT_RELEASE/deadbolt"
 ```
 
-The [PyPI client](PYTHON.md#install-from-pypi) is separately installed as
-`n11-deadbolt-client==2.0.0rc1`. Its version spelling differs from the engine.
+The matching Python client is separately installed from the verified RC2 release
+wheel or PyPI package `n11-deadbolt-client==2.0.0rc2`; see [Python installation](PYTHON.md).
 Installing either cask does not install the optional OpenAI Agents SDK extra.
 
 ## Update, switch channels or remove

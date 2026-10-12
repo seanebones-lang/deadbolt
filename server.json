@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.seanebones-lang/deadbolt",
   "title": "DeadBolt by NextEleven",
-  "description": "2.0 preview: read-only setup; configured tool gate with fixed deadlines and offline exceptions.",
-  "version": "2.0.0-rc.1",
+  "description": "Corrected 2.0 preview: local tool gate with fixed deadlines, read-only setup and denial reasons.",
+  "version": "2.0.0-rc.2",
   "repository": {
     "url": "https://github.com/seanebones-lang/deadbolt",
     "source": "github",
@@ -13,8 +13,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v2.0.0-rc.1/deadbolt-2.0.0-rc.1.mcpb",
-      "fileSha256": "ee984aaead77f4cc5df4f586c0c4709f967fcf8de667bdcecb253cad743de1e7",
+      "identifier": "https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v2.0.0-rc.2/deadbolt-2.0.0-rc.2.mcpb",
+      "fileSha256": "a0634e69da89c6e2c38bf72b8c1a1b8ed75e30e77df218841692808998c7b95e",
       "transport": {
         "type": "stdio"
       }
@@ -22,16 +22,17 @@
   ],
   "_meta": {
     "io.modelcontextprotocol.registry/publisher-provided": {
-      "bundleVersion": "2.0.0-rc.1",
-      "engineVersion": "2.0.0-rc.1",
+      "bundleVersion": "2.0.0-rc.2",
+      "engineVersion": "2.0.0-rc.2",
       "license": "Apache-2.0",
       "setupMode": "Two read-only setup and bundle-verification tools; no active protection until configured.",
       "protectionBoundary": "Protects connected dispatch routes. Not an OS sandbox; cannot cancel running actions.",
-      "documentation": "https://github.com/seanebones-lang/deadbolt/blob/79f31c9ff615493dee5808d06a63411ef552c35b/dist/mcpb/README.md",
+      "documentation": "https://github.com/seanebones-lang/deadbolt/blob/96fc55be0f8f9b81ed37ea43d86522d99b1fda8b/dist/mcpb/README.md",
       "captionedWalkthrough": "https://seanebones-lang.github.io/deadbolt/walkthrough.html",
       "releaseChannel": "preview",
       "configurationVersion": 2,
-      "renewal": "Explicit activity or separately operated supervisor; neither extends the fixed deadline."
+      "renewal": "New roots default to supervisor renewal; explicit activity mode and stored modes remain supported. Neither moves the fixed deadline.",
+      "validationBoundary": "Four-host stdio/effect acceptance passed; actual RC2 GUI/model invocation and independent adopter rerun remain open."
     }
   }
 }

@@ -6,72 +6,67 @@ decision: a denial leaves the callback uncalled. The base client has no runtime
 dependencies. The optional `openai-agents` extra adapts function tools to the
 tested OpenAI Agents SDK contract.
 
-This source package is **2.0.0rc2**, a developer-evaluation candidate matching
-engine **2.0.0-rc.2**. RC2 publication is a separate release gate; the published
-pair described below is still client **2.0.0rc1** and engine **2.0.0-rc.1**.
-The engine is not included in the wheel. Installing the client
-does not start a sidecar, connect an account, or protect unwrapped tool routes.
-Existing 1.x packages and editor/MCP bundles remain separately versioned.
+The matching corrected preview is client **2.0.0rc2** and engine **2.0.0-rc.2**.
+Both are published in the [immutable GitHub release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.2).
+The [PyPI RC2 release](https://pypi.org/project/n11-deadbolt-client/2.0.0rc2/)
+contains the exact same verified wheel/source bytes. The wheel
+does not include an engine, start a sidecar or protect unwrapped routes. Existing
+packages retain their immutable files; use a matching engine/client pair.
 
-## Install the published matching pair
+## Install from PyPI
 
-In your application's virtual environment, pin the PyPI candidate explicitly:
+In your application's virtual environment:
 
 ```sh
-python -m pip install 'n11-deadbolt-client==2.0.0rc1'
+python -m pip install 'n11-deadbolt-client==2.0.0rc2'
 # Optional SDK adapter, Python 3.10+:
-python -m pip install 'n11-deadbolt-client[openai-agents]==2.0.0rc1'
+python -m pip install 'n11-deadbolt-client[openai-agents]==2.0.0rc2'
 ```
 
-Install the engine with `cargo install n11-deadbolt --version 2.0.0-rc.1 --locked --bin deadbolt`,
-the Homebrew preview cask on macOS, or a verified native archive. No registry
-account is required. A release wheel is also available for manual installation:
+Install the matching native engine separately. No registry account or API key
+is required for installation. The package's description is a frozen release
+snapshot; current installation status is documented here.
 
-Select the versioned native engine and client wheel from the
-[2.0.0-rc.1 GitHub release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.1).
-Verify their SHA-256 checksums and the native archive's `BUILD.json` source
-revision. Install the wheel in your application's virtual environment:
+## Install the verified RC2 release wheel
+
+Download the native ZIP, wheel and `SHA256SUMS` from that release. Verify the
+hashes and the native archive's `BUILD.json` revision. In your application's
+virtual environment:
 
 ```sh
-python -m pip install /absolute/path/to/n11_deadbolt_client-2.0.0rc1-py3-none-any.whl
+python -m pip install /absolute/path/to/n11_deadbolt_client-2.0.0rc2-py3-none-any.whl
 /absolute/path/to/deadbolt --version
 /absolute/path/to/deadbolt drill
 ```
 
-Expected engine version: `deadbolt 2.0.0-rc.1`. For an optional SDK adapter,
-install the tested extra from the same wheel:
+Expected: `deadbolt 2.0.0-rc.2`, then `deadbolt drill ok`. The macOS Homebrew
+preview also installs that engine. For the optional SDK adapter (Python 3.10+):
 
 ```sh
-python -m pip install '/absolute/path/to/n11_deadbolt_client-2.0.0rc1-py3-none-any.whl[openai-agents]'
+python -m pip install '/absolute/path/to/n11_deadbolt_client-2.0.0rc2-py3-none-any.whl[openai-agents]'
 ```
 
-The extra pins `openai-agents==0.23.1`; it does not request API credentials or
-make model requests during installation. Your application configures its own
-provider separately. A source-built wheel follows the same version contract;
-registry publication and native downloads are separate release steps.
+The extra pins `openai-agents==0.23.1`. Installation does not request API
+credentials or make model requests. Your application configures its provider.
 
 ## Evaluate the corrected source candidate
 
-For RC2, build both components from the same reviewed source revision. In that
-checkout, build the engine and client wheel:
+Use immutable tag `v2.0.0-rc.2`, revision
+`d166c7b039800bbd6d8acb1bc5c66f9add472f5f`, to build both components:
 
 ```sh
 cargo build --release --locked --bin deadbolt
 python -m build --outdir release-artifacts/python
 ```
 
-Install the resulting `n11_deadbolt_client-2.0.0rc2-py3-none-any.whl` in your
-application's virtual environment and use that checkout's `target/release/deadbolt`
-(`deadbolt.exe` on Windows). Confirm `deadbolt --version` reports
-`deadbolt 2.0.0-rc.2` before connecting it. Keep the exact source revision and
-artifact hashes with your test results. Do not pair this wheel with the RC1
-native downloads or treat a local source build as a published, signed release.
+Install its `n11_deadbolt_client-2.0.0rc2-py3-none-any.whl` in your environment and
+use its `target/release/deadbolt` (`deadbolt.exe` on Windows). Keep the revision
+and artifact hashes with your results. A local build is not a signed download.
 
-RC2 makes fresh leases supervisor-renewed by default. Provision a separate
-supervisor heartbeat before handing a run to the executor; activity renewal is
-an explicit operator opt-in. See the [current supervision guide](https://github.com/seanebones-lang/deadbolt/blob/main/docs/SUPERVISION.md)
-for the credential boundary, idle TTL and fixed deadline. Existing RC1 leases
-retain their stored renewal mode; installing a new wheel does not migrate them.
+RC2 fresh roots default to supervisor renewal. Provision a separate supervisor
+heartbeat before initial idle expiry; activity renewal is explicit operator
+opt-in. See [supervision](https://github.com/seanebones-lang/deadbolt/blob/main/docs/SUPERVISION.md).
+Existing leases preserve their stored mode; installing a wheel does not migrate them.
 
 ## Connect a protected callback
 
@@ -111,13 +106,13 @@ cancel already running bodies. The base sidecar client supports Python 3.9+.
 
 ## Guides and support
 
-- [Python setup and SDK examples](https://github.com/seanebones-lang/deadbolt/blob/v2.0.0-rc.1/docs/PYTHON.md)
-- [Upgrade and Rust API migration](https://github.com/seanebones-lang/deadbolt/blob/v2.0.0-rc.1/docs/MIGRATING-V2.md)
-- [Exact-action approvals](https://github.com/seanebones-lang/deadbolt/blob/v2.0.0-rc.1/docs/ACTION-APPROVALS.md)
-- [Supervisor-only liveness](https://github.com/seanebones-lang/deadbolt/blob/v2.0.0-rc.1/docs/SUPERVISION.md)
-- [Owned-process cancellation and its limits](https://github.com/seanebones-lang/deadbolt/blob/v2.0.0-rc.1/docs/EXECUTOR-CANCELLATION.md)
-- [Local data and privacy](https://github.com/seanebones-lang/deadbolt/blob/v2.0.0-rc.1/docs/PRIVACY.md)
-- [Security reporting](https://github.com/seanebones-lang/deadbolt/blob/v2.0.0-rc.1/SECURITY.md)
+- [Python setup and SDK examples](https://github.com/seanebones-lang/deadbolt/blob/v2.0.0-rc.2/docs/PYTHON.md)
+- [Upgrade and Rust API migration](https://github.com/seanebones-lang/deadbolt/blob/v2.0.0-rc.2/docs/MIGRATING-V2.md)
+- [Exact-action approvals](https://github.com/seanebones-lang/deadbolt/blob/v2.0.0-rc.2/docs/ACTION-APPROVALS.md)
+- [Supervisor-only liveness](https://github.com/seanebones-lang/deadbolt/blob/v2.0.0-rc.2/docs/SUPERVISION.md)
+- [Owned-process cancellation and its limits](https://github.com/seanebones-lang/deadbolt/blob/v2.0.0-rc.2/docs/EXECUTOR-CANCELLATION.md)
+- [Local data and privacy](https://github.com/seanebones-lang/deadbolt/blob/v2.0.0-rc.2/docs/PRIVACY.md)
+- [Security reporting](https://github.com/seanebones-lang/deadbolt/blob/v2.0.0-rc.2/SECURITY.md)
 
 DeadBolt is maintained by NextEleven LLC and licensed under Apache-2.0.
 Support: nextelevenstudios@gmail.com. Do not include credentials or private

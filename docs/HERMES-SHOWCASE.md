@@ -90,9 +90,10 @@ This example embeds admission in the proxy. The automated acceptance instead
 uses `--serve-sock` with a tokened loopback sidecar so it can also test outages.
 Configure policy through the operator before executing calls. Policy names are
 the original server tool names, such as `write_file`, not Hermes' prefixed names.
-For the unreleased MCP setup candidate, also create the lease explicitly before
-starting the proxy: `deadbolt ensure --agent operator-assigned-run-id` (legacy
-idle-only), or use a fresh fixed-deadline/supervised run. Then run `deadbolt policy
+For RC2, also create the lease explicitly before
+starting the proxy: `deadbolt ensure --agent operator-assigned-run-id` (supervised idle-only),
+and provision its separate heartbeat before initial idle expiry. A fixed-deadline
+run is also available; explicit legacy activity mode uses `--activity-renewal`. Then run `deadbolt policy
 --agent operator-assigned-run-id --tools write_file,read_text_file` against the
 same database/event paths as the host. Missing setup denies `no_lease` or
 `policy_required`; the raw proxy cannot create its own permission.

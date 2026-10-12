@@ -4,7 +4,7 @@ The operator can issue a fresh run with a fixed Unix-seconds deadline. At or
 after that timestamp, new protected admissions deny `deadline_exceeded`, even
 if the agent keeps making allowed or denied requests. This is separate from
 the default 60-second idle timer. Published rc.1 default setup still slides
-that timer on activity before the deadline. Unreleased corrected source
+that timer on activity before the deadline. Published RC2
 defaults new roots to supervisor renewal instead; only explicit legacy activity
 setup slides on workload traffic. Idle expiry can deny earlier with `lease_expired`.
 
@@ -56,7 +56,7 @@ requires a fresh ID. There is no deadline update or extension endpoint.
 
 `ensure_agent` and `POST /ensure` retain their existing-identity behavior: they
 create idle-only leases when absent and leave existing rows unchanged. In
-unreleased corrected source, absent identities instead become supervised roots;
+published RC2, absent identities instead become supervised roots;
 explicit activity setup is available through the migration guide. All variants
 preserve existing rows. They
 cannot attach, remove or slide a fixed deadline. Current-source `/ensure`
@@ -73,7 +73,7 @@ multiple generations. Their idle expiry is bounded by that timestamp. Repeated
 registration preserves the original row; reparenting and reissuing a child as
 a root are refused. A missing, inactive or expired immediate parent cannot create
 a live child. Registration's live result is not
-an admission decision for the full ancestor chain. Current unreleased source
+an admission decision for the full ancestor chain. Published RC2
 checks every ancestor's state, idle expiry and fixed deadline before a tool call
 can proceed. Policy remains separate: configure each child's tools, destinations
 and approvals explicitly.

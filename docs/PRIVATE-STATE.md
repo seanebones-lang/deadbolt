@@ -1,6 +1,6 @@
 # Private persisted state
 
-**Unreleased source behavior:** new Unix SQLite and JSONL state files are created
+**Published RC2 behavior:** new Unix SQLite and JSONL state files are created
 with mode 0600, before SQLite writes or creates WAL/SHM/journal files. New parent
 directories use 0700. Published rc.1 and older engines remain unchanged.
 
