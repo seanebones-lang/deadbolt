@@ -8,29 +8,26 @@ A source merge does not upgrade a package, running sidecar or editor plugin.
 
 ## Choose a matching engine and client
 
-Corrected source uses engine `2.0.0-rc.2` and Python `2.0.0rc2`. Its additional
-changes are marked unreleased below; publication and client-host acceptance
-remain separate gates. [Build the source pair from one reviewed revision](PYPI.md#evaluate-the-corrected-source-candidate).
-
-The published pair uses Rust `2.0.0-rc.1` and Python `2.0.0rc1`. Install a reviewed
-candidate wheel in your own virtual environment and install its engine separately:
+The corrected published pair is engine `2.0.0-rc.2` and Python `2.0.0rc2`.
+Select matching files from the [immutable release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.2).
+Verify the native ZIP and wheel against `SHA256SUMS`, then install the reviewed
+wheel in your virtual environment and the native engine separately:
 
 ```sh
-python -m pip install 'n11-deadbolt-client==2.0.0rc1'
+python -m pip install /absolute/path/to/n11_deadbolt_client-2.0.0rc2-py3-none-any.whl
 /absolute/path/to/deadbolt --version
 /absolute/path/to/deadbolt drill
 ```
 
-Expected engine version: `deadbolt 2.0.0-rc.1`. Install it from Cargo with
-`cargo install n11-deadbolt --version 2.0.0-rc.1 --locked --bin deadbolt`, or use
-the Homebrew preview cask on macOS. For native downloads, verify the archive
-checksum and its `BUILD.json` source revision. Existing registry commands pinned
-to 1.x still install 1.x. Do not mix newer documentation with an older binary
-and assume the guarantee exists. No old package/tag is overwritten.
+Expected engine: `deadbolt 2.0.0-rc.2`. The Homebrew preview also supplies RC2.
+PyPI now supplies matching client `2.0.0rc2`. Cargo remains on RC1 until separately
+published and verified; do not assume an older registry engine includes RC2 guarantees. [Build the RC2 source pair](PYPI.md#evaluate-the-corrected-source-candidate)
+if needed. Actual GUI/model acceptance and the independent rerun remain separate
+stable-release gates. No old package or tag is overwritten.
 
 ## Rust source changes
 
-Unreleased corrected source changes **fresh** `ensure_agent`/`issue_agent` roots
+Published RC2 changes **fresh** `ensure_agent`/`issue_agent` roots
 to supervisor-only renewal, also through CLI `ensure`/`issue` and HTTP setup.
 Existing rows keep their original mode and timestamps. Provision a separate
 supervisor credential and job-scoped heartbeat before initial idle expiry; see
@@ -41,7 +38,7 @@ the strict keyword `activity_renewal=True`; Node uses `{activityRenewal: true}`.
 The client alone cannot change an older engine's behavior. The bundle retains
 its explicit mode selection for both original rc.1 and corrected engines.
 
-Unreleased source adds `DeadboltError::FingerprintMismatch` for a changed CLI
+RC2 adds `DeadboltError::FingerprintMismatch` for a changed CLI
 action review. Update exhaustive operator-error matches when adopting that
 source; its string token is `fingerprint_mismatch` and it never grants permission.
 It also adds `DeadboltError::ChildInactive` for unsuccessful CLI child
@@ -103,9 +100,9 @@ only still-live matching members and cannot extend the fixed cutoff. Keep
 operator, admission and supervisor credentials on their documented planes.
 See [deadlines](LEASE-DEADLINES.md) and [supervision](SUPERVISION.md).
 
-## Unreleased HTTP authentication default
+## RC2 HTTP authentication default
 
-Unreleased source also requires private Unix state and an explicit quiesced
+RC2 also requires private Unix state and an explicit quiesced
 permission migration for old broad-mode DB/events/Witness files and sidecars.
 See [private-state migration](PRIVATE-STATE.md). Kills, grants, credentials,
 deadlines and evidence are retained; files are never silently chmodded.
@@ -122,10 +119,9 @@ literals must include it. [HTTP setup](HTTP-AUTHENTICATION.md) provides the reci
 Published rc.1/1.x remain unchanged. State and operator CLI access are still OS
 trust boundaries; HTTP credentials do not sandbox same-user code execution.
 
-## Unreleased registered-tree authorization tightening
+## RC2 registered-tree authorization tightening
 
-These source changes are not in the published 2.0.0-rc.1 artifacts. Select a new
-immutable candidate before relying on them. Each descendant admission checks all
+These source changes are not in the published 2.0.0-rc.1 artifacts. Use the immutable RC2 candidate before relying on them. Each descendant admission checks all
 ancestor policies dynamically, including later operator edits. Tool/destination
 ceilings and clips apply together; ancestor review requirements must be satisfied
 by a grant for the actual admitted child. A parent's grant never transfers. Each

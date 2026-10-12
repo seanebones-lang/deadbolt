@@ -11,13 +11,13 @@ environment settings; server/executor/operator paths must match.
 | `DEADBOLT_EVENTS` | CLI/sidecar/MCP JSONL evidence | `~/.deadbolt/deadbolt-events.jsonl` |
 | `DEADBOLT_SOCK` | Python/Node client endpoint | Unix default socket; non-Unix loopback `127.0.0.1:9782` |
 | `DEADBOLT_ADMISSION_TOKEN` | Single-agent dispatcher admission; takes precedence in clients/MCP | No default; issue after trusted setup |
-| `DEADBOLT_TOKEN` | Sidecar/operator authentication | No default; unreleased source requires it for Unix and TCP |
+| `DEADBOLT_TOKEN` | Sidecar/operator authentication | No default; RC2 requires it for Unix and TCP |
 | `DEADBOLT_BIN` | Consumer-test executable path | `target/debug/deadbolt` |
 
 `DEADBOLT_SOCK` does not configure the server's bind or the CLI's store: use
 `serve --bind` and matching DB/events paths. Embedded Rust uses its
 `DeadboltConfig` or `open_at` arguments; it does not automatically adopt every
-CLI environment variable. Unreleased source exposes the global
+CLI environment variable. Published RC2 exposes the global
 `--lease-ttl-secs 1..86400` option (default 60). Use the same window for operator
 setup and the running sidecar. This does not modify existing expiry timestamps;
 supervision remains separate from any fixed deadline. There is no general CLI
@@ -28,13 +28,13 @@ Keep the operator and operator token in trusted infrastructure. Use
 must not choose fresh IDs, alter policy, write the store or bypass the dispatcher.
 Each child needs registration and explicit policy before its runner starts.
 
-Unreleased source creates new Unix core/Witness state files with mode 0600 and
+Published RC2 creates new Unix core/Witness state files with mode 0600 and
 new parents with 0700; it refuses unsafe existing files rather than repairing
 them. Quiesce and explicitly migrate older broad modes before opening the store.
 [Private state](PRIVATE-STATE.md) defines ownership, sidecar and path checks.
 Protect every configured parent and separately review exports and secrets.
 Malformed persisted policy/approval/clip JSON, unknown lease states and invalid
-spend values fail as `store_unavailable` in corrected unreleased source. DeadBolt
+spend values fail as `store_unavailable` in RC2. DeadBolt
 does not repair these rows automatically. Stop connected workloads and restore
 reviewed private state from a known backup; do not erase a kill or grant to make
 a failing run appear healthy. This is corruption handling, not detection of
@@ -100,7 +100,7 @@ docker compose -f dist/docker-compose.yml exec deadbolt deadbolt status
 ```
 
 The default Compose sidecar uses a mode-0600 Unix socket and named state volume;
-unreleased source requires its operator token before startup. Supply that token
+RC2 requires its operator token before startup. Supply that token
 only to trusted administration; give the dispatcher a scoped admission credential.
 Published rc.1/1.x have the older Unix optional-token default. Do not opt the
 Compose service into legacy anonymous authority.

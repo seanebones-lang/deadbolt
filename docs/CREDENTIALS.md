@@ -1,14 +1,14 @@
 # Single-agent admission credentials
 
-The `1.1.0-rc.1` source candidate separates a dispatcher's admission access from
+The 1.1 and 2.0 candidates separate a dispatcher's admission access from
 operator authority. This is a prerelease protocol addition; stable `v1.0.3`
 does not support it.
 
 | Identity | HTTP access | Who holds it |
 | --- | --- | --- |
 | Operator (`DEADBOLT_TOKEN` / `X-Deadbolt-Token`) | Operator routes, including setup, policy, spend and status; no supervisor-only renewal | Trusted setup/administration |
-| Admission (`DEADBOLT_ADMISSION_TOKEN` / `X-Deadbolt-Admission`) | Admission routes for one stored agent ID: `/admit`, `/admit-action`, and the unreleased `/admit-mcp` / `/admit-mcp-action` | Trusted dispatcher for that run |
-| Socket possession without credentials | No authority by default in unreleased source; explicit Unix legacy mode only before any scoped credential has ever been issued | Legacy compatibility only |
+| Admission (`DEADBOLT_ADMISSION_TOKEN` / `X-Deadbolt-Admission`) | Admission routes for one stored agent ID: `/admit`, `/admit-action`, and the RC2 `/admit-mcp` / `/admit-mcp-action` | Trusted dispatcher for that run |
+| Socket possession without credentials | No authority by default in RC2; explicit Unix legacy mode only before any scoped credential has ever been issued | Legacy compatibility only |
 
 An admission credential cannot ensure/register agents, alter policy, report spend,
 inspect other agents or grant/resume approvals. Kill, pause, approve and credential
@@ -20,8 +20,8 @@ agent ID, protected tool name or destination; derive those from trusted routing.
 Use the same protected DB/events paths for the sidecar and CLI. Create the lease
 and configure policy through the operator before handing a credential to the
 dispatcher. The CLI deliberately refuses to issue for a missing, expired or killed
-lease; issuance does not renew or revive it. Configure an operator token even on
-Unix if you want to keep administering over HTTP after issuance.
+lease; issuance does not renew or revive it. RC2 requires an operator token on Unix and TCP by default. Fresh roots also
+require separate [supervisor renewal](SUPERVISION.md) before initial idle expiry.
 
 ```sh
 # Lease creation/policy happen through trusted setup using the operator client.
@@ -60,7 +60,7 @@ wrong-agent credentials deny execution; Python/Node preserve `unauthorized` and
 MCP workload mode requires `--serve-sock`; in-process MCP owns operator-capable
 state and cannot claim this separation. Scoped MCP does not call `/ensure` and
 cannot call `/spend`; tool calls containing spend reporting therefore fail closed.
-The unreleased proxy also omits provisioning in operator and embedded modes.
+The RC2 proxy also omits provisioning in operator and embedded modes.
 All MCP admissions require an existing live lease with an explicit tool allowlist;
 unset policy denies `policy_required` without consuming grants. Its distinct MCP
 routes cannot fall back to an older sidecar's legacy routes.
@@ -88,7 +88,7 @@ restart; operator-managed state and output-file backup are your responsibility.
 
 Startup adds an `admission_credentials` table without changing existing leases,
 policies, approvals or evidence. Published rc.1/1.x Unix integrations keep their behavior until the first
-credential is issued. Unreleased source instead requires an operator token by
+credential is issued. Published RC2 instead requires an operator token by
 default on both transports. Its explicit Unix legacy flag preserves the old
 behavior only until the first credential is issued. See [HTTP authentication](HTTP-AUTHENTICATION.md). From then on, anonymous Unix HTTP access is
 disabled, including when all credentials are expired/revoked. An absent or invalid
@@ -126,7 +126,7 @@ For sensitive effects, use [exact-action approval](ACTION-APPROVALS.md). Its
 operator-owned grant binds arguments and consumes once through the new endpoint;
 issuing an admission credential alone never approves an action.
 
-## Separate supervisor scope (unreleased source)
+## Separate supervisor scope (RC2)
 
 [Supervisor-only liveness](SUPERVISION.md) adds a `dbs1-` renewal credential,
 independent of the `dbw1-` admission credential. It is bound to a fresh supervised

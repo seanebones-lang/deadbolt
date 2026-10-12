@@ -3,7 +3,39 @@
 Versioned GitHub releases identify publication and the exact source revision.
 The older `v0.1.1-product` tag is not the standalone hardening release.
 
-## 2.0.0-rc.2 candidate (unreleased; publication is a separate gate)
+## Unreleased source after RC2
+
+- Update pinned GitHub Actions while retaining scoped workflow permissions.
+- Synchronize current installation/protocol/trust guidance and discovery metadata
+  with the published RC2 artifacts. Add a separately pinned RC2 editor helper and
+  four-host exported-command acceptance; keep actual graphical/model and
+  independent validation separate from these protocol checks.
+
+These source/guide changes do not replace any published artifact's bytes.
+
+## 2.0.0-rc.2 — 2026-10-12
+
+Published developer preview, not stable qualification. [Core release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.2)
+contains the four native targets and matching Python wheel/source archive;
+[the separately versioned MCPB](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.0-rc.2)
+packages the matching engine. Current [installation](docs/INSTALL.md) tracks
+Homebrew/PyPI/registry routes independently. Actual RC2 GUI/model acceptance and
+independent artifact-pinned reproduction remain open before stable promotion.
+
+- Require a preissued live lease and explicit tool allowlist for raw MCP dispatch;
+  remove raw proxy self-provisioning. The configured launcher can issue a missing
+  run from operator-owned configuration and validates liveness before downstream
+  startup. Raw server startup and non-tool methods remain outside tool admission.
+- Recheck every registered ancestor's liveness, current policy and reported-spend
+  ceilings in the admission transaction. Grants stay bound to the admitted child;
+  policy is not copied or widened by child configuration.
+- Return well-formed MCP denials as `isError: true` tool results with stable reason
+  and retry tokens; malformed requests remain protocol errors. Report effective
+  status expiry/deadline without changing stored state, and fail named missing
+  CLI status queries. Use the actual denial label in evidence.
+- Ship the job-scoped supervisor heartbeat helper and finite operator command in
+  the matching wheel; no agent-held renewal credential or expired-run resurrection.
+
 
 - Give corrected source a new immutable candidate identity. The matching Python
   version is `2.0.0rc2`. Published RC1 archives, wheels and bundles keep their
@@ -49,7 +81,10 @@ The older `v0.1.1-product` tag is not the standalone hardening release.
   scoped role separation and explicit legacy migration. Update setup/operations
   recipes. Published artifacts keep their original identity and behavior.
 
-## 2.0.0-rc.1 candidate (publication is a separate gate)
+## 2.0.0-rc.1
+
+Earlier published preview. [Versioned release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.1)
+retains its original bytes and behavior; select RC2 for the corrections above.
 
 - Select a major Rust engine version and matching Python candidate spelling.
   Document downstream enum/struct migration and validate installed native ZIPs
@@ -84,9 +119,9 @@ The older `v0.1.1-product` tag is not the standalone hardening release.
   exports and incidents. Roll back root/child issuance on failed primary evidence
   with the default sink. Validate time after writer-lock acquisition and exercise
   installed Python/Node callbacks on three CI platforms.
-- These source additions are not in existing registry engines or plugin bundles.
+- These additions are not in older 1.x engines or plugin bundles.
   They stop new admissions; the executor still owns in-flight cancellation,
-  host clock trust and process/egress confinement. Optional supervisor-only renewal is also an unreleased source addition. See [fixed lease deadlines](docs/LEASE-DEADLINES.md).
+  host clock trust and process/egress confinement. Supervisor-only renewal is also included in this preview. See [fixed lease deadlines](docs/LEASE-DEADLINES.md).
 
 ## 1.1.0-rc.1
 
@@ -165,8 +200,8 @@ See its release notes for the exact source SHA, checks and signing status.
 - Audit the locked dependencies against the current RustSec database in CI and
   retain the machine-readable report, including on failure.
 
-These changes are source-only until a new reviewed release is published; v1.0.3
-downloads do not contain the new helpers or hardening.
+The versioned 1.1 prerelease contains these changes; v1.0.3 downloads retain
+their original bytes and do not contain the new helpers or hardening.
 
 ## 1.0.3 — 2026-09-29
 
