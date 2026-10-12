@@ -8,6 +8,8 @@ The older `v0.1.1-product` tag is not the standalone hardening release.
 - Select a major Rust engine version and matching Python candidate spelling.
   Document downstream enum/struct migration and validate installed native ZIPs
   and published-version state upgrades separately from source tests.
+- Anchor Cargo package paths to the source root so ignored local build files
+  with matching basenames cannot enter a registry archive.
 - Add optional supervisor-only idle renewal for fresh root runs and registered
   descendants. Agent allow/deny activity cannot keep this mode alive; immutable
   fixed deadlines remain independent and always win. Existing leases keep their
