@@ -40,12 +40,12 @@ version may be shared by several unreleased commits.
 | HTTP 401 / `unauthorized` | Missing or wrong token | Server/client environments match; restart the server deliberately after rotating the token |
 | `no_lease` | No lease for that ID in this store | Ensure once before dispatch; confirm the executor-assigned ID and store paths |
 | `killed` | Terminal revocation | Confirm operator intent; use a new ID only for a deliberately authorized new run |
-| `lease_expired` | Silence exceeded TTL | Ensure is not a refresh; operator resume can renew a non-killed lease after review, or start an intentional new run |
+| `lease_expired` | Idle TTL elapsed | Fresh RC2 roots are supervised: expiry is terminal, so stop dispatch and issue a fresh run ID only after review. Ensure and late heartbeats cannot revive it. An existing explicit activity-mode lease can be resumed by the operator if it is not killed or past a fixed deadline. |
 | `paused` | Operator pause | Inspect status/policy; operator can resume after review |
 | `spend_cap` | Reported cumulative spend crossed cap | Inspect spend and policy; resume alone leaves spend/cap policy in place |
 | `purpose_exceeded` | Tool clip/allow-list or destination check denied | Inspect tool name, clips, explicit host and stored policy; use your tool's real name |
 | `needs_human` | Required approval is missing, changed, expired or already consumed | Inspect policy; legacy approval covers run/tool only. For candidate exact-only tools review a new [exact-action envelope](ACTION-APPROVALS.md), not broad `approve`. Other policy must still allow the action |
-| `deadline_exceeded` | Current-source run reached its fixed deadline | Stop dispatch; inspect operator status/evidence. Issue a fresh run ID only after review; resume and ensure cannot extend the cutoff |
+| `deadline_exceeded` | 2.0 run reached its fixed deadline | Stop dispatch; inspect operator status/evidence. Issue a fresh run ID only after review; resume and ensure cannot extend the cutoff |
 | `store_unavailable` | Store/evidence/transport failed or response was unusable | Check service, endpoint, writable state, free disk, deadlines and logs; retain denial while diagnosing |
 | Kill seems to do nothing | Different database/agent or dispatch skipped admit | Match DB/events paths, UID and ID; inspect the dispatch path; do not cache allow results |
 | Sample exits with code 2 | Expected denial path | Read the emitted code; after kill, this is success for the demonstration |
