@@ -1,20 +1,18 @@
-# Python client and OpenAI function tools
+# Python client and optional OpenAI Agents SDK adapter
 
-## Published matching 2.0 candidate
+## Published 2.0 developer candidate
 
-The [versioned GitHub release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.1) contains `n11-deadbolt-client`
-**2.0.0rc1**, matched to engine **2.0.0-rc.1**. Verify `SHA256SUMS` and install
-`n11_deadbolt_client-2.0.0rc1-py3-none-any.whl` in your virtual environment. Install
-the matching engine separately. Existing PyPI `1.1.0rc1` remains its original package.
-[Migration and installation](MIGRATING-V2.md) covers source compatibility and
-which new controls require the new engine. The older registry instructions below
-apply to the original prerelease. The new wheel includes `deadbolt_supervisor`
-and the explicit `renew_supervised` call, without adding a base runtime dependency.
+The matching pair is engine **2.0.0-rc.1** and Python client **2.0.0rc1**.
+The same reviewed wheel and source archive are published on PyPI and in the
+[versioned GitHub release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.1).
+Install the engine separately. [Migration and installation](MIGRATING-V2.md)
+covers source compatibility and which controls require the new engine.
+The wheel includes `deadbolt_supervisor` and the explicit `renew_supervised` call,
+without adding a base runtime dependency. Older 1.x packages retain their original bytes.
 
-
-The 1.1.0-rc.1 prerelease provides an installable Python client and an optional
+The 2.0.0-rc.1 prerelease provides an installable Python client and an optional
 OpenAI Agents SDK adapter. The same reviewed wheel and source archive are
-published on [PyPI as `n11-deadbolt-client==1.1.0rc1`](https://pypi.org/project/n11-deadbolt-client/1.1.0rc1/).
+published on [PyPI as `n11-deadbolt-client==2.0.0rc1`](https://pypi.org/project/n11-deadbolt-client/2.0.0rc1/).
 These APIs are not in v1.0.3.
 The client talks to the separately installed DeadBolt executable; the wheel
 does not bundle or start it. The base client uses only Python's standard library
@@ -27,30 +25,30 @@ Python 3.10+ for the patched build backend. The optional adapter uses the pinned
 Activate your application virtual environment, then pin the prerelease explicitly:
 
 ```sh
-python -m pip install 'n11-deadbolt-client==1.1.0rc1'
+python -m pip install 'n11-deadbolt-client==2.0.0rc1'
 # Optional SDK integration requires Python 3.10+:
-python -m pip install 'n11-deadbolt-client[openai-agents]==1.1.0rc1'
+python -m pip install 'n11-deadbolt-client[openai-agents]==2.0.0rc1'
 ```
 
 No PyPI account or publishing token is needed to install it. Install the
 matching engine separately with a reviewed native archive or
-`cargo install n11-deadbolt --version 1.1.0-rc.1 --locked --bin deadbolt`.
-The engine uses Rust version spelling `1.1.0-rc.1`; the Python package uses
-PEP 440 spelling `1.1.0rc1`. Both are prereleases. For an existing engine,
+`cargo install n11-deadbolt --version 2.0.0-rc.1 --locked --bin deadbolt`.
+The engine uses Rust version spelling `2.0.0-rc.1`; the Python package uses
+PEP 440 spelling `2.0.0rc1`. Both are prereleases. For an existing engine,
 review [upgrade preparation](INSTALL.md#upgrade-and-remove) first.
 
-The first PyPI upload preserves the exact GitHub release files and their
-hashes. Their bundled description retains its original pre-publication
-status; this current guide tracks the available installation routes.
+The PyPI files preserve the exact GitHub release bytes and hashes. Their bundled
+description is a frozen release snapshot; this current guide tracks the available
+installation routes.
 
 ## Install the release wheel or a reviewed checkout
 
-Download the wheel and `SHA256SUMS` from the [versioned prerelease](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.1.0-rc.1), verify its hash, and install in your application's virtual environment:
+Download the wheel and `SHA256SUMS` from the [versioned prerelease](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.1), verify its hash, and install in your application's virtual environment:
 
 ```sh
-python -m pip install /absolute/path/to/n11_deadbolt_client-1.1.0rc1-py3-none-any.whl
+python -m pip install /absolute/path/to/n11_deadbolt_client-2.0.0rc1-py3-none-any.whl
 # Optional SDK integration uses Python 3.10+:
-python -m pip install '/absolute/path/to/n11_deadbolt_client-1.1.0rc1-py3-none-any.whl[openai-agents]'
+python -m pip install '/absolute/path/to/n11_deadbolt_client-2.0.0rc1-py3-none-any.whl[openai-agents]'
 ```
 
 Alternatively, activate the environment, then install from
@@ -66,9 +64,9 @@ For a wheel, first install the build frontend with `python -m pip install build=
 then run `python -m build --outdir release-artifacts/python` in the source checkout.
 Install the resulting `.whl` by its full path. Install with
 `[openai-agents]` to include the SDK, or omit it to keep the client dependency-free.
-Pin `n11-deadbolt-client==1.1.0rc1` when installing from PyPI; it remains a prerelease.
+Pin `n11-deadbolt-client==2.0.0rc1` when installing from PyPI; it remains a prerelease.
 
-The wheel installs `deadbolt_client`, `deadbolt_openai_agents` and the
+The wheel installs `deadbolt_client`, `deadbolt_openai_agents`, `deadbolt_supervisor` and the
 `deadbolt-client` command. Existing source imports of `deadbolt_client` keep
 working; there is one implementation, rather than a copied package client.
 
@@ -231,13 +229,13 @@ The opt-in [exact-action protocol](ACTION-APPROVALS.md) binds reviewed arguments
 run, tool, destination, nonce and deadline. Its new endpoint cannot fall back to
 legacy admission. Approval enables exact-only policy for that run/tool;
 nonces persist after use/revocation. Existing unconfigured integrations retain
-their behavior. This is available in 1.1.0-rc.1. Older binaries cannot enforce these new
+their behavior. This was introduced in 1.1.0-rc.1 and is included in 2.0.0-rc.1. Older binaries cannot enforce these new
 requirements; quiesce protected dispatch before any rollback.
 
 ## Optional owned-process executor (2.0 candidate)
 
 For commands already running, see the [trusted supervisor reference](EXECUTOR-CANCELLATION.md).
-It adds POSIX process-group cleanup to 2.0 candidate wheels; the published 1.1.0rc1 wheel
+It adds POSIX process-group cleanup to 2.0 candidate wheels; the older published 1.1.0rc1 wheel
 does not contain it. It uses read-only status, never repeated admissions, and
 refuses unsupported hosts before starting work. This is separate from the normal
 callback wrappers and does not turn them into cancellable processes.

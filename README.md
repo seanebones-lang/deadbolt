@@ -18,9 +18,17 @@ for immutable run deadlines, optional supervisor-only idle renewal and explicit
 operator-owned offline destination exceptions. The release includes four native
 targets, checksums and acceptance receipts; both Mac ZIPs are signed/notarized.
 [Read the major Rust migration guide](docs/MIGRATING-V2.md) before upgrading.
-2.0 is available through these downloads and the immutable Git tag; the separately
-published registry, Homebrew and editor/MCP bundle versions are tracked in
-[the installation guide](docs/INSTALL.md).
+2.0 is also available on [crates.io](https://crates.io/crates/n11-deadbolt/2.0.0-rc.1),
+[PyPI](https://pypi.org/project/n11-deadbolt-client/2.0.0rc1/) and the
+[Homebrew preview channel](docs/HOMEBREW.md#explicitly-select-the-prerelease).
+Editor/MCP bundles still pin their older engines. [Choose your route](docs/INSTALL.md).
+
+```sh
+# Rust-built CLI; or select a prebuilt native download / macOS preview cask:
+cargo install n11-deadbolt --version 2.0.0-rc.1 --locked --bin deadbolt
+# Matching Python client, in your application virtual environment:
+python -m pip install 'n11-deadbolt-client==2.0.0rc1'
+```
 
 ## Try it before connecting an agent
 
@@ -67,7 +75,7 @@ and listed in the [official MCP Registry](https://registry.modelcontextprotocol.
 as `io.github.seanebones-lang/deadbolt`. The registry is a discovery record, not a
 hosted operator endpoint or an endorsement. [server.json](server.json) records
 the published package URL and SHA-256. This bundle release is separate from the
-engine's v1.1.0-rc.1 prerelease below.
+engine's 2.0.0-rc.1 developer candidate.
 
 ## Pick your integration
 
@@ -93,15 +101,16 @@ Choose the version before copying examples:
 | Available now | Included |
 | --- | --- |
 | **Published v1.0.3** | Native executable, embedded Rust, local HTTP, source Python/Node clients, stdio MCP, leases, policy, broad one-shot approval, kill and evidence |
-| **1.1.0-rc.1 prerelease** | All of the above, plus callback dispatch helpers, installable Python wheel/source package, optional SDK decorator, single-agent admission credentials and exact-action approvals |
+| **Older 1.1.0-rc.1 prerelease** | All of the above, plus callback dispatch helpers, installable Python wheel/source package, optional SDK decorator, single-agent admission credentials and exact-action approvals |
+| **2.0.0-rc.1 developer candidate** | Includes the 1.1 features, explicit per-lease offline exceptions, fixed run deadlines, supervisor-only idle renewal and the POSIX owned-process cancellation reference; major Rust API migration required |
 
-The [v1.1.0-rc.1 prerelease](https://github.com/seanebones-lang/deadbolt/releases/tag/v1.1.0-rc.1) includes native downloads and a Python wheel. It is for developer evaluation before stable promotion.
-They are **not in v1.0.3 downloads**. [Install the prerelease](docs/INSTALL.md#reviewed-source-candidate)
+The [v2.0.0-rc.1 prerelease](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.1)
+is for developer evaluation before stable promotion. These additions are **not in
+v1.0.3 downloads or the older editor/MCP bundles**. [Install the candidate](docs/INSTALL.md)
 or use the stable examples labeled v1.0.3. The Rust library and CLI are on
-[crates.io](https://crates.io/crates/n11-deadbolt). The Python client is available
-on [PyPI as `n11-deadbolt-client==1.1.0rc1`](https://pypi.org/project/n11-deadbolt-client/1.1.0rc1/),
-or as a release wheel/source installation. This remains a prerelease client
-for a separately installed engine. Node is a bundled source client.
+[crates.io](https://crates.io/crates/n11-deadbolt/2.0.0-rc.1); the separately
+installed client is on [PyPI as `n11-deadbolt-client==2.0.0rc1`](https://pypi.org/project/n11-deadbolt-client/2.0.0rc1/).
+Node remains a bundled source client.
 
 **On macOS, install the signed stable CLI with Homebrew:**
 
@@ -129,11 +138,11 @@ deadbolt drill
 deadbolt = { package = "n11-deadbolt", version = "=1.0.3" }
 ```
 
-Use `=1.1.0-rc.1` explicitly to evaluate the candidate APIs. Source builds need
+Use `=2.0.0-rc.1` explicitly to evaluate the candidate APIs. Source builds need
 Rust 1.85+ and a native C compiler/linker; prebuilt downloads avoid that build.
 [All installation routes](docs/INSTALL.md#cargo-registry-cli-and-embedded-rust).
 [Stable Rust API](https://docs.rs/n11-deadbolt/1.0.3/deadbolt/) ·
-[Candidate Rust API](https://docs.rs/n11-deadbolt/1.1.0-rc.1/deadbolt/).
+[Candidate Rust API](https://docs.rs/n11-deadbolt/2.0.0-rc.1/deadbolt/).
 
 ## Put the gate at the effect
 
@@ -159,7 +168,7 @@ or perform a separate admission before a one-shot dispatch helper.
 
 ## 2.0 release candidate in this source
 
-This checkout prepares **engine 2.0.0-rc.1** and **Python client 2.0.0rc1**.
+This source matches published **engine 2.0.0-rc.1** and **Python client 2.0.0rc1**.
 It consolidates strict destination policy, immutable run deadlines, optional
 supervisor-only liveness and the owned-process cancellation reference. Existing
 1.x packages and MCPB/plugin bundles stay separately versioned. Publication and

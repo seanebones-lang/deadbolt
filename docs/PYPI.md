@@ -13,6 +13,18 @@ Existing 1.x packages and editor/MCP bundles remain separately versioned.
 
 ## Install a matching pair
 
+In your application's virtual environment, pin the PyPI candidate explicitly:
+
+```sh
+python -m pip install 'n11-deadbolt-client==2.0.0rc1'
+# Optional SDK adapter, Python 3.10+:
+python -m pip install 'n11-deadbolt-client[openai-agents]==2.0.0rc1'
+```
+
+Install the engine with `cargo install n11-deadbolt --version 2.0.0-rc.1 --locked --bin deadbolt`,
+the Homebrew preview cask on macOS, or a verified native archive. No registry
+account is required. A release wheel is also available for manual installation:
+
 Select the versioned native engine and client wheel from the
 [2.0.0-rc.1 GitHub release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0-rc.1).
 Verify their SHA-256 checksums and the native archive's `BUILD.json` source

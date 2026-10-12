@@ -12,14 +12,14 @@ Rust uses `2.0.0-rc.1`; the Python wheel uses `2.0.0rc1`. Install a reviewed
 candidate wheel in your own virtual environment and install its engine separately:
 
 ```sh
-python -m pip install /absolute/path/to/n11_deadbolt_client-2.0.0rc1-py3-none-any.whl
+python -m pip install 'n11-deadbolt-client==2.0.0rc1'
 /absolute/path/to/deadbolt --version
 /absolute/path/to/deadbolt drill
 ```
 
-Expected engine version: `deadbolt 2.0.0-rc.1`. Before publication, build the
-reviewed candidate checkout with `cargo build --release --locked` and build
-its wheel from the sdist. After publication, verify the selected native archive
+Expected engine version: `deadbolt 2.0.0-rc.1`. Install it from Cargo with
+`cargo install n11-deadbolt --version 2.0.0-rc.1 --locked --bin deadbolt`, or use
+the Homebrew preview cask on macOS. For native downloads, verify the archive
 checksum and its `BUILD.json` source revision. Existing registry commands pinned
 to 1.x still install 1.x. Do not mix newer documentation with an older binary
 and assume the guarantee exists. No old package/tag is overwritten.
