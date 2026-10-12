@@ -290,8 +290,8 @@ fn prior_schema_upgrade_preserves_existing_admission_authority_and_terminal_stat
     let events_before = gate.export("killed", false).unwrap().len();
     drop(gate);
     let conn = Connection::open(dir.path().join("deadbolt.db")).unwrap();
-    // Reconstruct the prior source schema: credentials had admission authority only.
-    conn.execute_batch("ALTER TABLE admission_credentials DROP COLUMN scope; ALTER TABLE leases DROP COLUMN supervision_root;").unwrap();
+    // Reconstruct the unversioned prior schema: credentials had admission authority only.
+    conn.execute_batch("ALTER TABLE admission_credentials DROP COLUMN scope; ALTER TABLE leases DROP COLUMN supervision_root; PRAGMA user_version=0;").unwrap();
     drop(conn);
     let upgraded = Deadbolt::open_at(dir.path(), true, 60);
     assert_eq!(

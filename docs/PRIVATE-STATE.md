@@ -65,6 +65,40 @@ and MCP admission retain their stricter fail-closed behavior.
 
 ## Verification
 
+### Unreleased source after RC2: damaged stores are not new stores
+
+The source engine initializes an empty SQLite database only when its configured
+JSONL file is also empty. It accepts complete known unversioned schemas from
+stable 1.0.3 and the 1.1/2.0 previews for migration. The exact pre-v1 two-table
+`leases`/`events` schema is also supported: its historical columns must match,
+and its absent sequence table is initialized from retained events. A modern
+store missing its sequence or leases table is not that legacy schema and is
+refused. This compatibility path preserves historical kills and identities.
+Initialization, migrations and the SQLite schema-generation marker are committed in one writer transaction.
+After that marker is present, every required table and policy/credential column
+must exist; partial or newer
+unknown schemas deny `store_unavailable` rather than recreating missing state.
+An enabled sidecar exits unsuccessfully before binding a listener when the initial
+store check fails; a later live-store outage still denies admissions.
+Published RC2 artifacts do not yet implement this check.
+
+If a lease row is missing but SQLite evidence retains its issuance or kill,
+`issue`, `ensure` and child registration refuse to create it again. A denied
+attempt for an identity that was never issued does not reserve that run ID;
+normal operator setup after a `no_lease` result remains possible.
+Existing rows retain normal idempotent `ensure` and terminal-kill behavior.
+Do not delete state to make startup succeed. Stop protected dispatch, preserve
+the database, WAL and evidence, and restore a consistent reviewed backup or
+provision a separate fresh state directory with fresh run IDs. An empty database
+paired with old JSONL is not treated as an empty new installation.
+
+These checks detect incomplete schemas and retained history, not valid same-user
+edits or deletion of every copy of history. An older unversioned store can also
+be made to resemble a supported older schema by someone with operator write
+access. Operator state remains outside the containment boundary; protect it with
+separate OS identities and permissions. Older engines ignore the new schema
+marker: a rollback does not preserve the damaged-state refusal guarantee.
+
 The Unix private-state regression suite covers fresh core/Witness files, live
 WAL/SHM modes, unsafe existing copies, symlinks, FIFO nonblocking refusal,
 hardlinks, parent aliases, collision refusal and reopen preserving a kill.

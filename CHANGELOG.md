@@ -5,6 +5,22 @@ The older `v0.1.1-product` tag is not the standalone hardening release.
 
 ## Unreleased source after RC2
 
+- Refuse routed MCP arguments declaring multiple distinct recognized destination
+  hosts, before admission, grant consumption or forwarding. Repeated declarations
+  of one host retain exact-action spelling. Published RC2 still selects one host.
+- Refuse partial SQLite schemas at startup rather than recreating missing state
+  or modern policy/credential columns with defaults.
+  Refuse enabled sidecar startup before binding when its initial store check fails.
+  Initialize/migrate complete supported stores transactionally with a schema
+  generation marker. Refuse a missing identity with retained issuance/kill history across
+  root issuance, ensure and child registration. This is damaged-state recovery,
+  not tamper resistance against a user with operator database write access.
+- Preserve migration from the exact pre-v1 two-table schema while refusing
+  incomplete modern stores. Verify this with the original pre-v1 executable.
+- Remove operator DB/events/socket locations from the downstream environment,
+  while retaining unrelated application variables. Document discovery passthrough,
+  unset ordinary HTTP tool policy and operator-only spend reporting. Label SQL
+  expiry fixtures separately from elapsed-time/model-mediated evidence.
 - Update pinned GitHub Actions while retaining scoped workflow permissions.
 - Synchronize current installation/protocol/trust guidance and discovery metadata
   with the published RC2 artifacts. Add a separately pinned RC2 editor helper and

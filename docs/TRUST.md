@@ -118,3 +118,13 @@ and wins even during heartbeat activity. The explicit Python renewal call never
 uses operator/workload environment authentication. Published 1.x artifacts
 do not include this feature; source, migration and release gates apply. Running
 work still needs executor-owned cancellation and OS isolation where appropriate.
+
+## Downstream environment hygiene
+
+Published RC2 removes `DEADBOLT_TOKEN`, `DEADBOLT_ADMISSION_TOKEN` and
+`DEADBOLT_ACTION_GRANTS` before starting the downstream MCP server. Unreleased
+source additionally removes `DEADBOLT_DB`, `DEADBOLT_EVENTS` and `DEADBOLT_SOCK`.
+Other application variables survive. Removing these locations does not prevent
+a same-user process from finding or changing operator files; use separate OS
+identities for that boundary. `tools/list` remains discovery passthrough, not an
+execution authorization or a statement that every listed tool is allowed.

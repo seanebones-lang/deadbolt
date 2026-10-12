@@ -207,6 +207,14 @@ Never cache an allow result for later execution.
 
 ## Bolt on: Python, Node, or any HTTP client
 
+**Set policy before dispatch.** Ordinary `/admit` and `/admit-action` treat an
+unset `tools_allow` as unrestricted tool selection, subject to the other lease
+checks. Set an explicit tool list in trusted operator setup; an empty list denies
+all tools. MCP-specific admission requires that list and denies an unset policy.
+`/spend` is operator-only: a worker admission credential cannot report costs.
+Have trusted infrastructure record usage separately; reported spend is not
+provider billing measurement.
+
 Run `deadbolt serve` on macOS/Linux for a mode-0600 Unix socket; RC2 also requires an operator token there by default. On Windows, use
 loopback TCP and `DEADBOLT_TOKEN`. TCP works on macOS/Linux too.
 [HTTP authentication](HTTP-AUTHENTICATION.md) describes the version boundary
@@ -316,6 +324,18 @@ HTTP/SSE MCP servers. `tools/call` is gated; other methods (including resource
 reads and initialization) are forwarded. Those methods and startup side effects
 are outside the tool gate. Only place servers you trust behind the proxy.
 
+`tools/list` passes through the downstream catalog, including tools that the
+current policy forbids. Discovery is not permission: every routed `tools/call`
+rechecks the live policy, ancestors, approvals and clocks. Policies can change
+after discovery, so a listed tool can still be denied. Configure a smaller catalog
+in the downstream server if you want the model shown fewer tools.
+
+**Unreleased source after RC2:** downstream processes no longer inherit
+`DEADBOLT_DB`, `DEADBOLT_EVENTS` or `DEADBOLT_SOCK`, in addition to the already
+removed operator/admission tokens and `DEADBOLT_ACTION_GRANTS`. Other application
+environment variables remain available. This avoids handing out operator state
+locations; the downstream still has the same OS user access and is not sandboxed.
+
 The executor assigns the fixed agent ID; model arguments cannot change it.
 By default the proxy opens the local store. To use a running sidecar, add
 `--serve-sock 127.0.0.1:9782`. Stable integrations use the operator token in the
@@ -405,3 +425,11 @@ and wins even during heartbeat activity. The explicit Python renewal call never
 uses operator/workload environment authentication. Both 2.0 candidates include
 this feature; older 1.x artifacts do not. Review the migration guide. Running
 work still needs executor-owned cancellation and OS isolation where appropriate.
+
+### What expiry test receipts establish
+
+`tests/ancestor_client_acceptance.py` and the Cursor plugin's exported-command
+suite force idle expiry by editing the disposable SQLite timestamp. Their receipts
+label that fixture explicitly; it is not evidence of elapsed-time idle expiry.
+Wall-clock and actual-model tests must be recorded separately, with the selected
+model and underlying model identity distinguished when a host uses Auto.

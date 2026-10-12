@@ -214,12 +214,16 @@ class ClientContract(unittest.TestCase):
         effect = root / "effect"
         self.assertTrue(client.dispatch("agent", "write_file", lambda: effect.write_text("allowed"))["executed"])
         # Real proxy routes one tools/call to a child that reports its environment.
-        child = "import sys,json,os; [print(json.dumps({'jsonrpc':'2.0','id':json.loads(line)['id'],'result':{'secrets_inherited':any(k in os.environ for k in ['DEADBOLT_TOKEN','DEADBOLT_ADMISSION_TOKEN'])}}),flush=True) for line in sys.stdin]"
+        child = "import sys,json,os; [print(json.dumps({'jsonrpc':'2.0','id':json.loads(line)['id'],'result':{'operator_environment_inherited':[k for k in ['DEADBOLT_TOKEN','DEADBOLT_ADMISSION_TOKEN','DEADBOLT_ACTION_GRANTS','DEADBOLT_DB','DEADBOLT_EVENTS','DEADBOLT_SOCK'] if k in os.environ],'application_environment':os.environ.get('DEADBOLT_TEST_CHILD_VALUE')}}),flush=True) for line in sys.stdin]"
+        empty_grants = root / "empty-grants.json"
+        empty_grants.write_text("{}")
+        proxy_env = {**self.env, "DEADBOLT_ACTION_GRANTS": str(empty_grants), "DEADBOLT_TEST_CHILD_VALUE": "kept"}
         proxy = subprocess.run([str(BINARY), "mcp-proxy", "--agent", "agent", "--serve-sock", self.env["DEADBOLT_SOCK"],
                                 "--", sys.executable, "-c", child], input=json.dumps({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"read","arguments":{}}})+"\n",
-                               env=self.env, capture_output=True, text=True, timeout=10)
+                               env=proxy_env, capture_output=True, text=True, timeout=10)
         self.assertEqual(proxy.returncode, 0, proxy.stderr)
-        self.assertFalse(json.loads(proxy.stdout)["result"]["secrets_inherited"])
+        self.assertEqual(json.loads(proxy.stdout)["result"]["operator_environment_inherited"], [])
+        self.assertEqual(json.loads(proxy.stdout)["result"]["application_environment"], "kept")
         no_remote = subprocess.run([str(BINARY), "mcp-proxy", "--agent", "agent", "--", sys.executable, "-c", "raise Exception('must not start')"], env=self.env, capture_output=True, text=True, timeout=10)
         self.assertNotEqual(no_remote.returncode, 0)
         self.assertIn("bad_request", no_remote.stderr)

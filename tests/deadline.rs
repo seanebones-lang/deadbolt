@@ -215,6 +215,10 @@ fn old_store_migration_keeps_idle_only_leases_and_rejects_in_place_deadline() {
     let dir = tempfile::tempdir().unwrap();
     let conn = Connection::open(dir.path().join("deadbolt.db")).unwrap();
     conn.execute_batch("CREATE TABLE leases (agent_id TEXT PRIMARY KEY, parent_id TEXT, state TEXT NOT NULL, expires_at INTEGER NOT NULL, clips TEXT NOT NULL, clip_cids TEXT NOT NULL, swarm_task_id TEXT, updated_at INTEGER NOT NULL)").unwrap();
+    // A complete historical store includes its evidence and sequence tables.
+    // Lease-only databases are partial state, not a supported upgrade input.
+    conn.execute_batch("CREATE TABLE events (seq INTEGER PRIMARY KEY,cid TEXT NOT NULL UNIQUE,payload_sha256 TEXT NOT NULL,class TEXT NOT NULL,kind TEXT NOT NULL,payload TEXT NOT NULL,premises TEXT NOT NULL,ts INTEGER NOT NULL);
+        CREATE TABLE event_sequence (id INTEGER PRIMARY KEY CHECK(id=1),seq INTEGER NOT NULL);").unwrap();
     conn.execute(
         "INSERT INTO leases VALUES ('old',NULL,'active',?1,'[]','{}',NULL,?2)",
         params![now() + 60, now()],

@@ -167,6 +167,9 @@ fn spawn_proxy(
     cmd.env_remove("DEADBOLT_TOKEN")
         .env_remove("DEADBOLT_ADMISSION_TOKEN")
         .env_remove("DEADBOLT_ACTION_GRANTS")
+        .env_remove("DEADBOLT_DB")
+        .env_remove("DEADBOLT_EVENTS")
+        .env_remove("DEADBOLT_SOCK")
         .args(&argv[1..])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -389,7 +392,15 @@ fn dispatch(
             }
             return Ok(());
         };
-        let dest = dest_of(&msg);
+        let dest = match dest_of(&msg) {
+            Ok(dest) => dest,
+            Err(()) => {
+                if let Some(id) = request_id(&msg) {
+                    write_client(client, &denial_line(id, "bad_request"))?;
+                }
+                return Ok(());
+            }
+        };
         let usd = spend_of(&msg);
         let arguments = msg
             .get("params")
@@ -413,27 +424,46 @@ fn dispatch(
     child.flush()
 }
 
-fn dest_of(msg: &Value) -> Option<String> {
-    msg.get("params")
-        .and_then(|p| p.get("arguments"))
-        .and_then(find_dest)
+fn dest_of(msg: &Value) -> Result<Option<String>, ()> {
+    let mut dest = None;
+    if let Some(arguments) = msg.get("params").and_then(|p| p.get("arguments")) {
+        find_dest(arguments, &mut dest)?;
+    }
+    Ok(dest)
 }
 
-fn find_dest(value: &Value) -> Option<String> {
+fn find_dest(value: &Value, dest: &mut Option<String>) -> Result<(), ()> {
     match value {
         Value::Object(map) => {
             for key in ["url", "uri", "href", "endpoint", "host"] {
                 if let Some(raw) = map.get(key).and_then(|v| v.as_str()) {
                     if let Some(host) = host_from_field(key, raw) {
-                        return Some(host);
+                        // Admission and exact-action contracts have one host.
+                        // Never silently drop a second distinct declaration or
+                        // reinterpret ambiguity as an offline/absent route.
+                        if let Some(first) = dest.as_ref() {
+                            if !first.eq_ignore_ascii_case(&host) {
+                                return Err(());
+                            }
+                        } else {
+                            // Preserve exact-action fingerprints' spelling.
+                            *dest = Some(host);
+                        }
                     }
                 }
             }
-            map.values().find_map(find_dest)
+            for child in map.values() {
+                find_dest(child, dest)?;
+            }
         }
-        Value::Array(items) => items.iter().find_map(find_dest),
-        _ => None,
+        Value::Array(items) => {
+            for child in items {
+                find_dest(child, dest)?;
+            }
+        }
+        _ => {}
     }
+    Ok(())
 }
 
 fn host_from_field(key: &str, raw: &str) -> Option<String> {
@@ -451,6 +481,18 @@ fn bare_host(raw: &str) -> Option<String> {
     let raw = raw.trim();
     if raw.is_empty() || raw.contains('/') || raw.contains(' ') || raw.contains('@') {
         return None;
+    }
+    if let Some(bracketed) = raw.strip_prefix('[') {
+        let (host, suffix) = bracketed.split_once(']')?;
+        if !suffix.is_empty() && !suffix.starts_with(':') {
+            return None;
+        }
+        host.parse::<Ipv6Addr>().ok()?;
+        return Some(host.to_string());
+    }
+    // A bare IPv6 literal is a host token, not a DNS name plus port.
+    if raw.parse::<Ipv6Addr>().is_ok() {
+        return Some(raw.to_string());
     }
     let host = raw.split(':').next()?;
     if host.is_empty() {
@@ -491,9 +533,22 @@ fn as_usd(value: &Value) -> Option<f64> {
 }
 
 fn host_in(raw: &str) -> Option<String> {
-    let rest = raw
-        .strip_prefix("https://")
-        .or_else(|| raw.strip_prefix("http://"))?;
+    let raw = raw.trim();
+    // HTTP schemes are ASCII case-insensitive. A differently cased prefix must
+    // not hide a second recognized destination from the declaration collector.
+    let rest = if raw
+        .get(..8)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("https://"))
+    {
+        &raw[8..]
+    } else if raw
+        .get(..7)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("http://"))
+    {
+        &raw[7..]
+    } else {
+        return None;
+    };
     let authority = rest.split(['/', '?', '#']).next()?;
     let host = authority
         .rsplit_once('@')
@@ -1225,6 +1280,104 @@ mod tests {
             assert!(v.get("error").is_none());
         }
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn multiple_destinations_never_reach_admission_or_downstream() {
+        for arguments in [
+            json!({"a":{"url":"https://allowed.example"},"b":{"url":"https://foreign.example"}}),
+            json!({"url":"https://allowed.example","host":"foreign.example"}),
+            json!({"targets":[{"url":"https://allowed.example"},{"url":"https://foreign.example"}]}),
+            json!({"url":"https://foreign.example","nested":{"host":"allowed.example"}}),
+        ] {
+            for tool in ["fetch", "read_file"] {
+                let request = json!({"jsonrpc":"2.0","id":1,"method":"tools/call",
+                    "params":{"name":tool,"arguments":arguments}})
+                .to_string();
+                let mut child = Vec::new();
+                let output = Mutex::new(Vec::new());
+                // All embedded/socket/exact-action paths share this dispatch
+                // boundary. Reject before spend or a one-use grant can mutate.
+                dispatch(
+                    &request,
+                    &|_, _, _, _| panic!("ambiguous call reached admission"),
+                    &mut child,
+                    &output,
+                )
+                .unwrap();
+                assert!(child.is_empty());
+                let result: Value = serde_json::from_slice(&output.into_inner().unwrap()).unwrap();
+                assert_eq!(result["result"]["isError"], true);
+                assert_eq!(
+                    result["result"]["_meta"]["io.github.seanebones-lang/deadbolt"]["code"],
+                    "bad_request"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn repeated_same_destination_preserves_exact_action_spelling() {
+        let mut child = Vec::new();
+        let output = Mutex::new(Vec::new());
+        dispatch(
+            &json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{
+                "name":"fetch","arguments":{"url":"https://Allowed.Example/path",
+                    "nested":[{"host":"allowed.example"},{"endpoint":"https://ALLOWED.EXAMPLE/other"}]}
+            }}).to_string(),
+            &|_, dest, _, _| { assert_eq!(dest, Some("Allowed.Example")); None },
+            &mut child, &output).unwrap();
+        assert!(!child.is_empty());
+    }
+
+    #[test]
+    fn destination_equivalent_forms_cannot_hide_foreign_hosts() {
+        let mut cases = vec![
+            json!({"url":"https://allowed.example","endpoint":"HTTPS://foreign.example"}),
+            json!({"url":"https://allowed.example","uri":"  Http://foreign.example/path  "}),
+            json!({"url":"https://[::1]/","host":"::2"}),
+        ];
+        for key in ["url", "uri", "href", "endpoint", "host"] {
+            cases.push(
+                json!({"url":"https://allowed.example", "nested":{key:"HTTPS://foreign.example"}}),
+            );
+        }
+        for arguments in cases {
+            let request = json!({"jsonrpc":"2.0","id":1,"method":"tools/call",
+                "params":{"name":"fetch","arguments":arguments}})
+            .to_string();
+            let mut child = Vec::new();
+            let output = Mutex::new(Vec::new());
+            dispatch(
+                &request,
+                &|_, _, _, _| panic!("equivalent foreign destination reached admission"),
+                &mut child,
+                &output,
+            )
+            .unwrap();
+            assert!(child.is_empty());
+        }
+    }
+
+    #[test]
+    fn destination_equivalent_ipv6_forms_preserve_single_host_calls() {
+        let mut child = Vec::new();
+        let output = Mutex::new(Vec::new());
+        dispatch(
+            &json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{
+                "name":"fetch","arguments":{"url":"https://[::1]/", "host":"[::1]:443",
+                    "nested":{"host":"::1"}}
+            }})
+            .to_string(),
+            &|_, dest, _, _| {
+                assert_eq!(dest, Some("::1"));
+                None
+            },
+            &mut child,
+            &output,
+        )
+        .unwrap();
+        assert!(!child.is_empty());
     }
 
     #[test]
