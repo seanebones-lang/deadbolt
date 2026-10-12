@@ -143,6 +143,29 @@ class ClientContract(unittest.TestCase):
         finally:
             fake.shutdown();worker.join();fake.server_close()
 
+    def test_duplicate_and_nonfinite_response_json_cannot_allow(self):
+        response = [b'{"decision":"deny","decision":"allow"}']
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(response[0])))
+                self.end_headers()
+                self.wfile.write(response[0])
+            def do_GET(self): self.do_POST()
+            def log_message(self, *args): pass
+        fake = HTTPServer(("127.0.0.1", 0), Handler)
+        worker = Thread(target=fake.serve_forever); worker.start()
+        try:
+            os.environ["DEADBOLT_SOCK"] = f"127.0.0.1:{fake.server_port}"
+            for raw in [b'{"decision":"deny","decision":"allow"}',
+                        b'{"decision":"allow","value":NaN}',
+                        b'{"agents":[{"state":"killed","state":"active"}]}']:
+                response[0] = raw
+                self.assertFalse(client.dispatch("agent", "read", lambda:self.fail("body ran"))["executed"])
+                self.assertEqual(client.status("agent")["code"], "store_unavailable")
+        finally:
+            fake.shutdown(); worker.join(); fake.server_close()
+
     def test_mcp_exact_action_raw_arguments_once_and_unreadable_metadata(self):
         action = client.prepare_action("agent", "write", {"body":"reviewed"})
         self.approve_action(action)

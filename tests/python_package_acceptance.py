@@ -69,9 +69,10 @@ def main():
         env = {k: v for k, v in os.environ.items() if k not in ("PYTHONPATH", "PYTHONHOME")}
         env["DEADBOLT_SOCK"] = str(temp / "nonexistent.sock")
         smoke = '''
-import importlib.util, pathlib, deadbolt_client, deadbolt_openai_agents
+import importlib.util, pathlib, deadbolt_client, deadbolt_openai_agents, deadbolt_supervisor
 assert importlib.util.find_spec("agents") is None
 assert pathlib.Path(deadbolt_client.__file__).is_relative_to(pathlib.Path(__import__("sys").prefix))
+assert pathlib.Path(deadbolt_supervisor.__file__).is_relative_to(pathlib.Path(__import__("sys").prefix))
 result = deadbolt_client.dispatch("synthetic", "write_file", lambda: (_ for _ in ()).throw(AssertionError("body ran")))
 assert result == {"executed": False, "decision": {"decision": "deny", "code": "store_unavailable"}}, result
 print("installed base wheel: import, fail-closed body, no SDK dependency passed")

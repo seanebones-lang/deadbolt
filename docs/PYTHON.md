@@ -221,3 +221,11 @@ legacy admission. Approval enables exact-only policy for that run/tool;
 nonces persist after use/revocation. Existing unconfigured integrations retain
 their behavior. This is available in 1.1.0-rc.1. Older binaries cannot enforce these new
 requirements; quiesce protected dispatch before any rollback.
+
+## Optional owned-process executor (unreleased source)
+
+For commands already running, see the [trusted supervisor reference](EXECUTOR-CANCELLATION.md).
+It adds POSIX process-group cleanup to source-built wheels; the published RC wheel
+does not contain it. It uses read-only status, never repeated admissions, and
+refuses unsupported hosts before starting work. This is separate from the normal
+callback wrappers and does not turn them into cancellable processes.
