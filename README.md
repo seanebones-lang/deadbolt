@@ -1,5 +1,7 @@
 # DeadBolt
 
+Contributing with an agent? Read [AGENTS.md](AGENTS.md) for setup, local checks and project boundaries.
+
 **A local execution gate for software agents.** Put DeadBolt in the code that runs
 an action, then let policy and operator controls decide whether that action runs.
 Embed it in Rust, call its local sidecar from another language, or wrap a trusted
