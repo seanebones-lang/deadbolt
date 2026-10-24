@@ -9,6 +9,10 @@ stdio MCP server. Free under [Apache-2.0](LICENSE).
 
 [Install](docs/INSTALL.md) · [Try it](docs/QUICKSTART.md) · [Integrate](docs/INTEGRATION.md) · [Migration](docs/MIGRATING-V2.md) · [Project site](https://nexteleven.dev/deadbolt)
 
+[Recent evaluation evidence](docs/EVALUATION-NOTES-2026-10.md): ProtocolProbe's
+read-only setup inspection and NextEleven's separate Swarm native integration
+lab, with their tested scopes and remaining limits.
+
 [![CI](https://github.com/seanebones-lang/deadbolt/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/seanebones-lang/deadbolt/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/seanebones-lang/deadbolt)](https://github.com/seanebones-lang/deadbolt/releases/latest)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
