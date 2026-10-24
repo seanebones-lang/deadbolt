@@ -169,7 +169,7 @@ network tool; always provide its actual destination when using destination polic
 
 For Python MCP servers you own, the separate [FastMCP recipe](FASTMCP.md) uses
 the same installed client's `dispatch_async` inside the effect function. It
-needs no OpenAI SDK or model key and is tested with FastMCP 4.1.0. Install that
+needs no OpenAI SDK or model key and is tested with FastMCP 4.1.2. Install that
 recipe in its own environment; it does not change the pinned optional SDK contract.
 
 - Decorate every protected function on every agent, including specialists reached

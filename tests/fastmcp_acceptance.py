@@ -22,7 +22,7 @@ def main():
     binary = args.binary.resolve(strict=True)
     if Path(deadbolt_client.__file__).resolve().is_relative_to(ROOT / "examples"):
         raise RuntimeError("install the wheel; source imports cannot prove consumer installation")
-    if importlib.metadata.version("fastmcp") != "4.1.0":
+    if importlib.metadata.version("fastmcp") != "4.1.2":
         raise RuntimeError("install the pinned framework contract")
     clean_env = {key: value for key, value in os.environ.items()
                  if not key.startswith("DEADBOLT_") and key != "PYTHONPATH"}
