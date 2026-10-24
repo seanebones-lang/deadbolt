@@ -8,6 +8,21 @@ Install and enable the bundle with **Operator configuration left blank**. Ask yo
 
 Supplying a configuration path switches to the actual protected downstream server: its generated tool list replaces these two setup tools. A missing, unreadable or malformed supplied file stops startup; it never silently falls back to setup. To return deliberately to setup, stop the extension, clear its setting and restart. Terminal/editor clients can run `node /absolute/bundle/server/launcher.cjs` without a configuration argument for setup, or pass the absolute configuration path for the gate.
 
+### Setup inputs and failures
+
+`deadbolt_get_integration_guide` requires an explicit supported `route`; there is
+no default route. `deadbolt_check_bundle` takes no arguments and chooses the
+native target from the current host. Both reject extra fields. Invalid tool
+arguments return `isError: true`; unknown tools return JSON-RPC error `-32602`.
+Missing or unreadable bundle metadata/executable returns `isError: true` and
+does not confirm integrity. An unsupported target or an executable checksum
+mismatch reports `checksum_matches: false`. A successful setup result always
+reports no active protection through its boundary; the bundle-check result also
+sets `active_protection: false`. Neither result authorizes an effect.
+
+See the [October evaluation notes](../../docs/EVALUATION-NOTES-2026-10.md) for
+the distinction between listing these tools and exercising configured enforcement.
+
 ## Configure the tool-call gate
 
 1. Install the `.mcpb` in a client that supports local MCP bundles and Node.js 20+. The bundle contains macOS ARM64/Intel, Linux x64 and Windows x64 binaries. Linux requires a compatible glibc system; ARM Linux and ARM Windows are not included.

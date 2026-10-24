@@ -19,7 +19,7 @@ documentation rather than mixing old binaries with current configuration.
 | Cargo CLI / embedded Rust | Rust 1.85+, native C compiler/linker | Engine or embedded library |
 | Python package | Python 3.9+, pip and a virtual environment | Dependency-free base client; native engine installed separately |
 | Optional SDK adapter | Python 3.10+ and openai-agents extra | Tested SDK 0.23.1 adapter |
-| [FastMCP recipe](FASTMCP.md) | Python 3.10+, FastMCP 4.1.0, matching client/engine | A gate inside each protected tool body |
+| [FastMCP recipe](FASTMCP.md) | Python 3.10+, FastMCP 4.1.2, matching client/engine | A gate inside each protected tool body |
 | Source Node client | Node.js; version 22 tested | CommonJS source module; no npm package required |
 | [Docker source build](DOCKER-MCP.md) | Docker Linux engine and reviewed source/configuration | Local stdio container; check that guide's explicit version and scope |
 
