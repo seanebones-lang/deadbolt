@@ -1,9 +1,8 @@
 # Build DeadBolt into a FastMCP tool
 
 The current recipe accepts the matching stable 2.0.0 engine/client pair and the
-original 1.1 prerelease pair. It rejects mixed engine/client versions. Existing
-1.1 registry commands below retain their original scope; use the
-[2.0 migration guide](MIGRATING-V2.md) before upgrading.
+original 1.1 prerelease pair. It rejects mixed engine/client versions. Use the
+[2.0 migration guide](MIGRATING-V2.md) before upgrading an older installation.
 
 [Step-by-step local walkthrough](https://seanebones-lang.github.io/deadbolt/fastmcp-tutorial.html)
 with pinned lab commands and effect checks.
@@ -14,15 +13,14 @@ DeadBolt checks immediately before the actual effect. If you cannot edit the
 server, use the [stdio proxy](INTEGRATION.md#bolt-on-stdio-mcp-proxy) instead.
 
 This source recipe uses **FastMCP 4.1.2**, Python 3.10+, published Python client
-**1.1.0rc1** and engine **1.1.0-rc.1**. Both DeadBolt versions are prereleases.
-The example is added after that release and is in current source, not the
-original release archives or wheel. It does not modify the installed client or
-add FastMCP as a mandatory DeadBolt dependency. Other framework versions,
+**2.0.0** and engine **2.0.0**. Obtain the example files from a reviewed current
+checkout. It does not modify the installed client or add FastMCP as a mandatory
+DeadBolt dependency. Other framework versions,
 remote transports and graphical/model-mediated use need their own checks.
 
 The October 24 dependency-maintenance check exercised FastMCP 4.1.2 with the
 stable **2.0.0 engine/client pair**, passing all 20 installed consumer checks.
-The historical 1.1 install commands below were not rerun in that check.
+The historical 1.1 compatibility path was not rerun in that check.
 
 ## Try it without a model or real account
 
@@ -30,7 +28,7 @@ Install the [matching engine](INSTALL.md#native-archive-no-rust-required), then
 get a reviewed current checkout. Activate a Python 3.10+ virtual environment:
 
 ```sh
-python -m pip install 'fastmcp==4.1.2' 'n11-deadbolt-client==1.1.0rc1'
+python -m pip install 'fastmcp==4.1.2' 'n11-deadbolt-client==2.0.0'
 python /absolute/path/to/deadbolt/examples/fastmcp_demo.py --binary /absolute/path/to/deadbolt-executable
 ```
 
