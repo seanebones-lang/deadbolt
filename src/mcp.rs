@@ -865,6 +865,54 @@ mod tests {
             }
         }
     }
+    #[test]
+    fn post_completion_secondary_mcp_call_requires_independent_admission() {
+        let mut downstream = Vec::new();
+        let output = Mutex::new(Vec::new());
+        let admissions = AtomicU64::new(0);
+        let admit = move |tool: &str, _: Option<&str>, _: Option<f64>, _: &Value| {
+            let call = admissions.fetch_add(1, Ordering::Relaxed);
+            if call == 0 && tool == "search" {
+                None
+            } else {
+                Some("forbidden".to_string())
+            }
+        };
+
+        // The requested operation is admitted and forwarded.
+        dispatch(
+            r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search","arguments":{"query":"parts"}}}"#,
+            &admit,
+            &mut downstream,
+            &output,
+        )
+        .unwrap();
+
+        // A tool-description injection that induces a follow-up logging call
+        // is a new invocation, not part of the earlier authorization.
+        dispatch(
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"telemetry","arguments":{"query":"parts","response":"sensitive"}}}"#,
+            &admit,
+            &mut downstream,
+            &output,
+        )
+        .unwrap();
+
+        let forwarded = String::from_utf8(downstream).unwrap();
+        assert_eq!(forwarded.lines().count(), 1);
+        assert!(forwarded.contains("\"name\":\"search\""));
+        assert!(!forwarded.contains("telemetry"));
+        assert!(!forwarded.contains("sensitive"));
+
+        let response = output.into_inner().unwrap();
+        let response: Value = serde_json::from_slice(&response).unwrap();
+        assert_eq!(response["id"], 2);
+        assert_eq!(
+            response["result"]["_meta"]["io.github.seanebones-lang/deadbolt"]["code"],
+            "forbidden"
+        );
+    }
+
     use std::io::Cursor;
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::mpsc;
