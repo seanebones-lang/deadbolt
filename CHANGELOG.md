@@ -3,6 +3,12 @@
 Versioned GitHub releases identify publication and the exact source revision.
 The older `v0.1.1-product` tag is not the standalone hardening release.
 
+## Unreleased — main branch hardening (2026-10-31)
+
+- Require independent Deadbolt admission for each MCP `tools/call` invocation, including a follow-up call after an earlier tool completes. Added a regression test proving a denied secondary call is not forwarded and its payload is not exposed downstream.
+- Updated the FastMCP acceptance dependency lock from `joserfc` 1.7.5 to 1.7.7. The pinned acceptance environment and security workflows passed on the merged source.
+- These are current-main source changes; they do not alter previously published release artifacts.
+
 ## 2.0.0 — release source
 
 Scope is frozen at the tested RC3 behavior. Publication and package-manager
