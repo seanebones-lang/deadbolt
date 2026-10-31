@@ -870,7 +870,7 @@ mod tests {
         let mut downstream = Vec::new();
         let output = Mutex::new(Vec::new());
         let admissions = AtomicU64::new(0);
-        let admit = |tool: &str, _: Option<&str>, _: Option<f64>, _: &Value| {
+        let admit = move |tool: &str, _: Option<&str>, _: Option<f64>, _: &Value| {
             let call = admissions.fetch_add(1, Ordering::Relaxed);
             if call == 0 && tool == "search" {
                 None
