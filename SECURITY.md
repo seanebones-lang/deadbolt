@@ -6,6 +6,8 @@ explicit quiesced permission migration; Windows ACLs remain operator-managed.
 See [private state](docs/PRIVATE-STATE.md). These checks do not isolate code
 with the same OS identity or access to operator state/administration.
 
+Current `main` independently gates every MCP `tools/call` request. Admission for a completed call does not authorize a later or secondary call; each invocation is evaluated again before forwarding. The regression test covers a denied follow-up call and verifies it is not sent to the downstream server. This boundary applies to routed tool calls through the proxy; other MCP methods, downstream process behavior, and direct dispatch outside the proxy remain outside it.
+
 Report a suspected vulnerability through
 [GitHub's private vulnerability reporting](https://github.com/seanebones-lang/deadbolt/security/advisories/new).
 Private reporting is enabled for this repository. Include the source revision,
