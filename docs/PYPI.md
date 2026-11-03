@@ -6,7 +6,7 @@ decision: a denial leaves the callback uncalled. The base client has no runtime
 dependencies. The optional `openai-agents` extra adapts function tools to the
 tested OpenAI Agents SDK contract.
 
-This release source pairs client **2.0.0** with engine **2.0.0**.
+This release source pairs client **2.0.1** with engine **2.0.1**.
 Use a matching engine/client pair and check the [release page](https://github.com/seanebones-lang/deadbolt/releases)
 and [installation guide](https://github.com/seanebones-lang/deadbolt/blob/main/docs/INSTALL.md)
 for published artifacts and package-manager availability. The wheel does not
@@ -15,14 +15,14 @@ packages retain their original immutable files.
 
 ## Install from PyPI
 
-Version 2.0.0 is published on PyPI. Select it explicitly in your application's
+Version 2.0.1 is published on PyPI. Select it explicitly in your application's
 virtual environment. The wheel/source archive in the GitHub release is an
 alternative with separately verifiable checksums:
 
 ```sh
-python -m pip install 'n11-deadbolt-client==2.0.0'
+python -m pip install 'n11-deadbolt-client==2.0.1'
 # Optional SDK adapter, Python 3.10+:
-python -m pip install 'n11-deadbolt-client[openai-agents]==2.0.0'
+python -m pip install 'n11-deadbolt-client[openai-agents]==2.0.1'
 ```
 
 Install the matching native engine separately. No registry account or API key
@@ -36,15 +36,15 @@ hashes and the native archive's `BUILD.json` revision. In your application's
 virtual environment:
 
 ```sh
-python -m pip install /absolute/path/to/n11_deadbolt_client-2.0.0-py3-none-any.whl
+python -m pip install /absolute/path/to/n11_deadbolt_client-2.0.1-py3-none-any.whl
 /absolute/path/to/deadbolt --version
 /absolute/path/to/deadbolt drill
 ```
 
-Expected: `deadbolt 2.0.0`, then `deadbolt drill ok`. For the optional SDK adapter (Python 3.10+):
+Expected: `deadbolt 2.0.1`, then `deadbolt drill ok`. For the optional SDK adapter (Python 3.10+):
 
 ```sh
-python -m pip install '/absolute/path/to/n11_deadbolt_client-2.0.0-py3-none-any.whl[openai-agents]'
+python -m pip install '/absolute/path/to/n11_deadbolt_client-2.0.1-py3-none-any.whl[openai-agents]'
 ```
 
 The extra pins `openai-agents==0.23.1`. Installation does not request API
@@ -52,7 +52,7 @@ credentials or make model requests. Your application configures its provider.
 
 ## Build the matching release source
 
-Use the `v2.0.0` release tag once published, or a reviewed 2.0.0 source checkout,
+Use the `v2.0.1` published release tag, or a reviewed 2.0.1 source checkout,
 to build both components. Record `git rev-parse HEAD` and compare it with the
 release notes and the native archive's `BUILD.json`:
 
@@ -61,7 +61,7 @@ cargo build --release --locked --bin deadbolt
 python -m build --outdir release-artifacts/python
 ```
 
-Install its `n11_deadbolt_client-2.0.0-py3-none-any.whl` in your environment and
+Install its `n11_deadbolt_client-2.0.1-py3-none-any.whl` in your environment and
 use its `target/release/deadbolt` (`deadbolt.exe` on Windows). Keep the revision
 and artifact hashes with your results. A local build is not a signed download.
 
@@ -108,13 +108,13 @@ cancel already running bodies. The base sidecar client supports Python 3.9+.
 
 ## Guides and support
 
-- [Python setup and SDK examples](https://github.com/seanebones-lang/deadbolt/blob/v2.0.0/docs/PYTHON.md)
-- [Upgrade and Rust API migration](https://github.com/seanebones-lang/deadbolt/blob/v2.0.0/docs/MIGRATING-V2.md)
-- [Exact-action approvals](https://github.com/seanebones-lang/deadbolt/blob/v2.0.0/docs/ACTION-APPROVALS.md)
-- [Supervisor-only liveness](https://github.com/seanebones-lang/deadbolt/blob/v2.0.0/docs/SUPERVISION.md)
-- [Owned-process cancellation and its limits](https://github.com/seanebones-lang/deadbolt/blob/v2.0.0/docs/EXECUTOR-CANCELLATION.md)
-- [Local data and privacy](https://github.com/seanebones-lang/deadbolt/blob/v2.0.0/docs/PRIVACY.md)
-- [Security reporting](https://github.com/seanebones-lang/deadbolt/blob/v2.0.0/SECURITY.md)
+- [Python setup and SDK examples](https://github.com/seanebones-lang/deadbolt/blob/v2.0.1/docs/PYTHON.md)
+- [Upgrade and Rust API migration](https://github.com/seanebones-lang/deadbolt/blob/v2.0.1/docs/MIGRATING-V2.md)
+- [Exact-action approvals](https://github.com/seanebones-lang/deadbolt/blob/v2.0.1/docs/ACTION-APPROVALS.md)
+- [Supervisor-only liveness](https://github.com/seanebones-lang/deadbolt/blob/v2.0.1/docs/SUPERVISION.md)
+- [Owned-process cancellation and its limits](https://github.com/seanebones-lang/deadbolt/blob/v2.0.1/docs/EXECUTOR-CANCELLATION.md)
+- [Local data and privacy](https://github.com/seanebones-lang/deadbolt/blob/v2.0.1/docs/PRIVACY.md)
+- [Security reporting](https://github.com/seanebones-lang/deadbolt/blob/v2.0.1/SECURITY.md)
 
 DeadBolt is maintained by NextEleven LLC and licensed under Apache-2.0.
 Support: nextelevenstudios@gmail.com. Do not include credentials or private

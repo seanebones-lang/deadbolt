@@ -17,10 +17,11 @@ lab, with their tested scopes and remaining limits.
 [![Release](https://img.shields.io/github/v/release/seanebones-lang/deadbolt)](https://github.com/seanebones-lang/deadbolt/releases/latest)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-## Version 2.0.0
+## Version 2.0.1
 
-This source targets **engine 2.0.0 and Python client 2.0.0**, with scope frozen at
-the tested RC3 behavior. [Versioned releases](https://github.com/seanebones-lang/deadbolt/releases)
+This source targets **engine 2.0.1 and Python client 2.0.1**. The patch fixes MCP
+spend sequencing on denied calls and requires independent admission for every
+MCP tool invocation; the version 2 integration boundaries remain unchanged. [Versioned releases](https://github.com/seanebones-lang/deadbolt/releases)
 identify available downloads, exact source and checksums; [installation](docs/INSTALL.md)
 tracks package-manager, bundle and editor availability separately. A source merge
 does not publish a package or update a directory listing.
@@ -65,17 +66,17 @@ deadbolt --version
 deadbolt drill
 ```
 
-The matching [Python client 2.0.0](https://pypi.org/project/n11-deadbolt-client/2.0.0/) is published.
-The matching [Rust package 2.0.0](https://crates.io/crates/n11-deadbolt/2.0.0) is also published.
+The matching [Python client 2.0.1](https://pypi.org/project/n11-deadbolt-client/2.0.1/) is published.
+The matching [Rust package 2.0.1](https://crates.io/crates/n11-deadbolt/2.0.1) is also published.
 Install the CLI from Cargo, or the Python client in your application environment:
 
 ```sh
-cargo install n11-deadbolt --version 2.0.0 --locked --bin deadbolt
+cargo install n11-deadbolt --version 2.0.1 --locked --bin deadbolt
 # In your application's virtual environment:
-python -m pip install 'n11-deadbolt-client==2.0.0'
+python -m pip install 'n11-deadbolt-client==2.0.1'
 ```
 
-For embedded Rust, use `deadbolt = { package = "n11-deadbolt", version = "=2.0.0" }`
+For embedded Rust, use `deadbolt = { package = "n11-deadbolt", version = "=2.0.1" }`
 and commit your application's own lockfile. The Python wheel contains the client,
 not the engine. Node remains a bundled source module. [Install and verify](docs/INSTALL.md).
 
