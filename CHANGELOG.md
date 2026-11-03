@@ -3,11 +3,31 @@
 Versioned GitHub releases identify publication and the exact source revision.
 The older `v0.1.1-product` tag is not the standalone hardening release.
 
-## Unreleased — main branch hardening (2026-10-31)
+## 2.0.1 — release source
 
-- Require independent Deadbolt admission for each MCP `tools/call` invocation, including a follow-up call after an earlier tool completes. Added a regression test proving a denied secondary call is not forwarded and its payload is not exposed downstream.
-- Updated the FastMCP acceptance dependency lock from `joserfc` 1.7.5 to 1.7.7. The pinned acceptance environment and security workflows passed on the merged source.
-- These are current-main source changes; they do not alter previously published release artifacts.
+Patch release. Publication and package-manager availability are tracked
+separately from this source version; the published 2.0.0 artifacts retain
+their original bytes and do not include the spend fix below.
+
+- Fix MCP spend accounting to commit spend only after the admission
+  decision, sequenced on an Allow. Previously the production MCP closures
+  committed spend — scraped from the tool call's own arguments — before the
+  decision, so denied calls still billed the run and a spoofed amount could
+  trip budget caps and pollute the evidence record. Denied calls now change
+  no spend state and write no spend evidence event. This aligns the code
+  with the documented contract in TRUST.md and PROTOCOL.md; it is a
+  sequencing change inside the MCP spend path only, with no store or
+  configuration migration. Regression test:
+  `denied_mcp_call_does_not_commit_spend`.
+- Require independent Deadbolt admission for each MCP `tools/call`
+  invocation, including a follow-up call after an earlier tool completes.
+  Added a regression test proving a denied secondary call is not forwarded
+  and its payload is not exposed downstream.
+- Dependency updates: libc, serde_json and tokio bumps (sha2 held at
+  0.11.0 because 0.11.1 raises the minimum Rust version above this
+  project's 1.85 floor); thiserror 1.0.69 to 2.0.21; FastMCP acceptance
+  dependency lock updated from `joserfc` 1.7.5 to 1.7.7; CI plugin-scanner
+  action 1.2.811 to 1.2.813.
 
 ## 2.0.0 — release source
 
