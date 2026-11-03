@@ -51,41 +51,77 @@ pub fn mcp_proxy(
         let sock = sock.clone();
         let agent = agent.to_string();
         return spawn_proxy(argv, move |tool, dest, usd, arguments| {
-            if let Some(usd) = usd {
-                if sock_spend(&sock, &agent, usd).is_err() {
-                    return Some("store_unavailable".into());
-                }
-            }
-            if let Some(grant) = grants.get(tool) {
-                let action = grant.request(&agent, tool, dest, arguments.clone());
-                return sock_action_decision(&sock, &action);
-            }
-            sock_decision(&sock, &agent, tool, dest)
+            admit_sidecar_call(&sock, &agent, &grants, tool, dest, usd, arguments)
         });
     }
     let gate = gate.clone();
     let agent = agent.to_string();
     spawn_proxy(argv, move |tool, dest, usd, arguments| {
-        if let Some(usd) = usd {
-            if gate.spend_add(&agent, usd).is_err() {
-                return Some("store_unavailable".into());
-            }
+        admit_in_process_call(&gate, &agent, &grants, tool, dest, usd, arguments)
+    })
+}
+
+fn spend_after_admission(
+    decision: Option<String>,
+    usd: Option<f64>,
+    commit_spend: impl FnOnce(f64) -> Result<(), ()>,
+) -> Option<String> {
+    if decision.is_some() {
+        return decision;
+    }
+    if let Some(usd) = usd {
+        if commit_spend(usd).is_err() {
+            return Some("store_unavailable".into());
         }
-        if let Some(grant) = grants.get(tool) {
-            return match gate.admit_action_inner(
-                &grant.request(&agent, tool, dest, arguments.clone()),
-                None,
-                true,
-            ) {
-                Ok(AdmitDecision::Allow) => None,
-                Ok(AdmitDecision::Deny { code }) => Some(code.as_str().into()),
-                Err(_) => Some("store_unavailable".into()),
-            };
+    }
+    None
+}
+
+fn admit_sidecar_call(
+    sock: &Path,
+    agent: &str,
+    grants: &std::collections::BTreeMap<String, ActionGrant>,
+    tool: &str,
+    dest: Option<&str>,
+    usd: Option<f64>,
+    arguments: &Value,
+) -> Option<String> {
+    let decision = if let Some(grant) = grants.get(tool) {
+        let action = grant.request(agent, tool, dest, arguments.clone());
+        sock_action_decision(sock, &action)
+    } else {
+        sock_decision(sock, agent, tool, dest)
+    };
+    spend_after_admission(decision, usd, |usd| sock_spend(sock, agent, usd))
+}
+
+fn admit_in_process_call(
+    gate: &Deadbolt,
+    agent: &str,
+    grants: &std::collections::BTreeMap<String, ActionGrant>,
+    tool: &str,
+    dest: Option<&str>,
+    usd: Option<f64>,
+    arguments: &Value,
+) -> Option<String> {
+    let decision = if let Some(grant) = grants.get(tool) {
+        match gate.admit_action_inner(
+            &grant.request(agent, tool, dest, arguments.clone()),
+            None,
+            true,
+        ) {
+            Ok(AdmitDecision::Allow) => None,
+            Ok(AdmitDecision::Deny { code }) => Some(code.as_str().into()),
+            Err(_) => Some("store_unavailable".into()),
         }
-        match gate.admit_mcp_dest(&agent, tool, dest) {
+    } else {
+        match gate.admit_mcp_dest(agent, tool, dest) {
             AdmitDecision::Allow => None,
             AdmitDecision::Deny { code } => Some(code.as_str().to_string()),
         }
+    };
+    spend_after_admission(decision, usd, |usd| {
+        gate.spend_add(agent, usd).map(|_| ()).map_err(|_| ())
     })
 }
 
@@ -1216,6 +1252,56 @@ mod tests {
         assert!(seen.iter().any(|l| l.contains("\"initialize\"")));
         assert!(seen.iter().any(|l| l.contains("\"tools/call\"")));
         assert!(out.iter().any(|l| l.contains("\"ran\"")));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn denied_mcp_call_does_not_commit_spend() {
+        let (dir, gate) = temp_gate();
+        gate.ensure_agent("shop-bot").unwrap();
+        gate.set_policy(
+            "shop-bot",
+            crate::PolicyPatch {
+                tools_allow: Some(vec!["shell".into()]),
+                dest_allow: Some(vec!["api.stripe.com".into()]),
+                ..crate::PolicyPatch::default()
+            },
+        )
+        .unwrap();
+        let grants = std::collections::BTreeMap::new();
+
+        let denied = admit_in_process_call(
+            &gate,
+            "shop-bot",
+            &grants,
+            "shell",
+            Some("foreign.example"),
+            Some(1_000_000.0),
+            &json!({"amount": 1_000_000, "url": "https://foreign.example"}),
+        );
+        assert_eq!(denied.as_deref(), Some("purpose_exceeded"));
+        let incident: Value = serde_json::from_str(&gate.incident("shop-bot").unwrap()).unwrap();
+        assert_eq!(incident["policy"]["spend_usd"].as_f64(), Some(0.0));
+        assert!(
+            gate.export("shop-bot", false)
+                .unwrap()
+                .iter()
+                .all(|row| row.kind != "spend"),
+            "denied call must not record committed spend"
+        );
+
+        let allowed = admit_in_process_call(
+            &gate,
+            "shop-bot",
+            &grants,
+            "shell",
+            Some("api.stripe.com"),
+            Some(2.5),
+            &json!({"amount": 2.5, "url": "https://api.stripe.com"}),
+        );
+        assert_eq!(allowed, None);
+        let incident: Value = serde_json::from_str(&gate.incident("shop-bot").unwrap()).unwrap();
+        assert_eq!(incident["policy"]["spend_usd"].as_f64(), Some(2.5));
         let _ = std::fs::remove_dir_all(dir);
     }
 
