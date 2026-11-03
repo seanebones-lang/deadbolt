@@ -20,7 +20,7 @@ deadbolt --version
 deadbolt drill
 ```
 
-Expected: `deadbolt 2.0.0`, then `deadbolt drill ok`.
+Expected: `deadbolt 2.0.1`, then `deadbolt drill ok`.
 Homebrew selects the matching architecture and checks the pinned archive
 SHA-256. The [cask source](https://github.com/seanebones-lang/homebrew-tap/blob/main/Casks/n11-deadbolt.rb)
 and [release verification manifest](https://github.com/seanebones-lang/homebrew-tap/blob/main/releases.json)
@@ -51,7 +51,7 @@ selects the **installed stable archive**, rather than a different binary from
 a source checkout:
 
 ```sh
-DEADBOLT_RELEASE="$(brew --caskroom)/n11-deadbolt/2.0.0/deadbolt-2.0.0-$(uname -m | sed 's/arm64/aarch64/')-apple-darwin"
+DEADBOLT_RELEASE="$(brew --caskroom)/n11-deadbolt/2.0.1/deadbolt-2.0.1-$(uname -m | sed 's/arm64/aarch64/')-apple-darwin"
 python3 "$DEADBOLT_RELEASE/examples/evaluate.py" --binary "$DEADBOLT_RELEASE/deadbolt"
 ```
 
@@ -67,7 +67,7 @@ dispatcher's behavior, not containment of every tool an agent can access.
 
 The separate `n11-deadbolt-preview` cask remains pinned to 2.0.0-rc.2 for
 historical evaluation. It does not contain the later destination and damaged-store
-fixes. Use stable 2.0.0 for new installations. The two casks conflict because
+fixes. Use stable 2.0.1 for new installations. The two casks conflict because
 they link the same command; stop dispatch, back up state and uninstall the older
 selected channel before installing stable. Read [the migration guide](MIGRATING-V2.md).
 The matching Python client and editor/MCP bundles are separate installations;
