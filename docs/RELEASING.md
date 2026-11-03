@@ -161,7 +161,7 @@ is an available alternative if your installation policy requires it.
 ## Cargo registry publication
 
 The Rust crate `n11-deadbolt` provides both library `deadbolt` and CLI `deadbolt`.
-Stable `1.0.3` and candidate `1.1.0-rc.1` are published on
+Stable `2.0.1` and earlier versions are published on
 [crates.io](https://crates.io/crates/n11-deadbolt/versions). Registry publication
 is separate from native archives, MCP bundles and Python release wheels.
 
@@ -218,7 +218,7 @@ source client, not an npm package.
 ## Python registry publication
 
 `publish-python.yml` is a manually dispatched, single-release workflow for the
-existing `v2.0.0-rc.2` Python wheel and source archive. It does not rebuild them
+existing `v2.0.1` Python wheel and source archive. It does not rebuild them
 from current `main` or run on pushes, tags or pull requests. With `publish=false`
 (the default), it verifies hashes, package identity, installed base-client
 behavior and the real optional SDK Runner against the released Linux engine.
@@ -248,7 +248,7 @@ Before a first publication:
    checkout. Repeat fail-closed and real SDK/sidecar acceptance before updating
    installation documentation or declaring registry distribution complete.
 
-This workflow deliberately permits only `2.0.0rc2` with the reviewed release
+This workflow deliberately permits only `2.0.1` with the reviewed release
 asset hashes. A future version needs a reviewed workflow update and its own
 acceptance evidence. `skip-existing=false` exposes retries/collisions; do not
 silently skip a file or treat a partial upload as complete. Once public, a PyPI

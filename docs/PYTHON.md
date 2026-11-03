@@ -1,14 +1,14 @@
 # Python client and optional OpenAI Agents SDK adapter
 
-## Published stable 2.0.0
+## Published stable 2.0.1
 
-Use matching engine **2.0.0** and client **2.0.0** from the
-[immutable GitHub release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0).
+Use matching engine **2.0.1** and client **2.0.1** from the
+[immutable GitHub release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.1).
 Install the engine separately from its verified native archive or the macOS
 Homebrew stable cask. The client wheel does not include the executable or start a
 sidecar. [Migration](MIGRATING-V2.md) covers old state and Rust source compatibility.
 
-The 2.0.0 wheel includes `deadbolt_client`, `deadbolt_openai_agents`,
+The 2.0.1 wheel includes `deadbolt_client`, `deadbolt_openai_agents`,
 `deadbolt_supervisor`, `deadbolt-client`, the job-scoped `SupervisorHeartbeat`
 helper and finite `deadbolt-supervisor-heartbeat` operator command. See
 [heartbeat lifecycle](SUPERVISION.md#job-scoped-helper-rc2-source) before setup.
@@ -20,12 +20,12 @@ The base client has no third-party runtime dependencies. The optional extra pins
 In your application's virtual environment:
 
 ```sh
-python -m pip install 'n11-deadbolt-client==2.0.0'
+python -m pip install 'n11-deadbolt-client==2.0.1'
 # Optional SDK adapter, Python 3.10+:
-python -m pip install 'n11-deadbolt-client[openai-agents]==2.0.0'
+python -m pip install 'n11-deadbolt-client[openai-agents]==2.0.1'
 ```
 
-The [PyPI release](https://pypi.org/project/n11-deadbolt-client/2.0.0/)
+The [PyPI release](https://pypi.org/project/n11-deadbolt-client/2.0.1/)
 preserves the exact verified GitHub wheel/source bytes. Install the engine separately.
 The packaged description is a frozen source snapshot; this current guide tracks
 available routes. A registry account or publishing token is not needed to install.
@@ -36,23 +36,23 @@ Verify `SHA256SUMS` from the release, activate your application's virtual
 environment, then install the matching wheel:
 
 ```sh
-python -m pip install /absolute/path/to/n11_deadbolt_client-2.0.0-py3-none-any.whl
+python -m pip install /absolute/path/to/n11_deadbolt_client-2.0.1-py3-none-any.whl
 # Optional SDK adapter:
-python -m pip install '/absolute/path/to/n11_deadbolt_client-2.0.0-py3-none-any.whl[openai-agents]'
+python -m pip install '/absolute/path/to/n11_deadbolt_client-2.0.1-py3-none-any.whl[openai-agents]'
 ```
 
 The wheel runs on Python 3.9+; the optional process-cancellation reference needs
-its documented POSIX/Python runtime. Select the exact 2.0.0 package; an RC1
+its documented POSIX/Python runtime. Select the exact 2.0.1 package; an RC1
 registry command does not install the new heartbeat helper. No account or API key is needed
 for wheel installation or the provider-free acceptance tests.
 
-Alternatively install the reviewed 2.0.0 source with Python 3.10+:
+Alternatively install the reviewed 2.0.1 source with Python 3.10+:
 
 ```sh
 python -m pip install /absolute/path/to/reviewed/deadbolt
 ```
 
-Use the immutable `v2.0.0` source tag and matching executable. Installing a
+Use the immutable `v2.0.1` source tag and matching executable. Installing a
 new wheel alone does not change stored renewal modes or upgrade a running sidecar.
 
 ## Operator setup, outside the agent
