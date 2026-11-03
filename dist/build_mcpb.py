@@ -1,4 +1,4 @@
-"""Build a MCPB from the four checksum-verified published v2.0.0 archives."""
+"""Build a MCPB from the four checksum-verified published v2.0.1 archives."""
 import argparse
 import hashlib
 import json
@@ -10,10 +10,10 @@ ROOT = Path(__file__).resolve().parents[1]
 TARGETS = ('aarch64-apple-darwin', 'x86_64-apple-darwin', 'x86_64-unknown-linux-gnu', 'x86_64-pc-windows-msvc')
 # Pinned independently of a mutable downloaded SHA256SUMS file.
 DIGESTS = {
-    'aarch64-apple-darwin': 'e33aa9b4167f3af1f187045741c7496f5aef6f85131e52f84327559a2d20ae9f',
-    'x86_64-apple-darwin': '3b206602f234b0a9444fabe22adf00bcb6ee32af4e0cec5df9d8b70ff12cf685',
-    'x86_64-unknown-linux-gnu': '99dd6e8398860414ce99900877542160594a180a33f3cdcc19e523ec7012f2bb',
-    'x86_64-pc-windows-msvc': '92fc302af12c2439e0aa8c1d894a0626288d0356d6616ee872dd37fba628ecbc',
+    'aarch64-apple-darwin': 'e4f204744f65a45a944761bb9597d7d17a637d714c1c56eec8ed69d5347839df',
+    'x86_64-apple-darwin': '0075e54fe2dbc5f3081be751b793f6ad30e2238bbba59f42cfdb358e4b4bec06',
+    'x86_64-unknown-linux-gnu': 'c2340e58a74ac79d97644912d9bf03bf7f0cadd51b9cc0c802ec0a1fadf02856',
+    'x86_64-pc-windows-msvc': 'cdfb9dbf35c4544317640c07bd0887de1422d8129c53330eda0f4d45d69c1874',
 }
 
 def build(downloads, out):
@@ -22,9 +22,9 @@ def build(downloads, out):
     if staging.exists():
         raise RuntimeError('Use a fresh output directory; existing bundle will not be overwritten')
     shutil.copytree(ROOT / 'dist/mcpb', staging)
-    provenance = {'engine_version': '2.0.0', 'engine_release': 'https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.0', 'binaries': {}}
+    provenance = {'engine_version': '2.0.1', 'engine_release': 'https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.1', 'binaries': {}}
     for target in TARGETS:
-        name = f'deadbolt-2.0.0-{target}.zip'
+        name = f'deadbolt-2.0.1-{target}.zip'
         archive = downloads / name
         digest = hashlib.sha256(archive.read_bytes()).hexdigest()
         if digest != DIGESTS[target]:
@@ -32,7 +32,7 @@ def build(downloads, out):
         with zipfile.ZipFile(archive) as z:
             prefix = name[:-4] + '/'
             meta = json.loads(z.read(prefix + 'BUILD.json'))
-            if meta['version'] != '2.0.0' or meta['target'] != target or meta['source_revision'] != '14804f2d512ce814a11de80daa8ca858b1dc7598':
+            if meta['version'] != '2.0.1' or meta['target'] != target or meta['source_revision'] != 'e87519f700be03c27a564ed274907649224d256f':
                 raise RuntimeError('Release metadata mismatch')
             executable = 'deadbolt.exe' if 'windows' in target else 'deadbolt'
             content = z.read(prefix + executable)
@@ -43,7 +43,7 @@ def build(downloads, out):
             (native / executable).write_bytes(content)
             (native / executable).chmod(0o755)
             (native / 'BUILD.json').write_bytes((json.dumps(meta, indent=2) + '\n').encode('utf-8'))
-            provenance['binaries'][target] = {**meta, 'archive_sha256': digest, 'archive_url': f'https://github.com/seanebones-lang/deadbolt/releases/download/v2.0.0/{name}'}
+            provenance['binaries'][target] = {**meta, 'archive_sha256': digest, 'archive_url': f'https://github.com/seanebones-lang/deadbolt/releases/download/v2.0.1/{name}'}
             if target == TARGETS[0]:
                 for file in ('LICENSE', 'NOTICE', 'THIRD-PARTY-NOTICES.txt', 'THIRD-PARTY.md'):
                     (staging / file).write_bytes(z.read(prefix + file))
