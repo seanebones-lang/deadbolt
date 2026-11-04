@@ -1,5 +1,26 @@
 # Candidate packaging and release procedure
 
+## Python documentation postrelease
+
+Client `2.0.1.post1` is a metadata-only correction paired with engine `2.0.1`.
+The existing `.github/workflows/publish-python.yml` accepts an exact `version`
+choice. Select `2.0.1.post1` on reviewed `main` and first run with `publish=false`.
+Its verify job builds from that immutable dispatch SHA, compares every Python
+runtime module in the new wheel and sdist with the checksum-pinned original
+2.0.1 wheel, validates metadata and installed behavior, then retains the exact
+two distributions plus a source/hash receipt. No original artifact is replaced.
+The `2.0.1` choice retains its original immutable artifact/source checks.
+
+Review the verification results before a deliberately authorized publishing run.
+The existing `pypi` environment and trusted-publisher identity are unchanged;
+required environment approval or provider gates remain human actions. The
+publishing job uploads only its own verify job's two artifacts and requests
+short-lived PyPI credentials only there. A green verify run does not establish
+publication; after publication, read back the exact PyPI version, hashes and
+long description. Never reuse `2.0.1` for rebuilt documentation.
+
+## Native candidate procedure
+
 The `release candidate` workflow builds unsigned native archives and retains
 review artifacts for seven days. It does not publish a release or registry
 package. Standard GitHub-hosted runners are used; no larger runner is required.
