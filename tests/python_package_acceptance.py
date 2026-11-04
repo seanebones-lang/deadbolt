@@ -26,16 +26,7 @@ def run(command, **kwargs):
     subprocess.run(command, check=True, timeout=180, **kwargs)
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--install-sdk", action="store_true",
-                        help="Install the verified wheel plus its SDK extra into this Python environment")
-    parser.add_argument("--install-wheel", action="store_true",
-                        help="Install the verified base wheel into this Python environment")
-    args = parser.parse_args()
-    cargo = tomllib.loads((ROOT / "Cargo.toml").read_text())["package"]["version"]
-    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
-    version = pyproject["project"]["version"]
+def validate_version_pair(cargo, version):
     engine_version, client_version = Version(cargo), Version(version)
     metadata_postrelease = (
         not engine_version.is_prerelease and not engine_version.is_postrelease
@@ -46,6 +37,19 @@ def main():
     )
     if engine_version != client_version and not metadata_postrelease:
         raise RuntimeError("Cargo/Python versions must match or use a stable-base metadata postrelease")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--install-sdk", action="store_true",
+                        help="Install the verified wheel plus its SDK extra into this Python environment")
+    parser.add_argument("--install-wheel", action="store_true",
+                        help="Install the verified base wheel into this Python environment")
+    args = parser.parse_args()
+    cargo = tomllib.loads((ROOT / "Cargo.toml").read_text())["package"]["version"]
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    version = pyproject["project"]["version"]
+    validate_version_pair(cargo, version)
     OUT.mkdir(parents=True, exist_ok=True)
     run([sys.executable, "-m", "build", "--sdist", "--outdir", str(OUT)], cwd=ROOT,
         stdout=subprocess.DEVNULL)

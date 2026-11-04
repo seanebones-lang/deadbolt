@@ -14,6 +14,7 @@ import zipfile
 
 from packaging.version import Version
 import deadbolt_client as client
+from python_package_acceptance import validate_version_pair
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -29,7 +30,9 @@ def main():
     expected = tomllib.loads((ROOT/'Cargo.toml').read_text())['package']['version']
     archive=(args.archive or ROOT/'release-artifacts'/f'deadbolt-{expected}-{args.target}.zip').resolve(strict=True)
     commit = subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
-    assert Version(importlib.metadata.version('n11-deadbolt-client')) == Version(expected)
+    expected_client = tomllib.loads((ROOT/'pyproject.toml').read_text())['project']['version']
+    validate_version_pair(expected, expected_client)
+    assert Version(importlib.metadata.version('n11-deadbolt-client')) == Version(expected_client), 'installed client must match exact Python project version'
     assert not Path(client.__file__).resolve().is_relative_to(ROOT/'examples'), 'install the wheel first'
     checks=[]
     with tempfile.TemporaryDirectory(prefix='deadbolt-native-candidate-') as directory:
