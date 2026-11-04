@@ -1,11 +1,10 @@
 # DeadBolt MCP with Docker
 
-**Historical 2.0.0 container route.** The released engine is now 2.0.1. The
-Docker wrapper's 2.0.1 source upgrade still needs container qualification; the
-commands below reproduce its older tag and do not install the current engine.
-That tag also predates the Node base-image update on the wrapper's main branch.
-For a new 2.0.1 installation today, use a [verified native/package route](INSTALL.md)
-or the matching direct MCP bundle. See [distribution status](DISTRIBUTION.md).
+**Source-built engine 2.0.1.** The pinned wrapper revision below retains the
+patched Node base and passed ARM64/AMD64 container, supervisor and gateway
+acceptance before merge. This is a reviewed source-build route; no public
+prebuilt image or Docker MCP Catalog acceptance is claimed. Existing images
+are separate copies and must be rebuilt deliberately. See [distribution status](DISTRIBUTION.md).
 
 Use this route when your MCP client can launch Docker and you want a local
 stdio container. **The source build is available now. Docker MCP Catalog
@@ -13,8 +12,8 @@ submission [#5627](https://github.com/docker/mcp-registry/pull/5627) is pending
 review.** Use the source build below; catalog acceptance and a Docker-hosted
 image are not established by the source release.
 
-The **stable Docker package 2.0.0** builds engine **2.0.0** from exact source
-`14804f2d512ce814a11de80daa8ca858b1dc7598`. It requires version 2 operator
+The **Docker source package 2.0.1** builds engine **2.0.1** from exact source
+`e87519f700be03c27a564ed274907649224d256f`. It requires version 2 operator
 configuration: a fixed future deadline, explicit renewal mode and deliberate
 offline-tool exceptions. Older packages remain historical; old configuration
 is not silently migrated.
@@ -32,7 +31,7 @@ AMD64, including Docker Desktop's Linux engine on macOS and Windows.
 ```sh
 git clone https://github.com/seanebones-lang/deadbolt-docker-mcp.git
 cd deadbolt-docker-mcp
-git checkout v2.0.0
+git checkout bf8cfeabcbe777b9bbf6fb2ee58f892be70a0958
 docker build -t n11-deadbolt-docker:local .
 ```
 
