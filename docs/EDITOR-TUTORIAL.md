@@ -1,7 +1,7 @@
 # Put a permission gate between your agent and its tools
 
 This recorded tutorial uses historical bundle 1.1.0 / engine 1.0.3. For a new
-installation, start with [the stable 2.0.0 editor guide](EDITORS-V2.md). The
+installation, start with [the stable 2.0.1 editor guide](EDITORS-V2.md). The
 recording and commands below keep their original versions and test scope.
 
 

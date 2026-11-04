@@ -1,6 +1,6 @@
 # Install DeadBolt
 
-This guide describes **engine 2.0.1**, **Python client 2.0.1**, and the matching
+This guide describes **engine 2.0.1**, **Python client 2.0.1.post1**, and the matching
 version 2 local bundle. Source builds use your reviewed checkout; select registry,
 Homebrew or catalog versions only when that exact version is visible and its
 checksums match. [Core releases](https://github.com/seanebones-lang/deadbolt/releases)
@@ -108,8 +108,8 @@ codes and operator evidence to diagnose failures; do not retry terminal runs.
 [Direct releases](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.1)
 provide the verified 2.0.1 bundle. The
 [official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.seanebones-lang%2Fdeadbolt&limit=10)
-still advertised 2.0.0 during the November 3 audit; check its actual package
-version, URL and hash. See [distribution status](DISTRIBUTION.md) for channel gaps.
+now publishes 2.0.1; check its actual package version, URL and hash.
+See [distribution status](DISTRIBUTION.md) for channel details and upgrade checks.
 A directory listing is not a hosted operator endpoint or a certification.
 
 ## Cargo registry CLI and embedded Rust
@@ -155,12 +155,12 @@ Replacing an existing Cargo binary requires intentional `--force` after backup.
 
 ## Python and Node
 
-Install the [published 2.0.1 client](https://pypi.org/project/n11-deadbolt-client/2.0.1/) in your application's environment:
+Install the [published 2.0.1.post1 client](https://pypi.org/project/n11-deadbolt-client/2.0.1.post1/) in your application's environment:
 
 ```sh
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install 'n11-deadbolt-client==2.0.1'
+python -m pip install 'n11-deadbolt-client==2.0.1.post1'
 python -c "import deadbolt_client; print(deadbolt_client.__file__)"
 ```
 
@@ -168,11 +168,13 @@ Windows activation is `.\.venv\Scripts\Activate.ps1`. The imported module
 must be inside that environment. Alternatively, verify the release wheel's hash
 and install `/absolute/path/to/n11_deadbolt_client-2.0.1-py3-none-any.whl`.
 A reviewed source installation uses `python -m pip install /path/to/deadbolt`.
+The original GitHub wheel remains 2.0.1. The PyPI-only postrelease corrects its
+long description without changing the three runtime modules or engine pairing.
 The wheel runs on Python 3.9+; the build backend requires Python 3.10+.
 The optional SDK adapter needs Python 3.10+:
 
 ```sh
-python -m pip install 'n11-deadbolt-client[openai-agents]==2.0.1'
+python -m pip install 'n11-deadbolt-client[openai-agents]==2.0.1.post1'
 ```
 
 The wheel does not include/start the engine. Configure the separately installed

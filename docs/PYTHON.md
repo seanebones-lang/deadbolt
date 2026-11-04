@@ -1,9 +1,11 @@
 # Python client and optional OpenAI Agents SDK adapter
 
-## Published stable 2.0.1
+## Engine 2.0.1 and Python client 2.0.1.post1
 
-Use matching engine **2.0.1** and client **2.0.1** from the
-[immutable GitHub release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.1).
+Use engine **2.0.1** from the
+[immutable GitHub release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.1)
+and client **2.0.1.post1** from PyPI. This metadata-only postrelease corrects
+the package description; its runtime modules are unchanged from client 2.0.1.
 Install the engine separately from its verified native archive or the macOS
 Homebrew stable cask. The client wheel does not include the executable or start a
 sidecar. [Migration](MIGRATING-V2.md) covers old state and Rust source compatibility.
@@ -20,19 +22,16 @@ The base client has no third-party runtime dependencies. The optional extra pins
 In your application's virtual environment:
 
 ```sh
-python -m pip install 'n11-deadbolt-client==2.0.1'
+python -m pip install 'n11-deadbolt-client==2.0.1.post1'
 # Optional SDK adapter, Python 3.10+:
-python -m pip install 'n11-deadbolt-client[openai-agents]==2.0.1'
+python -m pip install 'n11-deadbolt-client[openai-agents]==2.0.1.post1'
 ```
 
-The [PyPI release](https://pypi.org/project/n11-deadbolt-client/2.0.1/)
-preserves the exact verified GitHub wheel/source bytes. Install the engine separately.
-The 2.0.1 package metadata correctly identifies version 2.0.1, but its frozen
-long description still contains 2.0.0 install examples. Use the explicit 2.0.1
-commands above; following those older examples selects the older package.
-The published Python modules match the current 2.0.1 source. This documentation
-correction does not replace immutable package bytes. A registry account or
-publishing token is not needed to install.
+The [PyPI postrelease](https://pypi.org/project/n11-deadbolt-client/2.0.1.post1/)
+has corrected installation examples and the same three runtime modules as the
+original 2.0.1 package. Install the engine separately. Original package files
+remain immutable; their older long description still mentions 2.0.0.
+A registry account or publishing token is not needed to install.
 
 ## Install the verified release wheel
 

@@ -1,6 +1,6 @@
 # Use DeadBolt with VS Code and Cursor
 
-For new installations use [the stable 2.0.0 guide](EDITORS-V2.md) and its
+For new installations use [the stable 2.0.1 guide](EDITORS-V2.md) and its
 version-matched helper. This page retains the historical bundle 1.1.0 / engine
 1.0.3 instructions; these older bytes do not include the later version 2 fixes.
 

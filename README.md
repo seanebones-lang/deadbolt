@@ -19,7 +19,9 @@ lab, with their tested scopes and remaining limits.
 
 ## Version 2.0.1
 
-This source targets **engine 2.0.1 and Python client 2.0.1**. The patch fixes MCP
+This source targets **engine 2.0.1 and Python client 2.0.1.post1**. The Python
+postrelease corrects documentation; its runtime modules are unchanged from 2.0.1.
+The engine patch fixes MCP
 spend sequencing on denied calls and requires independent admission for every
 MCP tool invocation; the version 2 integration boundaries remain unchanged. [Versioned releases](https://github.com/seanebones-lang/deadbolt/releases)
 identify available downloads, exact source and checksums; [installation](docs/INSTALL.md)
@@ -71,14 +73,14 @@ deadbolt --version
 deadbolt drill
 ```
 
-The matching [Python client 2.0.1](https://pypi.org/project/n11-deadbolt-client/2.0.1/) is published.
+The matching [Python client 2.0.1.post1](https://pypi.org/project/n11-deadbolt-client/2.0.1.post1/) is published.
 The matching [Rust package 2.0.1](https://crates.io/crates/n11-deadbolt/2.0.1) is also published.
 Install the CLI from Cargo, or the Python client in your application environment:
 
 ```sh
 cargo install n11-deadbolt --version 2.0.1 --locked --bin deadbolt
 # In your application's virtual environment:
-python -m pip install 'n11-deadbolt-client==2.0.1'
+python -m pip install 'n11-deadbolt-client==2.0.1.post1'
 ```
 
 For embedded Rust, use `deadbolt = { package = "n11-deadbolt", version = "=2.0.1" }`
@@ -107,8 +109,8 @@ grants. [Configuration](dist/mcpb/README.md) · [Editor guide](docs/EDITORS-V2.m
 
 Download the current bundle from the [explicit 2.0.1 release](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.1).
 The [official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.seanebones-lang%2Fdeadbolt&limit=10)
-still advertised 2.0.0 at the November 3 audit; verify its actual version and
-checksum rather than assuming discovery means the newest release. Discovery is not hosted operator access,
+now publishes 2.0.1 with the matching bundle checksum. Verify the entry's actual
+version and checksum before installing. Discovery is not hosted operator access,
 marketplace acceptance of another submission, or an endorsement.
 
 ## Put the gate at the effect
