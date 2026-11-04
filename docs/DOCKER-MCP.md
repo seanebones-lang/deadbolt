@@ -1,5 +1,12 @@
 # DeadBolt MCP with Docker
 
+**Historical 2.0.0 container route.** The released engine is now 2.0.1. The
+Docker wrapper's 2.0.1 source upgrade still needs container qualification; the
+commands below reproduce its older tag and do not install the current engine.
+That tag also predates the Node base-image update on the wrapper's main branch.
+For a new 2.0.1 installation today, use a [verified native/package route](INSTALL.md)
+or the matching direct MCP bundle. See [distribution status](DISTRIBUTION.md).
+
 Use this route when your MCP client can launch Docker and you want a local
 stdio container. **The source build is available now. Docker MCP Catalog
 submission [#5627](https://github.com/docker/mcp-registry/pull/5627) is pending

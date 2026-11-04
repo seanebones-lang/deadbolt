@@ -29,10 +29,17 @@ Install the matching native engine separately. No registry account or API key
 is required for installation. The package's description is a frozen release
 snapshot; current installation status is documented here.
 
+The already-published 2.0.1 artifacts contain an older 2.0.0 long description.
+Their package version and Python modules are 2.0.1; use this guide's explicit
+2.0.1 commands. Correcting source documentation does not change those immutable
+artifacts or their hashes. A later package release must regenerate and verify its
+metadata before publication.
+
 ## Install a checksum-verified release wheel
 
-Download the native ZIP, wheel and `SHA256SUMS` from that release. Verify the
-hashes and the native archive's `BUILD.json` revision. In your application's
+Download the native ZIP, wheel, `SHA256SUMS` and `PYTHON-SHA256SUMS` from that
+release. Verify native ZIPs against `SHA256SUMS` and the wheel against
+`PYTHON-SHA256SUMS`, then check the native archive's `BUILD.json` revision. In your application's
 virtual environment:
 
 ```sh
