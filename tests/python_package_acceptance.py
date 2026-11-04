@@ -36,8 +36,16 @@ def main():
     cargo = tomllib.loads((ROOT / "Cargo.toml").read_text())["package"]["version"]
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
     version = pyproject["project"]["version"]
-    if Version(cargo) != Version(version):
-        raise RuntimeError("Cargo and Python source candidate versions differ")
+    engine_version, client_version = Version(cargo), Version(version)
+    metadata_postrelease = (
+        not engine_version.is_prerelease and not engine_version.is_postrelease
+        and not engine_version.is_devrelease and engine_version.local is None
+        and client_version.is_postrelease and not client_version.is_prerelease
+        and not client_version.is_devrelease and client_version.local is None
+        and Version(client_version.base_version) == engine_version
+    )
+    if engine_version != client_version and not metadata_postrelease:
+        raise RuntimeError("Cargo/Python versions must match or use a stable-base metadata postrelease")
     OUT.mkdir(parents=True, exist_ok=True)
     run([sys.executable, "-m", "build", "--sdist", "--outdir", str(OUT)], cwd=ROOT,
         stdout=subprocess.DEVNULL)
@@ -61,6 +69,10 @@ def main():
         with zipfile.ZipFile(wheel) as archive:
             metadata_name = next(n for n in archive.namelist() if n.endswith(".dist-info/METADATA"))
             metadata = email.message_from_bytes(archive.read(metadata_name))
+            assert metadata["Name"] == "n11-deadbolt-client"
+            assert metadata["Version"] == version
+            assert ("n11-deadbolt-client==" + version) in metadata.get_payload()
+            assert ("n11-deadbolt-client[openai-agents]==" + version) in metadata.get_payload()
             requirements = metadata.get_all("Requires-Dist", [])
             if any("extra ==" not in r for r in requirements):
                 raise RuntimeError("base client acquired a runtime dependency")

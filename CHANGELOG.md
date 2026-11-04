@@ -3,6 +3,19 @@
 Versioned GitHub releases identify publication and the exact source revision.
 The older `v0.1.1-product` tag is not the standalone hardening release.
 
+## Python client 2.0.1.post1 — metadata-only source
+
+- Correct the Python package long description, which accidentally retained
+  2.0.0 installation instructions in the published 2.0.1 artifacts. Pair the
+  postrelease client with engine 2.0.1; all three Python runtime modules must
+  remain byte-identical to the checksum-pinned published 2.0.1 wheel.
+- Build new immutable wheel/sdist identities; never overwrite or reupload
+  the existing 2.0.1 files. Source preparation is not publication evidence.
+- Extend the existing trusted-publisher workflow with an explicit version
+  selection, exact dispatch-source receipt, installed-client checks and
+  runtime-payload comparison before upload. The original 2.0.1 route remains
+  pinned to its original artifacts and source.
+
 ## 2.0.1 — release source
 
 Patch release. Publication and package-manager availability are tracked

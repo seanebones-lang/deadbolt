@@ -3,8 +3,14 @@ name: publish-python
 on:
   workflow_dispatch:
     inputs:
+      version:
+        description: 'Exact Python distribution version; engine remains 2.0.1'
+        type: choice
+        options: ['2.0.1', '2.0.1.post1']
+        default: '2.0.1'
+        required: true
       publish:
-        description: 'Publish the verified 2.0.1 release to PyPI (irreversible version allocation)'
+        description: 'Publish the selected verified version to PyPI (irreversible version allocation)'
         type: boolean
         default: false
         required: true
@@ -24,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: e87519f700be03c27a564ed274907649224d256f
+          ref: ${{ inputs.version == '2.0.1' && 'e87519f700be03c27a564ed274907649224d256f' || github.sha }}
           persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -32,24 +38,30 @@ jobs:
       - name: Download and verify the immutable release assets
         env:
           GH_TOKEN: ${{ github.token }}
+          SELECTED_VERSION: ${{ inputs.version }}
+          DISPATCH_SHA: ${{ github.sha }}
         run: |
-          test "$(git rev-parse HEAD)" = 'e87519f700be03c27a564ed274907649224d256f'
-          mkdir -p python-publish-dist engine
+          case "$SELECTED_VERSION" in
+            2.0.1) test "$(git rev-parse HEAD)" = 'e87519f700be03c27a564ed274907649224d256f' ;;
+            2.0.1.post1) test "$(git rev-parse HEAD)" = "$DISPATCH_SHA" ;;
+            *) exit 1 ;;
+          esac
+          mkdir -p python-publish-dist original-python engine
           gh release download v2.0.1 --repo seanebones-lang/deadbolt \
-            --pattern 'n11_deadbolt_client-*' --dir python-publish-dist
+            --pattern 'n11_deadbolt_client-*' --dir original-python
           gh release download v2.0.1 --repo seanebones-lang/deadbolt \
             --pattern 'deadbolt-2.0.1-x86_64-unknown-linux-gnu.zip' --dir engine
           python - <<'PY'
           import email, hashlib, pathlib, zipfile
           expected = {
-              'python-publish-dist/n11_deadbolt_client-2.0.1-py3-none-any.whl': '13e1eab6457ba62865864e007f14d6c3a84ca366f81cc6152e181a49d05a2a59',
-              'python-publish-dist/n11_deadbolt_client-2.0.1.tar.gz': '0edea5787d8a7bb7fc8873149d954b85c0b8798054f45d7e761d1abc4be2857a',
+              'original-python/n11_deadbolt_client-2.0.1-py3-none-any.whl': '13e1eab6457ba62865864e007f14d6c3a84ca366f81cc6152e181a49d05a2a59',
+              'original-python/n11_deadbolt_client-2.0.1.tar.gz': '0edea5787d8a7bb7fc8873149d954b85c0b8798054f45d7e761d1abc4be2857a',
               'engine/deadbolt-2.0.1-x86_64-unknown-linux-gnu.zip': 'c2340e58a74ac79d97644912d9bf03bf7f0cadd51b9cc0c802ec0a1fadf02856',
           }
-          assert sorted(p.name for p in pathlib.Path('python-publish-dist').iterdir()) == sorted(pathlib.Path(p).name for p in expected if p.startswith('python-publish-dist/'))
+          assert sorted(p.name for p in pathlib.Path('original-python').iterdir()) == sorted(pathlib.Path(p).name for p in expected if p.startswith('original-python/'))
           for name, sha in expected.items():
               assert hashlib.sha256(pathlib.Path(name).read_bytes()).hexdigest() == sha, name
-          with zipfile.ZipFile('python-publish-dist/n11_deadbolt_client-2.0.1-py3-none-any.whl') as z:
+          with zipfile.ZipFile('original-python/n11_deadbolt_client-2.0.1-py3-none-any.whl') as z:
               for module in ('deadbolt_client', 'deadbolt_openai_agents', 'deadbolt_supervisor'):
                   assert z.read(module+'.py') == pathlib.Path('examples', module+'.py').read_bytes()
               meta = email.message_from_bytes(z.read('n11_deadbolt_client-2.0.1.dist-info/METADATA'))
@@ -59,6 +71,39 @@ jobs:
           with zipfile.ZipFile('engine/deadbolt-2.0.1-x86_64-unknown-linux-gnu.zip') as z:
               z.extractall('engine')
           pathlib.Path('engine/deadbolt-2.0.1-x86_64-unknown-linux-gnu/deadbolt').chmod(0o755)
+          PY
+      - name: Select immutable original distributions
+        if: inputs.version == '2.0.1'
+        run: cp original-python/* python-publish-dist/
+      - name: Build and verify the metadata-only postrelease from this exact main commit
+        if: inputs.version == '2.0.1.post1'
+        run: |
+          python -m pip install build==1.3.0 packaging==26.3
+          python tests/python_package_acceptance.py
+          python - <<'PY'
+          import email, hashlib, json, pathlib, subprocess, tarfile, zipfile
+          root = pathlib.Path('.')
+          version = '2.0.1.post1'
+          wheel = root / 'release-artifacts/python' / ('n11_deadbolt_client-' + version + '-py3-none-any.whl')
+          sdist = root / 'release-artifacts/python' / ('n11_deadbolt_client-' + version + '.tar.gz')
+          modules = ('deadbolt_client.py', 'deadbolt_openai_agents.py', 'deadbolt_supervisor.py')
+          with zipfile.ZipFile('original-python/n11_deadbolt_client-2.0.1-py3-none-any.whl') as original, zipfile.ZipFile(wheel) as current, tarfile.open(sdist) as source:
+              assert sorted(n for n in current.namelist() if n.endswith('.py')) == sorted(modules)
+              for module in modules:
+                  expected = original.read(module)
+                  assert current.read(module) == expected, module
+                  assert source.extractfile('n11_deadbolt_client-' + version + '/examples/' + module).read() == expected, module
+              meta = email.message_from_bytes(current.read('n11_deadbolt_client-' + version + '.dist-info/METADATA'))
+              assert meta['Version'] == version and meta['Name'] == 'n11-deadbolt-client'
+              assert meta['Requires-Python'] == '>=3.9'
+              assert meta.get_all('Requires-Dist') == ['openai-agents==0.23.1; extra == "openai-agents"']
+              assert meta.get_payload() == pathlib.Path('docs/PYPI.md').read_text()
+          receipt = {'version': version, 'engine_version': '2.0.1', 'source': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(), 'runtime_modules_unchanged': list(modules), 'sha256': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in (wheel, sdist)}}
+          pathlib.Path('postrelease-verification.json').write_text(json.dumps(receipt, indent=2) + '\n')
+          print(json.dumps(receipt, indent=2))
+          for artifact in (wheel, sdist):
+              pathlib.Path('python-publish-dist', artifact.name).write_bytes(artifact.read_bytes())
+          assert len(list(pathlib.Path('python-publish-dist').iterdir())) == 2
           PY
       - name: Verify installed base client without optional dependencies
         run: |
@@ -109,6 +154,13 @@ jobs:
           path: python-publish-dist/*
           if-no-files-found: error
           retention-days: 7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: inputs.version == '2.0.1.post1'
+        with:
+          name: python-postrelease-verification
+          path: postrelease-verification.json
+          if-no-files-found: error
+          retention-days: 7
 
   publish:
     if: inputs.publish && github.ref == 'refs/heads/main'
@@ -117,7 +169,7 @@ jobs:
     timeout-minutes: 10
     environment:
       name: pypi
-      url: https://pypi.org/project/n11-deadbolt-client/2.0.1/
+      url: https://pypi.org/project/n11-deadbolt-client/${{ inputs.version }}/
     permissions:
       id-token: write
     steps:
