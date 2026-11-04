@@ -7,6 +7,10 @@ checksums match. [Core releases](https://github.com/seanebones-lang/deadbolt/rel
 record publication, source identity and immutable download hashes. Package-manager
 and directory availability are separate from a source merge.
 
+See [distribution status](DISTRIBUTION.md) for the November 3 channel audit,
+older plugin/registry pins and the upgrade checklist. An existing installation
+does not update when a new source revision or release appears.
+
 Read [major-version migration](MIGRATING-V2.md) before upgrading an older store or
 embedded Rust application. Earlier downloads remain immutable; use their tagged
 documentation rather than mixing old binaries with current configuration.
@@ -101,9 +105,11 @@ launcher provisions broad one-shot tool approvals, not exact-action grants.
 Client approval does not grant DeadBolt operator approval. Use readable denial
 codes and operator evidence to diagnose failures; do not retry terminal runs.
 
-[Smithery](https://smithery.ai/servers/seanebones/deadbolt) and the
+[Direct releases](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.1)
+provide the verified 2.0.1 bundle. The
 [official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.seanebones-lang%2Fdeadbolt&limit=10)
-provide discovery. Check each entry's actual package version, URL and hash.
+still advertised 2.0.0 during the November 3 audit; check its actual package
+version, URL and hash. See [distribution status](DISTRIBUTION.md) for channel gaps.
 A directory listing is not a hosted operator endpoint or a certification.
 
 ## Cargo registry CLI and embedded Rust

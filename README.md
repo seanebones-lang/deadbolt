@@ -26,6 +26,11 @@ identify available downloads, exact source and checksums; [installation](docs/IN
 tracks package-manager, bundle and editor availability separately. A source merge
 does not publish a package or update a directory listing.
 
+**Upgrading an existing install?** Engine, Python client, editor plugins and
+running sidecars are separate copies. Installing one does not upgrade the others.
+Use the [distribution status and upgrade checklist](docs/DISTRIBUTION.md) to
+identify your route, verify its actual version and select the matching download.
+
 Version 2 requires authenticated operator setup for Unix and TCP sidecars,
 creates private state, defaults fresh roots to supervisor renewal, and enforces
 ancestor policy and fixed run deadlines. Existing stored renewal modes remain
@@ -100,9 +105,10 @@ require a fixed deadline, deliberate renewal mode and reviewed offline exception
 The bundle uses broad one-shot tool approvals; it does not provision exact-action
 grants. [Configuration](dist/mcpb/README.md) · [Editor guide](docs/EDITORS-V2.md).
 
-Discover versioned bundles through [Smithery](https://smithery.ai/servers/seanebones/deadbolt)
-and the [official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.seanebones-lang%2Fdeadbolt&limit=10).
-Check each entry's version and checksum. Discovery is not hosted operator access,
+Download the current bundle from the [explicit 2.0.1 release](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.1).
+The [official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.seanebones-lang%2Fdeadbolt&limit=10)
+still advertised 2.0.0 at the November 3 audit; verify its actual version and
+checksum rather than assuming discovery means the newest release. Discovery is not hosted operator access,
 marketplace acceptance of another submission, or an endorsement.
 
 ## Put the gate at the effect

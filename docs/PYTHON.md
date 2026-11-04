@@ -27,12 +27,17 @@ python -m pip install 'n11-deadbolt-client[openai-agents]==2.0.1'
 
 The [PyPI release](https://pypi.org/project/n11-deadbolt-client/2.0.1/)
 preserves the exact verified GitHub wheel/source bytes. Install the engine separately.
-The packaged description is a frozen source snapshot; this current guide tracks
-available routes. A registry account or publishing token is not needed to install.
+The 2.0.1 package metadata correctly identifies version 2.0.1, but its frozen
+long description still contains 2.0.0 install examples. Use the explicit 2.0.1
+commands above; following those older examples selects the older package.
+The published Python modules match the current 2.0.1 source. This documentation
+correction does not replace immutable package bytes. A registry account or
+publishing token is not needed to install.
 
 ## Install the verified release wheel
 
-Verify `SHA256SUMS` from the release, activate your application's virtual
+Verify the wheel against `PYTHON-SHA256SUMS` from the release (`SHA256SUMS`
+covers the native ZIPs), activate your application's virtual
 environment, then install the matching wheel:
 
 ```sh
