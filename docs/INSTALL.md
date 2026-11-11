@@ -114,14 +114,15 @@ codes and operator evidence to diagnose failures; do not retry terminal runs.
 [Direct releases](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.2)
 provide the verified 2.0.2 bundle. The
 [official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.seanebones-lang%2Fdeadbolt&limit=10)
-still lists the older 2.0.1 bundle; the 2.0.2 entry is awaiting publication. Use the direct release above for the security update.
+is a separate publication route. Verify its actual version, URL and SHA-256; the direct release above provides the fixed 2.0.2 bundle.
 See [distribution status](DISTRIBUTION.md) for channel details and upgrade checks.
 A directory listing is not a hosted operator endpoint or a certification.
 
 ## Cargo registry CLI and embedded Rust
 
-The published Cargo 2.0.1 package retains the affected SQLite. Until the
-2.0.2 registry release is verified, use the fixed source directly with Rust 1.89+:
+Cargo engine versions below 2.0.2 retain the affected SQLite. Check the actual
+registry version before installing; if the fixed version is unavailable, use
+the reviewed source directly with Rust 1.89+:
 
 ```sh
 cargo install --git https://github.com/seanebones-lang/deadbolt.git --rev 7d130e882d03b9ba82556fb072f646d4191bbe8a --locked --bin deadbolt
