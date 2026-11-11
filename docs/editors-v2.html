@@ -1,15 +1,15 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Install stable DeadBolt 2.0.1 in VS Code and Cursor · DeadBolt</title>
+<title>Install stable DeadBolt 2.0.2 in VS Code and Cursor · DeadBolt</title>
 <meta name="description" content="Install DeadBolt in VS Code and Cursor and verify denial, approval and revocation with disposable local MCP tools.">
 <link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="assets/site.css">
 <style>.guide{max-width:860px;padding-block:54px 80px}.guide h1{font-size:clamp(2.1rem,5vw,3.8rem);line-height:1.1;letter-spacing:-.045em}.guide h2{font-size:1.65rem;margin-top:2.8rem;letter-spacing:-.02em}.guide p,.guide li{font-size:1.06rem;line-height:1.8}.guide a{overflow-wrap:anywhere;text-underline-offset:3px}.guide pre{padding:22px;background:#151719;color:#f6f2ec;overflow-x:auto;line-height:1.7;border-radius:4px}.guide pre code{font-size:.9rem;white-space:pre}.guide code{font-family:var(--mono);font-size:.88em;overflow-wrap:anywhere}.guide-table-wrap{overflow-x:auto}.guide table{border-collapse:collapse;width:100%}.guide th,.guide td{border:1px solid var(--line);padding:14px;text-align:left;line-height:1.5}.guide-nav{display:flex;flex-wrap:wrap;gap:18px;font-weight:700;margin-bottom:28px}.download-callout{padding:22px;border:1px solid var(--line);margin-bottom:30px;line-height:1.7}.guide footer{border-top:1px solid var(--line);padding-top:25px;margin-top:50px}@media(max-width:760px){.guide{width:calc(100% - 36px)}.guide pre{padding:14px}.topbar nav{gap:1rem}.topbar nav a{font-size:.75rem}}</style>
 </head><body><a class="skip" href="#content">Skip to content</a>
 <header class="topbar"><a class="wordmark" href="index.html">DEADBOLT</a><nav aria-label="Main navigation"><a href="index.html#install">Downloads</a><a href="index.html#watch">Watch</a><a href="https://github.com/seanebones-lang/deadbolt">Source</a></nav></header>
-<main class="guide wrap" id="content"><nav class="guide-nav" aria-label="Editor guides"><a href="editors.html">Editor installation</a><a href="editor-tutorial.html">Practical tutorial</a><a href="editors-v2.html">Stable 2.0.1 editor guide</a><a href="assets/editor_setup_v2.py" download="editor_setup_v2.py">Download stable 2.0.1 helper</a></nav>
+<main class="guide wrap" id="content"><nav class="guide-nav" aria-label="Editor guides"><a href="editors.html">Editor installation</a><a href="editor-tutorial.html">Practical tutorial</a><a href="editors-v2.html">Stable 2.0.2 editor guide</a><a href="assets/editor_setup_v2.py" download="editor_setup_v2.py">Download stable 2.0.2 helper</a></nav>
 <div class="download-callout"><strong>Start locally.</strong> Python 3.9+, Node.js 20+ and a checksum-verified bundle. No model account is needed for the disposable protocol test. Read-only setup provides no active protection.</div>
-<h1>Install stable DeadBolt 2.0.1 in VS Code and Cursor</h1>
-<p>This route uses <strong>MCP bundle 2.0.1</strong> and stable <strong>engine 2.0.1</strong>. The helper
+<h1>Install stable DeadBolt 2.0.2 in VS Code and Cursor</h1>
+<p>This route uses <strong>MCP bundle 2.0.2</strong> and stable <strong>engine 2.0.2</strong>. The helper
 checks the exact bundle hash before extracting, then exports client-specific
 commands without editing an editor profile. Its protocol tests use disposable
 marker effects. Earlier model/GUI receipts keep their original versions and
@@ -23,7 +23,7 @@ No model key, cloud account or Rust toolchain is needed for the protocol test.</
 <h2>Prepare and verify outside the workspace</h2>
 <ol>
 <li>
-<p>Download <a href="https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v2.0.1/deadbolt-2.0.1.mcpb">deadbolt-2.0.1.mcpb</a>.</p>
+<p>Download <a href="https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v2.0.2/deadbolt-2.0.2.mcpb">deadbolt-2.0.2.mcpb</a>.</p>
 </li>
 <li>
 <p>Download and review <a href="assets/editor_setup_v2.py">editor_setup_v2.py</a>.
@@ -33,19 +33,19 @@ edit an editor profile. Keep it separate from the historical 1.x helper.</p>
 <li>
 <p>In the directory holding both downloads, select a <strong>new private directory
 outside any agent-editable workspace</strong>:</p>
-<pre><code class="language-sh">OUT=&quot;$HOME/.local/share/deadbolt/editor-2.0.1&quot;
-python3 editor_setup_v2.py prepare --bundle deadbolt-2.0.1.mcpb --out &quot;$OUT&quot;
+<pre><code class="language-sh">OUT=&quot;$HOME/.local/share/deadbolt/editor-2.0.2&quot;
+python3 editor_setup_v2.py prepare --bundle deadbolt-2.0.2.mcpb --out &quot;$OUT&quot;
 python3 editor_setup_v2.py verify --out &quot;$OUT&quot;
 </code></pre>
 <p>On Windows PowerShell:</p>
-<pre><code class="language-powershell">$Out = Join-Path $env:LOCALAPPDATA 'NextEleven\DeadBolt\editor-2.0.1'
-python editor_setup_v2.py prepare --bundle deadbolt-2.0.1.mcpb --out $Out
+<pre><code class="language-powershell">$Out = Join-Path $env:LOCALAPPDATA 'NextEleven\DeadBolt\editor-2.0.2'
+python editor_setup_v2.py prepare --bundle deadbolt-2.0.2.mcpb --out $Out
 python editor_setup_v2.py verify --out $Out
 </code></pre>
 </li>
 </ol>
 <p>The helper verifies the entire bundle before extraction against SHA-256
-<code>709bd27afe9c1ce8a833d124eceb2e6ca6458a40924534a34882b253fe4ae644</code>.
+<code>165db7a37a1f7686af1908416f5f417daadbce875c74b72c78185117bb58c980</code>.
 A mismatch fails without installing; an existing directory is preserved. Supply
 <code>--node /absolute/path/to/node</code> to <code>prepare</code> if Node is not on PATH. Exported
 configurations contain absolute paths; prepare new configuration if you move it.</p>

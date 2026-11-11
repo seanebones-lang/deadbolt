@@ -2,24 +2,35 @@
 
 ## 2.0.2 security rollout
 
-The [2.0.2 native release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.2)
-is published for all four supported targets, with signed/notarized Macs and
-verified source/hash/provenance receipts. It fixes RUSTSEC-2026-0459. The source
-tag requires Rust 1.89+. Other engine distributions in the historical snapshot
-below remain on their old pins until their individual updates are published.
-Do not use the old Cargo command or bundle as a route to the security fix.
-The Python client contains no engine. Existing plugin copies and containers
-must be updated separately; no installed-copy upgrade is automatic.
+The fixed 2.0.2 engine is published through:
+
+| Route | Verified current version |
+| --- | --- |
+| [Native downloads](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.2) | 2.0.2; four targets, signed/notarized Macs |
+| [Direct MCP bundle](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.2) | 2.0.2; SHA-256 `165db7a37a1f7686af1908416f5f417daadbce875c74b72c78185117bb58c980` |
+| [Stable Homebrew cask](https://github.com/seanebones-lang/homebrew-tap/blob/main/Casks/n11-deadbolt.rb) | 2.0.2; both Mac architectures |
+| [PyPI client](https://pypi.org/project/n11-deadbolt-client/2.0.2/) | 2.0.2; client only, verified wheel/sdist hashes match GitHub |
+| [Claude source plugin](https://github.com/seanebones-lang/deadbolt-claude-plugin) | 2.0.2; complete public bundle vendored and tested |
+| [Cursor source plugin](https://github.com/seanebones-lang/deadbolt-cursor-plugin) | 2.0.2; complete public bundle vendored and tested |
+| [Docker source](https://github.com/seanebones-lang/deadbolt-docker-mcp) | Builds engine 2.0.2; rebuild images, no prebuilt image publication claimed |
+| [Hermes plugin](https://github.com/seanebones-lang/deadbolt-hermes-plugin) | Plugin 0.1.2 recommends separately installed engine 2.0.2 |
+| [Pinned source](INSTALL.md#published-source) | 2.0.2; Rust 1.89+ |
+
+These engines fix RUSTSEC-2026-0459. The remaining registry and plugin routes
+have separate publication/upgrade steps; check their actual version rather
+than treating the earlier snapshot below as current security guidance. A
+Python client contains no engine. Existing plugin copies and containers must
+be updated separately; installing another route does not update them.
 
 ## Earlier channel snapshot — 2.0.1
 
 Audit started November 3, 2026; distribution follow-up completed November 4.
-The current released engine is **2.0.1**. Python client **2.0.1.post1** is a documentation-only postrelease
+At that snapshot, the released engine was **2.0.1**. Python client **2.0.1.post1** is a documentation-only postrelease
 with unchanged runtime modules. The matching desktop MCP bundle is **2.0.1**. These are separate
 installations; replacing one does not update a running sidecar or a vendored
 editor plugin. Earlier downloads remain immutable.
 
-## Verified public routes
+## Routes verified in the earlier snapshot
 
 | Route | Observed published version | What it installs / next action |
 | --- | --- | --- |
