@@ -50,6 +50,8 @@ def main():
     provenance = json.loads((bundle / 'PROVENANCE.json').read_text())
     expected_engine_version = provenance['engine_version']
     assert isinstance(expected_engine_version, str) and expected_engine_version
+    assert (bundle / 'third-party/rust-1.89.0/COPYRIGHT-library.html').is_file()
+    assert (bundle / 'third-party/rust-1.89.0/licenses/MIT.txt').is_file()
     assert manifest['tools_generated'] and len(manifest['tools']) == 2
     assert not manifest['user_config']['operator_config']['required']
     target = {('Darwin', 'arm64'): 'aarch64-apple-darwin', ('Darwin', 'x86_64'): 'x86_64-apple-darwin',
