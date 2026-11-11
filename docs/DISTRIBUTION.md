@@ -1,5 +1,18 @@
 # Which DeadBolt version am I installing?
 
+## 2.0.2 security rollout
+
+The [2.0.2 native release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.2)
+is published for all four supported targets, with signed/notarized Macs and
+verified source/hash/provenance receipts. It fixes RUSTSEC-2026-0459. The source
+tag requires Rust 1.89+. Other engine distributions in the historical snapshot
+below remain on their old pins until their individual updates are published.
+Do not use the old Cargo command or bundle as a route to the security fix.
+The Python client contains no engine. Existing plugin copies and containers
+must be updated separately; no installed-copy upgrade is automatic.
+
+## Earlier channel snapshot — 2.0.1
+
 Audit started November 3, 2026; distribution follow-up completed November 4.
 The current released engine is **2.0.1**. Python client **2.0.1.post1** is a documentation-only postrelease
 with unchanged runtime modules. The matching desktop MCP bundle is **2.0.1**. These are separate
