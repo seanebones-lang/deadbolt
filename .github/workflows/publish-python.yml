@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Exact Python distribution version; engine remains 2.0.1'
+        description: 'Exact verified Python distribution version and matching engine'
         type: choice
-        options: ['2.0.1', '2.0.1.post1']
-        default: '2.0.1'
+        options: ['2.0.1', '2.0.1.post1', '2.0.2']
+        default: '2.0.2'
         required: true
       publish:
         description: 'Publish the selected verified version to PyPI (irreversible version allocation)'
@@ -27,15 +27,18 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      ENGINE_VERSION: ${{ inputs.version == '2.0.2' && '2.0.2' || '2.0.1' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.version == '2.0.1' && 'e87519f700be03c27a564ed274907649224d256f' || github.sha }}
+          ref: ${{ inputs.version == '2.0.2' && '7d130e882d03b9ba82556fb072f646d4191bbe8a' || inputs.version == '2.0.1' && 'e87519f700be03c27a564ed274907649224d256f' || github.sha }}
           persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
       - name: Download and verify the immutable release assets
+        if: inputs.version != '2.0.2'
         env:
           GH_TOKEN: ${{ github.token }}
           SELECTED_VERSION: ${{ inputs.version }}
@@ -72,6 +75,47 @@ jobs:
               z.extractall('engine')
           pathlib.Path('engine/deadbolt-2.0.1-x86_64-unknown-linux-gnu/deadbolt').chmod(0o755)
           PY
+      - name: Download and verify the pinned 2.0.2 security release
+        if: inputs.version == '2.0.2'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(git rev-parse HEAD)" = '7d130e882d03b9ba82556fb072f646d4191bbe8a'
+          mkdir -p python-publish-dist engine
+          gh release download v2.0.2 --repo seanebones-lang/deadbolt \
+            --pattern 'n11_deadbolt_client-*' --dir python-publish-dist
+          gh release download v2.0.2 --repo seanebones-lang/deadbolt \
+            --pattern 'deadbolt-2.0.2-x86_64-unknown-linux-gnu.zip' --dir engine
+          python - <<'PYVERIFY'
+          import email, hashlib, json, pathlib, tarfile, zipfile
+          version = '2.0.2'
+          source = '7d130e882d03b9ba82556fb072f646d4191bbe8a'
+          expected = {
+              'python-publish-dist/n11_deadbolt_client-2.0.2-py3-none-any.whl': 'c9ff4722daabeebbfe78aaa07b4ce2c350ba13be1f250eded422f8c0b6d58c12',
+              'python-publish-dist/n11_deadbolt_client-2.0.2.tar.gz': 'a4b02f0da97aa2e62eaf27fb3eda08964554cd7d59e622f5d599aaa72b0c79ea',
+              'engine/deadbolt-2.0.2-x86_64-unknown-linux-gnu.zip': 'c2e1e50fba85a5014f2c2ac9eafeceadc8c06ec2c24aef7f8b121ad836639d9f',
+          }
+          assert len(list(pathlib.Path('python-publish-dist').iterdir())) == 2
+          for name, sha in expected.items():
+              assert hashlib.sha256(pathlib.Path(name).read_bytes()).hexdigest() == sha, name
+          with zipfile.ZipFile('python-publish-dist/n11_deadbolt_client-2.0.2-py3-none-any.whl') as wheel, tarfile.open('python-publish-dist/n11_deadbolt_client-2.0.2.tar.gz') as sdist:
+              modules = ('deadbolt_client.py', 'deadbolt_openai_agents.py', 'deadbolt_supervisor.py')
+              assert sorted(n for n in wheel.namelist() if n.endswith('.py')) == sorted(modules)
+              for module in modules:
+                  original = pathlib.Path('examples', module).read_bytes()
+                  assert wheel.read(module) == original
+                  assert sdist.extractfile('n11_deadbolt_client-2.0.2/examples/' + module).read() == original
+              meta = email.message_from_bytes(wheel.read('n11_deadbolt_client-2.0.2.dist-info/METADATA'))
+              assert meta['Name'] == 'n11-deadbolt-client' and meta['Version'] == version
+              assert meta['Requires-Python'] == '>=3.9'
+              assert meta.get_all('Requires-Dist') == ['openai-agents==0.23.1; extra == "openai-agents"']
+              assert meta.get_payload() == pathlib.Path('docs/PYPI.md').read_text()
+          with zipfile.ZipFile('engine/deadbolt-2.0.2-x86_64-unknown-linux-gnu.zip') as archive:
+              build = json.loads(archive.read('deadbolt-2.0.2-x86_64-unknown-linux-gnu/BUILD.json'))
+              assert build['version'] == version and build['source_revision'] == source
+              archive.extractall('engine')
+          pathlib.Path('engine/deadbolt-2.0.2-x86_64-unknown-linux-gnu/deadbolt').chmod(0o755)
+          PYVERIFY
       - name: Select immutable original distributions
         if: inputs.version == '2.0.1'
         run: cp original-python/* python-publish-dist/
@@ -127,14 +171,14 @@ jobs:
           python -m pip install --require-hashes -r tests/openai-agents-requirements.txt
           python -m pip install --no-deps --no-index python-publish-dist/*.whl
           python -m pip check
-          DEADBOLT_BIN="$PWD/engine/deadbolt-2.0.1-x86_64-unknown-linux-gnu/deadbolt" \
+          DEADBOLT_BIN="$PWD/engine/deadbolt-${ENGINE_VERSION}-x86_64-unknown-linux-gnu/deadbolt" \
             python -I tests/openai_agents_acceptance.py
       - name: Verify installed deadline and supervisor behavior against the released engine
         run: |
           /tmp/deadbolt-base/bin/python -I tests/deadline_client_acceptance.py \
-            --binary "$PWD/engine/deadbolt-2.0.1-x86_64-unknown-linux-gnu/deadbolt"
+            --binary "$PWD/engine/deadbolt-${ENGINE_VERSION}-x86_64-unknown-linux-gnu/deadbolt"
           /tmp/deadbolt-base/bin/python -I tests/supervision_client_acceptance.py \
-            --binary "$PWD/engine/deadbolt-2.0.1-x86_64-unknown-linux-gnu/deadbolt"
+            --binary "$PWD/engine/deadbolt-${ENGINE_VERSION}-x86_64-unknown-linux-gnu/deadbolt"
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
@@ -147,7 +191,7 @@ jobs:
           assert deadbolt_supervisor.supported(), 'acceptance must exercise POSIX cancellation, not skip it'
           PY
           /tmp/deadbolt-executor/bin/python -I tests/executor_acceptance.py \
-            --binary "$PWD/engine/deadbolt-2.0.1-x86_64-unknown-linux-gnu/deadbolt"
+            --binary "$PWD/engine/deadbolt-${ENGINE_VERSION}-x86_64-unknown-linux-gnu/deadbolt"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: verified-python-distributions
