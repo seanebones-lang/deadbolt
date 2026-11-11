@@ -1,6 +1,6 @@
 # Contributing to Deadbolt
 
-Use a branch from the current main checkout. Rust 1.85 is the minimum supported
+Use a branch from the current main checkout. Rust 1.89 is the minimum supported
 version; Python 3.12 and Node 22 are the CI client runtimes. Install a native
 C/C++ toolchain for bundled SQLite. Run:
 
@@ -12,7 +12,7 @@ cargo build --locked --bin deadbolt
 cargo run --locked --bin deadbolt -- drill
 cargo run --locked --example build_in
 python3 tests/client_contract.py
-cargo +1.85.0 check --all-targets --locked
+cargo +1.89.0 check --all-targets --locked
 RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps
 ```
 
@@ -22,7 +22,7 @@ bodies. Never run resource-exhaustion experiments on a shared service.
 
 The documentation command above uses Unix environment syntax. On PowerShell,
 set `$env:RUSTDOCFLAGS = "-D warnings"`, then run
-`cargo doc --locked --no-deps`. CI checks API documentation on Rust 1.85.
+`cargo doc --locked --no-deps`. CI checks API documentation on Rust 1.89.
 
 A pull request should explain the observable problem, resulting behavior,
 validation and any platform or integration gates still open. Keep documentation

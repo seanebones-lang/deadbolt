@@ -29,7 +29,7 @@ work, outage and persistent revocation. [What the report establishes](FIRST-EVAL
 
 ## Build in without a sidecar
 
-From a reviewed candidate source checkout with Rust 1.85+ and a C compiler:
+From a reviewed candidate source checkout with Rust 1.89+ and a C compiler:
 
 ```sh
 cargo run --locked --example build_in

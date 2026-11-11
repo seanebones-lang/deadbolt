@@ -44,12 +44,14 @@ include = [
     "/requirements.lock",
     "/MANIFEST.in",
 ]
-rust-version = "1.85"
+rust-version = "1.89"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 dirs = "7"
-rusqlite = { version = "0.31", features = ["bundled"] }
+# Preserve native caching and checked unsigned conversions without enabling
+# the default WebAssembly backend, which DeadBolt does not support.
+rusqlite = { version = "0.41.1", default-features = false, features = ["bundled", "cache", "fallible_uint"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 serde_jcs = "=0.2.0"

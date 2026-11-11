@@ -3,6 +3,21 @@
 Versioned GitHub releases identify publication and the exact source revision.
 The older `v0.1.1-product` tag is not the standalone hardening release.
 
+## Unreleased — bundled SQLite security update
+
+- Upgrade bundled rusqlite/SQLite to remediate RUSTSEC-2026-0459
+  (CVE-2026-119375), a possible uninitialized-memory disclosure when opening
+  a crafted database/WAL pair. Keep the dependency audit enabled without an
+  advisory exception. Private-state permission checks remain defense in depth.
+- Raise the source-build minimum from Rust 1.85 to 1.89 for the upstream
+  patched dependency. Source builders and embedded consumers using Rust
+  1.85–1.88 must upgrade their compiler. This does not itself change platform
+  requirements for prebuilt binaries or the persisted schema. Verify ordinary
+  reopen, retained policy/credentials, and old-store upgrade acceptance.
+- This is an unreleased source fix. Previously published 2.0.1 binaries and
+  bundles retain their original SQLite and are not patched by this change.
+  Publish new versioned, verified artifacts before claiming user remediation.
+
 ## Python client 2.0.1.post1 — metadata-only source
 
 - Correct the Python package long description, which accidentally retained

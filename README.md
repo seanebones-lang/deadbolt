@@ -65,7 +65,7 @@ The evaluation starts a private sidecar, writes harmless temporary files, checks
 that policy, approval, kill and outage block effects, and cleans up afterward.
 Python 3.9+ is the additional runtime needed. [Understand the report](docs/FIRST-EVALUATION.md).
 
-For a reviewed source checkout, Rust 1.85+ and a native C compiler/linker:
+For a reviewed source checkout, Rust 1.89+ and a native C compiler/linker:
 
 ```sh
 cargo install --path . --locked --bin deadbolt
@@ -187,7 +187,7 @@ identify content; operator-writable records are not tamper-proof certification.
 
 Source checks: `cargo test --locked`, `cargo clippy --all-targets --locked -- -D warnings`,
 and `python3 tests/client_contract.py` after `cargo build --locked --bin deadbolt`
-(Python and Node required). CI also checks Rust 1.85, installed Python/SDK behavior
+(Python and Node required). CI also checks Rust 1.89, installed Python/SDK behavior
 and native packages. Passing these checks does not establish acceptance of your application.
 
 [Report ordinary bugs](https://github.com/seanebones-lang/deadbolt/issues/new/choose)

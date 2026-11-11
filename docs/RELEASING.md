@@ -49,7 +49,7 @@ they are not a signature establishing publisher identity.
 
 ## Build and verify
 
-Build natively with Rust 1.85 and a C compiler for bundled SQLite:
+Build natively with Rust 1.89 and a C compiler for bundled SQLite:
 
 ```sh
 cargo build --release --locked --bin deadbolt
