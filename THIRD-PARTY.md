@@ -13,7 +13,7 @@ license. The source is also available in the
 is a source distribution for recipients, not a patched/vendored Cargo dependency.
 See [Mozilla's distribution FAQ](https://www.mozilla.org/en-US/MPL/2.0/FAQ/).
 
-The unreleased security-update candidate is built with Rust 1.89. Its runtime
+Engine 2.0.2 is built with Rust 1.89. Its runtime
 library copyright notice and referenced licenses are copied from that toolchain
 distribution under `third-party/rust-1.89.0/`. Published 2.0.1 artifacts retain
 their original Rust 1.85 notices, also preserved in this repository.
