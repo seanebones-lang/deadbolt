@@ -22,11 +22,17 @@ def main():
             raise RuntimeError("Cargo file-selection check failed:\n" + result.stderr[-2000:])
         files = set(result.stdout.splitlines())
         assert not any(name.startswith("build/") for name in files), "local build files entered the package"
-        assert not any(name.startswith("docs/assets/") or name.endswith(".html") for name in files), "hosted media entered the crate"
+        # The upstream runtime copyright notice is distributed as HTML;
+        # it is a required legal notice, not hosted landing-page media.
+        runtime_notice = "third-party/rust-1.89.0/COPYRIGHT-library.html"
+        assert not any(name.startswith("docs/assets/") or
+                       (name.endswith(".html") and name != runtime_notice)
+                       for name in files), "hosted media entered the crate"
         required = {"Cargo.lock", "LICENSE", "NOTICE", "README.md", "SECURITY.md",
                     "src/lib.rs", "src/main.rs", "examples/build_in.rs", "examples/deadbolt_supervisor.py",
                     "docs/MIGRATING-V2.md", "docs/PRIVACY.md", "docs/SUPERVISION.md",
-                    "tests/published_versions.json"}
+                    "tests/published_versions.json", runtime_notice,
+                    "third-party/rust-1.89.0/licenses/MIT.txt"}
         assert required <= files, "missing developer package files: " + repr(sorted(required - files))
         print(json.dumps({"passed": True, "package_file_count": len(files),
                           "ignored_build_sentinels_excluded": True,
