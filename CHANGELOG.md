@@ -3,7 +3,7 @@
 Versioned GitHub releases identify publication and the exact source revision.
 The older `v0.1.1-product` tag is not the standalone hardening release.
 
-## Unreleased — bundled SQLite security update
+## 2.0.2 — security release candidate
 
 - Upgrade bundled rusqlite/SQLite to remediate RUSTSEC-2026-0459
   (CVE-2026-119375), a possible uninitialized-memory disclosure when opening
