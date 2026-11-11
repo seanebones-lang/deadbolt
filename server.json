@@ -3,7 +3,7 @@
   "name": "io.github.seanebones-lang/deadbolt",
   "title": "DeadBolt by NextEleven",
   "description": "Local execution gate: fixed deadlines, operator-only controls, read-only setup and readable denials.",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "repository": {
     "url": "https://github.com/seanebones-lang/deadbolt",
     "source": "github",
@@ -13,8 +13,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v2.0.1/deadbolt-2.0.1.mcpb",
-      "fileSha256": "709bd27afe9c1ce8a833d124eceb2e6ca6458a40924534a34882b253fe4ae644",
+      "identifier": "https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v2.0.2/deadbolt-2.0.2.mcpb",
+      "fileSha256": "165db7a37a1f7686af1908416f5f417daadbce875c74b72c78185117bb58c980",
       "transport": {
         "type": "stdio"
       }
@@ -22,12 +22,12 @@
   ],
   "_meta": {
     "io.modelcontextprotocol.registry/publisher-provided": {
-      "bundleVersion": "2.0.1",
-      "engineVersion": "2.0.1",
+      "bundleVersion": "2.0.2",
+      "engineVersion": "2.0.2",
       "license": "Apache-2.0",
       "setupMode": "Two read-only setup and bundle-verification tools; no active protection until configured.",
       "protectionBoundary": "Protects connected dispatch routes. Not an OS sandbox; cannot cancel running actions.",
-      "documentation": "https://github.com/seanebones-lang/deadbolt/blob/mcpb-v2.0.1/dist/mcpb/README.md",
+      "documentation": "https://github.com/seanebones-lang/deadbolt/blob/mcpb-v2.0.2/dist/mcpb/README.md",
       "captionedWalkthrough": "https://seanebones-lang.github.io/deadbolt/walkthrough.html",
       "releaseChannel": "stable",
       "configurationVersion": 2,

@@ -81,9 +81,9 @@ unsigned. Linux arm64, Windows arm64 and Alpine/musl are outside this native mat
 
 ## Local MCP bundle (MCPB)
 
-Use the [matching bundle release](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.1)
+Use the [matching bundle release](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.2)
 and its `SHA256SUMS`. The direct asset is
-[deadbolt-2.0.1.mcpb](https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v2.0.1/deadbolt-2.0.1.mcpb).
+[deadbolt-2.0.2.mcpb](https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v2.0.2/deadbolt-2.0.2.mcpb).
 A bundle has its own version/hash; it is not interchangeable with a native ZIP.
 Check publication before installation and never reuse a candidate's checksum.
 
@@ -111,33 +111,33 @@ launcher provisions broad one-shot tool approvals, not exact-action grants.
 Client approval does not grant DeadBolt operator approval. Use readable denial
 codes and operator evidence to diagnose failures; do not retry terminal runs.
 
-[Direct releases](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.1)
-provide the verified 2.0.1 bundle. The
+[Direct releases](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.2)
+provide the verified 2.0.2 bundle. The
 [official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.seanebones-lang%2Fdeadbolt&limit=10)
-now publishes 2.0.1; check its actual package version, URL and hash.
+still lists the older 2.0.1 bundle; the 2.0.2 entry is awaiting publication. Use the direct release above for the security update.
 See [distribution status](DISTRIBUTION.md) for channel details and upgrade checks.
 A directory listing is not a hosted operator endpoint or a certification.
 
 ## Cargo registry CLI and embedded Rust
 
-[Stable 2.0.1 is published on crates.io](https://crates.io/crates/n11-deadbolt/2.0.1).
-Install with the reviewed package lockfile:
+The published Cargo 2.0.1 package retains the affected SQLite. Until the
+2.0.2 registry release is verified, use the fixed source directly with Rust 1.89+:
 
 ```sh
-cargo install n11-deadbolt --version 2.0.1 --locked --bin deadbolt
+cargo install --git https://github.com/seanebones-lang/deadbolt.git --rev 7d130e882d03b9ba82556fb072f646d4191bbe8a --locked --bin deadbolt
 deadbolt --version
 deadbolt drill
 ```
 
-For an embedded application:
+For an embedded application, pin the same reviewed source:
 
 ```toml
 [dependencies]
-deadbolt = { package = "n11-deadbolt", version = "=2.0.1" }
+deadbolt = { package = "n11-deadbolt", git = "https://github.com/seanebones-lang/deadbolt.git", rev = "7d130e882d03b9ba82556fb072f646d4191bbe8a" }
 ```
 
-The package is n11-deadbolt; the binary and library are deadbolt. Registry install
-requires no publishing token. Commit your application's own Cargo.lock and use
+The package is n11-deadbolt; the binary and library are deadbolt. Consumers need
+no publishing token. Commit your application's own Cargo.lock and use
 `cargo build --locked`; a dependency's lockfile is not your application's lock.
 [Build-in example](INTEGRATION.md#build-in-rust-executor).
 
@@ -161,26 +161,26 @@ Replacing an existing Cargo binary requires intentional `--force` after backup.
 
 ## Python and Node
 
-Install the [published 2.0.1.post1 client](https://pypi.org/project/n11-deadbolt-client/2.0.1.post1/) in your application's environment:
+Install the [published 2.0.2 client](https://pypi.org/project/n11-deadbolt-client/2.0.2/) in your application's environment:
 
 ```sh
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install 'n11-deadbolt-client==2.0.1.post1'
+python -m pip install 'n11-deadbolt-client==2.0.2'
 python -c "import deadbolt_client; print(deadbolt_client.__file__)"
 ```
 
 Windows activation is `.\.venv\Scripts\Activate.ps1`. The imported module
 must be inside that environment. Alternatively, verify the release wheel's hash
-and install `/absolute/path/to/n11_deadbolt_client-2.0.1-py3-none-any.whl`.
+and install `/absolute/path/to/n11_deadbolt_client-2.0.2-py3-none-any.whl`.
 A reviewed source installation uses `python -m pip install /path/to/deadbolt`.
-The original GitHub wheel remains 2.0.1. The PyPI-only postrelease corrects its
-long description without changing the three runtime modules or engine pairing.
+The 2.0.2 public registry wheel and source hashes match the tested GitHub release assets.
+Older distributions remain immutable.
 The wheel runs on Python 3.9+; the build backend requires Python 3.10+.
 The optional SDK adapter needs Python 3.10+:
 
 ```sh
-python -m pip install 'n11-deadbolt-client[openai-agents]==2.0.1.post1'
+python -m pip install 'n11-deadbolt-client[openai-agents]==2.0.2'
 ```
 
 The wheel does not include/start the engine. Configure the separately installed
@@ -195,7 +195,7 @@ deadbolt --version
 deadbolt drill
 ```
 
-The [stable tap](HOMEBREW.md) installs version 2.0.1; check the cask version before upgrading. The preview cask remains a distinct channel
+The [stable tap](HOMEBREW.md) installs version 2.0.2; check the cask version before upgrading. The preview cask remains a distinct channel
 and cannot coexist with the stable cask. Installation does not start a service.
 
 ## Choose the transport and authority

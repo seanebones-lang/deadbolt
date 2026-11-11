@@ -82,7 +82,7 @@ def main():
         run("verify", "--out", install, ok=False)
         checks.append({"case": "installed_binary_corruption_refused", "passed": True})
     output = {"passed": True, "helper_sha256": hashlib.sha256(helper.read_bytes()).hexdigest(),
-              "scope": "Fresh external directory; checksum-pinned published stable 2.0.1 MCPB; exported editor commands and disposable effects. No GUI/model/account test.", "checks": checks}
+              "scope": "Fresh external directory; checksum-pinned published stable 2.0.2 MCPB; exported editor commands and disposable effects. No GUI/model/account test.", "checks": checks}
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(output, indent=2) + "\n")
     print(json.dumps(output, indent=2))
