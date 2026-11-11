@@ -17,16 +17,18 @@ lab, with their tested scopes and remaining limits.
 [![Release](https://img.shields.io/github/v/release/seanebones-lang/deadbolt)](https://github.com/seanebones-lang/deadbolt/releases/latest)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-## Version 2.0.1
+## SQLite security update: engine 2.0.2
 
-This source targets **engine 2.0.1 and Python client 2.0.1.post1**. The Python
-postrelease corrects documentation; its runtime modules are unchanged from 2.0.1.
-The engine patch fixes MCP
-spend sequencing on denied calls and requires independent admission for every
-MCP tool invocation; the version 2 integration boundaries remain unchanged. [Versioned releases](https://github.com/seanebones-lang/deadbolt/releases)
-identify available downloads, exact source and checksums; [installation](docs/INSTALL.md)
-tracks package-manager, bundle and editor availability separately. A source merge
-does not publish a package or update a directory listing.
+[Download engine 2.0.2](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.2)
+to receive the fix for [RUSTSEC-2026-0459](https://rustsec.org/advisories/RUSTSEC-2026-0459.html).
+All four native targets are published; Mac downloads are signed and notarized.
+Source builds require Rust 1.89+. Existing 2.0.1 engines, plugin/bundle copies
+and previously built containers keep their original SQLite until replaced.
+
+This source targets engine and Python client 2.0.2. The Python package contains
+no engine. Cargo/PyPI registries, Homebrew, MCP bundles and plugin copies are
+separate rollout steps; consult [distribution status](docs/DISTRIBUTION.md)
+before selecting a route. A source merge does not upgrade installed copies.
 
 **Upgrading an existing install?** Engine, Python client, editor plugins and
 running sidecars are separate copies. Installing one does not upgrade the others.
