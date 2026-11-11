@@ -10,7 +10,7 @@ Check the working tree and the exact revision; preserve unrelated edits.
 
 ## Local checks without a model account
 
-The Rust manifest requires Rust 1.85 or later. Python client support starts at
+The Rust manifest requires Rust 1.89 or later. Python client support starts at
 Python 3.9; Node is also needed for the cross-language client contract.
 From the repository root:
 

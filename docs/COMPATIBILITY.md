@@ -120,7 +120,7 @@ The same upgrade passes against the 1.0.0 executable in
 
 ## Platforms and boundaries
 
-Source CI validates Linux, macOS, Windows and Rust 1.85. Native Windows uses
+Source CI validates Linux, macOS, Windows and Rust 1.89. Native Windows uses
 tokened loopback TCP; Unix sockets and token-file permissions are Unix-only.
 Release binaries are supported only on the architectures and OS requirements
 listed in their release notes. A source CI pass is not a binary-installation test.

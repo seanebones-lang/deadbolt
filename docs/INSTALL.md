@@ -20,7 +20,7 @@ documentation rather than mixing old binaries with current configuration.
 | Native archive | Matching OS/CPU; Python 3.9+ for the evaluation | Prebuilt engine, examples, notices and source/hash identity |
 | [Homebrew](HOMEBREW.md) | macOS Apple Silicon or Intel, Homebrew | Signed prebuilt CLI; no Rust build |
 | Local MCP bundle | Compatible local client, Node.js 20+, trusted downstream server | Engine and configuration-file launcher; blank setup provides no protection |
-| Cargo CLI / embedded Rust | Rust 1.85+, native C compiler/linker | Engine or embedded library |
+| Cargo CLI / embedded Rust | Rust 1.89+, native C compiler/linker | Engine or embedded library |
 | Python package | Python 3.9+, pip and a virtual environment | Dependency-free base client; native engine installed separately |
 | Optional SDK adapter | Python 3.10+ and openai-agents extra | Tested SDK 0.23.1 adapter |
 | [FastMCP recipe](FASTMCP.md) | Python 3.10+, FastMCP 4.1.2, matching client/engine | A gate inside each protected tool body |
@@ -30,6 +30,14 @@ documentation rather than mixing old binaries with current configuration.
 No model key, Harness, cloud account or database server is needed for the
 provider-free local evaluation. Installing a client or binary does not start
 protection or configure an agent's execution routes.
+
+## Security-update source candidate
+
+The unreleased bundled-SQLite security fix requires Rust 1.89+ for source and
+embedded builds. Published engine 2.0.1 used Rust 1.85 and retains its original
+SQLite; neither a source merge nor this table patches downloaded binaries.
+See [the changelog](../CHANGELOG.md) for RUSTSEC-2026-0459 and release status.
+A new versioned native release is required to deliver the dependency fix.
 
 ## Native archive (no Rust required)
 

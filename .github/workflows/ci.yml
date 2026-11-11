@@ -232,9 +232,9 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
-      - uses: dtolnay/rust-toolchain@3230091d7ef9483f601620abacc570c22cf44d22 # 1.85.0
+      - uses: dtolnay/rust-toolchain@3230091d7ef9483f601620abacc570c22cf44d22 # pinned installer; explicit toolchain below
         with:
-          toolchain: 1.85.0
+          toolchain: 1.89.0
       - run: cargo check --locked --all-targets
       - run: cargo doc --locked --no-deps
         env:

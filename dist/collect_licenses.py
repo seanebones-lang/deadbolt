@@ -26,7 +26,7 @@ def collect(output):
         "Some listed dependencies are build-time or target-specific, not linked on every platform.\n"
         "Original notices and license choices remain applicable to their components.\n"
         "option-ext 0.2.0 source and its MPL-2.0 license are included under third-party/.\n"
-        "Rust runtime notices are included under third-party/rust-1.85.0/.\n"
+        "Rust runtime notices are included under third-party/rust-1.89.0/.\n"
     ]
     packages = sorted((p for p in metadata["packages"] if p["id"] in selected and p["source"]),
                       key=lambda p: (p["name"], p["version"]))
