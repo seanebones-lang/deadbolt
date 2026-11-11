@@ -1,5 +1,15 @@
 # Candidate packaging and release procedure
 
+## 2.0.2 security candidate
+
+The current engine and Python source versions are 2.0.2. Native archives must
+be built and validated at the exact reviewed release SHA, then signed and
+notarized on macOS as below. The existing MCP bundle, registry metadata,
+Homebrew casks and Python publisher still describe their published 2.0.1
+artifacts; update each only after the new engine artifacts are published and
+verified. Do not reuse their existing hashes or treat a version bump as delivery.
+The historical Python postrelease workflow below cannot publish 2.0.2.
+
 ## Python documentation postrelease
 
 Client `2.0.1.post1` is a metadata-only correction paired with engine `2.0.1`.

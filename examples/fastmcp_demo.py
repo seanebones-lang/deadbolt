@@ -124,9 +124,10 @@ def main():
     supported = {"1.1.0rc1": "deadbolt 1.1.0-rc.1", "2.0.0rc1": "deadbolt 2.0.0-rc.1",
                  "2.0.0rc2": "deadbolt 2.0.0-rc.2",
                  "2.0.0rc3": "deadbolt 2.0.0-rc.3", "2.0.0": "deadbolt 2.0.0",
-                 "2.0.1": "deadbolt 2.0.1", "2.0.1.post1": "deadbolt 2.0.1"}
+                 "2.0.1": "deadbolt 2.0.1", "2.0.1.post1": "deadbolt 2.0.1",
+                 "2.0.2": "deadbolt 2.0.2"}
     if installed not in supported:
-        parser.error("this recipe requires a matching 1.1.0rc1, 2.0.0rc1, 2.0.0rc2, 2.0.0rc3, 2.0.0, 2.0.1 or 2.0.1.post1 client")
+        parser.error("this recipe requires a matching 1.1.0rc1, 2.0.0rc1, 2.0.0rc2, 2.0.0rc3, 2.0.0, 2.0.1, 2.0.1.post1 or 2.0.2 client")
     version = subprocess.check_output([str(binary), "--version"], text=True, timeout=10).strip()
     if version != supported[installed]:
         parser.error("install the engine matching the tested client: " + supported[installed])
