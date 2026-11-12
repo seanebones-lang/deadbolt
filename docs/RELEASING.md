@@ -1,5 +1,18 @@
 # Candidate packaging and release procedure
 
+## 2.0.2 security release
+
+Native 2.0.2, direct MCP bundle 2.0.2, stable Homebrew 2.0.2 and Python client
+2.0.2 are published separately. Registry/directory and installed-copy updates
+remain distinct. Native source is `7d130e882d03b9ba82556fb072f646d4191bbe8a`.
+The Python publisher now selects exact version 2.0.2, verifies that source and
+immutable release asset hashes, then runs installed base/SDK/lifecycle checks.
+Verification-only run 42997106477 and publication run 42997547257 passed.
+Public PyPI hashes match the verified wheel/sdist. The pre-publication build's
+frozen package description retains its candidate wording; current installation
+status is maintained here and in INSTALL.md. No package bytes were overwritten.
+Cargo publication remains a separate gate. Never move existing release tags.
+
 ## Python documentation postrelease
 
 Client `2.0.1.post1` is a metadata-only correction paired with engine `2.0.1`.
@@ -49,7 +62,7 @@ they are not a signature establishing publisher identity.
 
 ## Build and verify
 
-Build natively with Rust 1.85 and a C compiler for bundled SQLite:
+Build natively with Rust 1.89 and a C compiler for bundled SQLite:
 
 ```sh
 cargo build --release --locked --bin deadbolt

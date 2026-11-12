@@ -31,7 +31,7 @@ jobs:
         with:
           node-version: '22'
       - name: Download pinned published engine
-        run: gh release download v2.0.1 --repo seanebones-lang/deadbolt --pattern '*.zip' --dir build/downloads
+        run: gh release download v2.0.2 --repo seanebones-lang/deadbolt --pattern '*.zip' --dir build/downloads
         env:
           GH_TOKEN: ${{ github.token }}
       - run: python dist/build_mcpb.py --downloads build/downloads --out build/mcpb
@@ -39,9 +39,7 @@ jobs:
       - run: node build/tools/node_modules/@anthropic-ai/mcpb/dist/cli/cli.js pack build/mcpb/bundle build/deadbolt.mcpb
       - run: node build/tools/node_modules/@anthropic-ai/mcpb/dist/cli/cli.js unpack build/deadbolt.mcpb build/installed
       - run: python tests/mcpb_acceptance.py --bundle build/installed --mcpb-module build/tools/node_modules/@anthropic-ai/mcpb --expect-damaged-store-refusal --expect-conflicting-destination-refusal --out build/acceptance.json
-      - uses: dtolnay/rust-toolchain@3230091d7ef9483f601620abacc570c22cf44d22
-        with:
-          toolchain: 1.85.0
+      - uses: dtolnay/rust-toolchain@599c45df1a24c1c63ae1129a7e59f46654b8fb66
       - run: cargo build --locked --release --bin deadbolt
       - name: Verify the matching source engine through the installed launcher
         if: runner.os != 'Windows'

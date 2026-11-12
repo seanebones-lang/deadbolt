@@ -1,4 +1,4 @@
-FROM rust:1.85-bookworm AS build
+FROM rust:1.89-bookworm AS build
 WORKDIR /src
 COPY . .
 RUN cargo build --locked --release --bin deadbolt

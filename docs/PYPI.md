@@ -6,35 +6,33 @@ a denial leaves its body uncalled. The base client has no runtime dependencies.
 
 ## Version and installation
 
-This source builds **Python client 2.0.1.post1**, paired with **engine 2.0.1**.
-The postrelease corrects package documentation only. Its three Python runtime
-modules are byte-identical to client 2.0.1. There is no new engine version,
-behavior change or state migration. Existing 2.0.1 artifacts remain immutable.
-Source preparation does not publish a package; check the exact version on
-[PyPI](https://pypi.org/project/n11-deadbolt-client/2.0.1.post1/) before installing.
+**Python client 2.0.2 is published**, paired with separately installed **engine 2.0.2**.
+The engine updates bundled SQLite for RUSTSEC-2026-0459. The Python client
+contains no SQLite or engine; upgrading the client alone does not patch an
+installed sidecar. The public wheel and sdist match the tested release assets. Existing versions remain immutable. Check the exact
+version on [PyPI](https://pypi.org/project/n11-deadbolt-client/2.0.2/) before installing.
 
-In your application's virtual environment, once this version is published:
+In your application's virtual environment:
 
 ```sh
-python -m pip install 'n11-deadbolt-client==2.0.1.post1'
+python -m pip install 'n11-deadbolt-client==2.0.2'
 # Optional SDK adapter, Python 3.10+:
-python -m pip install 'n11-deadbolt-client[openai-agents]==2.0.1.post1'
+python -m pip install 'n11-deadbolt-client[openai-agents]==2.0.2'
 ```
 
 Base client support starts at Python 3.9. The optional extra pins
 `openai-agents==0.23.1`. Installing either route makes no model requests and
 requests no API credentials. Your application configures its own provider.
 
-Install **engine 2.0.1 separately** using the checksum-verified native archive,
+Install **engine 2.0.2 separately** using the checksum-verified native archive,
 Cargo or Homebrew route in [installation](https://github.com/seanebones-lang/deadbolt/blob/main/docs/INSTALL.md).
 The wheel contains no engine, starts no sidecar and protects no unwrapped route.
-Verify the engine with `deadbolt --version` (expect `deadbolt 2.0.1`) and
+Verify the engine with `deadbolt --version` (expect `deadbolt 2.0.2`) and
 `deadbolt drill` (expect `deadbolt drill ok`). No registry account is needed to install.
 
-The already-published 2.0.1 wheel has the correct runtime modules and package
-version, but its frozen long description recommends 2.0.0. The postrelease
-corrects that documentation without replacing either version's bytes. A pinned
-2.0.1 application does not need a behavior migration for this metadata correction.
+The earlier client 2.0.1.post1 corrected documentation only. Older Python
+clients do not bundle the vulnerable engine, but their separately installed
+engine and any local MCP bundle must be updated to receive the SQLite fix.
 
 ## Connect one protected callback
 
@@ -72,12 +70,13 @@ Windows, before execution. Ordinary callback wrappers do not cancel running bodi
 
 ## Build and verify
 
-A reviewed checkout of this postrelease source builds client 2.0.1.post1;
-the older `v2.0.1` tag retains client 2.0.1. Record the exact source revision.
-The engine remains 2.0.1 in both. The package acceptance script builds the sdist,
-builds its wheel outside the checkout, checks metadata and installs without
-optional dependencies to test unavailable-sidecar denial. Publication additionally
-requires runtime-module equality with the checksum-pinned original 2.0.1 wheel.
+A reviewed checkout of this candidate builds client 2.0.2 and engine 2.0.2.
+Record the exact source revision. The package acceptance script builds the
+sdist, builds its wheel outside the checkout, checks metadata and installs
+without optional dependencies to test unavailable-sidecar denial. Validate
+client behavior against the matching candidate engine before publication.
+The historical 2.0.1/post1 publisher remains pinned to its original scope;
+2.0.2 requires its own reviewed publication path and artifact hashes.
 
 ```sh
 python -m build --outdir release-artifacts/python

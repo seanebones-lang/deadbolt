@@ -22,3 +22,14 @@ Unix sockets are mode `0600`. TCP listens only on loopback. Stable 2.0.0 and 2.0
 Each listener caps active workers at 64 and closes excess connections. Complete HTTP requests are limited to 65,536 bytes and a five-second read deadline; writes have a five-second timeout. Saturation denies availability rather than granting execution. Use host process limits where local hostile accounts are in scope.
 
 The stdio MCP proxy accepts individual JSON-RPC 2.0 objects and rejects batches. It gates routed `tools/call` and forwards canonical parsed JSON. Other methods and downstream startup are outside the tool gate. Downstream servers are trusted processes: they inherit the proxy's OS permissions and environment except the two DeadBolt bearer-token variables and `DEADBOLT_ACTION_GRANTS`. Stable 2.0.0 and 2.0.1 additionally remove `DEADBOLT_DB`, `DEADBOLT_EVENTS` and `DEADBOLT_SOCK`; published RC2 still passes those location variables. Downstream servers are not sandboxed by DeadBolt.
+
+## Bundled SQLite dependency update
+
+Engine 2.0.2 native releases and source replace affected bundled SQLite for
+[RUSTSEC-2026-0459](https://rustsec.org/advisories/RUSTSEC-2026-0459.html).
+The advisory concerns opening a database together with an attacker-influenced
+WAL file. Both core and Witness use SQLite. Unix private-state checks reduce
+who can provide those files; they do not repair the vulnerable SQLite parser.
+Same-user/operator state and Windows ACLs retain their documented limits.
+Do not discard WAL files or reset stores as a workaround. Previously published
+artifacts keep their original dependencies until a new release is installed.
