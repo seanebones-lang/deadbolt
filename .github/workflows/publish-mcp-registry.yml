@@ -1,0 +1,108 @@
+name: publish-mcp-registry
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the verified existing DeadBolt 2.0.2 namespace entry
+        type: boolean
+        default: false
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-mcp-registry
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      already_published: ${{ steps.metadata.outputs.already_published }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.12'
+      - name: Verify exact descriptor, public bundle and duplicate state
+        id: metadata
+        run: |
+          python - <<'VERIFY'
+          import hashlib, json, os, pathlib, urllib.request, urllib.error
+          path = pathlib.Path('server.json')
+          assert hashlib.sha256(path.read_bytes()).hexdigest() == '10eb276fd40b00ac03a1cfaec0d091981d754f5f836fc0a20fb4b032722d803b'
+          data = json.loads(path.read_text())
+          assert data['name'] == 'io.github.seanebones-lang/deadbolt' and data['version'] == '2.0.2'
+          package = data['packages'][0]
+          assert len(data['packages']) == 1 and package['registryType'] == 'mcpb'
+          assert package['identifier'] == 'https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v2.0.2/deadbolt-2.0.2.mcpb'
+          assert package['fileSha256'] == '165db7a37a1f7686af1908416f5f417daadbce875c74b72c78185117bb58c980'
+          with urllib.request.urlopen(package['identifier'], timeout=45) as response:
+              digest = hashlib.file_digest(response, 'sha256').hexdigest()
+          assert digest == package['fileSha256']
+          endpoint = 'https://registry.modelcontextprotocol.io/v0.1/servers/io.github.seanebones-lang%2Fdeadbolt/versions/2.0.2'
+          already = False
+          try:
+              with urllib.request.urlopen(endpoint, timeout=30) as response:
+                  existing = json.load(response)['server']
+              assert existing['name'] == data['name'] and existing['version'] == data['version']
+              assert existing['packages'] == data['packages'], 'existing registry package differs'
+              already = True
+          except urllib.error.HTTPError as error:
+              if error.code != 404:
+                  raise
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('already_published=' + str(already).lower() + '\n')
+          pathlib.Path('registry-verification.json').write_text(json.dumps({'source': os.environ['GITHUB_SHA'], 'descriptor_sha256': hashlib.sha256(path.read_bytes()).hexdigest(), 'bundle_sha256': digest, 'already_published': already}, indent=2) + '\n')
+          VERIFY
+      - name: Download checksum-pinned official publisher
+        run: |
+          curl --fail --location --silent --show-error https://github.com/modelcontextprotocol/registry/releases/download/v1.8.9/mcp-publisher_linux_amd64.tar.gz --output publisher.tar.gz
+          echo '4d527ca8f1ced0394c962dc925c2a4a4addef441cbefd62501c875e9481823a8  publisher.tar.gz' | sha256sum --check
+          tar -xzf publisher.tar.gz mcp-publisher
+          ./mcp-publisher validate server.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: verified-mcp-registry-2.0.2
+          path: |
+            server.json
+            registry-verification.json
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    if: inputs.publish && github.ref == 'refs/heads/main' && needs.verify.outputs.already_published != 'true'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: verified-mcp-registry-2.0.2
+          path: verified
+      - name: Download checksum-pinned official publisher
+        working-directory: verified
+        run: |
+          curl --fail --location --silent --show-error https://github.com/modelcontextprotocol/registry/releases/download/v1.8.9/mcp-publisher_linux_amd64.tar.gz --output publisher.tar.gz
+          echo '4d527ca8f1ced0394c962dc925c2a4a4addef441cbefd62501c875e9481823a8  publisher.tar.gz' | sha256sum --check
+          tar -xzf publisher.tar.gz mcp-publisher
+          echo '10eb276fd40b00ac03a1cfaec0d091981d754f5f836fc0a20fb4b032722d803b  server.json' | sha256sum --check
+      - name: Authenticate with short-lived repository identity and publish verified entry
+        working-directory: verified
+        run: |
+          ./mcp-publisher login github-oidc --registry=https://registry.modelcontextprotocol.io
+          ./mcp-publisher publish server.json
+      - name: Remove this runner's temporary registry authentication
+        if: always()
+        run: |
+          if test -x verified/mcp-publisher; then (cd verified && ./mcp-publisher logout); fi
