@@ -25,7 +25,7 @@ The stdio MCP proxy accepts individual JSON-RPC 2.0 objects and rejects batches.
 
 ## Bundled SQLite dependency update
 
-The unreleased source update replaces affected bundled SQLite for
+Engine 2.0.2 native releases and source replace affected bundled SQLite for
 [RUSTSEC-2026-0459](https://rustsec.org/advisories/RUSTSEC-2026-0459.html).
 The advisory concerns opening a database together with an attacker-influenced
 WAL file. Both core and Witness use SQLite. Unix private-state checks reduce

@@ -1,6 +1,6 @@
-# Install stable DeadBolt 2.0.1 in VS Code and Cursor
+# Install stable DeadBolt 2.0.2 in VS Code and Cursor
 
-This route uses **MCP bundle 2.0.1** and stable **engine 2.0.1**. The helper
+This route uses **MCP bundle 2.0.2** and stable **engine 2.0.2**. The helper
 checks the exact bundle hash before extracting, then exports client-specific
 commands without editing an editor profile. Its protocol tests use disposable
 marker effects. Earlier model/GUI receipts keep their original versions and
@@ -16,7 +16,7 @@ No model key, cloud account or Rust toolchain is needed for the protocol test.
 
 ## Prepare and verify outside the workspace
 
-1. Download [deadbolt-2.0.1.mcpb](https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v2.0.1/deadbolt-2.0.1.mcpb).
+1. Download [deadbolt-2.0.2.mcpb](https://github.com/seanebones-lang/deadbolt/releases/download/mcpb-v2.0.2/deadbolt-2.0.2.mcpb).
 2. Download and review [editor_setup_v2.py](assets/editor_setup_v2.py).
    It has no third-party dependencies, makes no network requests and does not
    edit an editor profile. Keep it separate from the historical 1.x helper.
@@ -24,21 +24,21 @@ No model key, cloud account or Rust toolchain is needed for the protocol test.
    outside any agent-editable workspace**:
 
    ```sh
-   OUT="$HOME/.local/share/deadbolt/editor-2.0.1"
-   python3 editor_setup_v2.py prepare --bundle deadbolt-2.0.1.mcpb --out "$OUT"
+   OUT="$HOME/.local/share/deadbolt/editor-2.0.2"
+   python3 editor_setup_v2.py prepare --bundle deadbolt-2.0.2.mcpb --out "$OUT"
    python3 editor_setup_v2.py verify --out "$OUT"
    ```
 
    On Windows PowerShell:
 
    ```powershell
-   $Out = Join-Path $env:LOCALAPPDATA 'NextEleven\DeadBolt\editor-2.0.1'
-   python editor_setup_v2.py prepare --bundle deadbolt-2.0.1.mcpb --out $Out
+   $Out = Join-Path $env:LOCALAPPDATA 'NextEleven\DeadBolt\editor-2.0.2'
+   python editor_setup_v2.py prepare --bundle deadbolt-2.0.2.mcpb --out $Out
    python editor_setup_v2.py verify --out $Out
    ```
 
 The helper verifies the entire bundle before extraction against SHA-256
-`709bd27afe9c1ce8a833d124eceb2e6ca6458a40924534a34882b253fe4ae644`.
+`165db7a37a1f7686af1908416f5f417daadbce875c74b72c78185117bb58c980`.
 A mismatch fails without installing; an existing directory is preserved. Supply
 `--node /absolute/path/to/node` to `prepare` if Node is not on PATH. Exported
 configurations contain absolute paths; prepare new configuration if you move it.

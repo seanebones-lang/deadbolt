@@ -6,14 +6,13 @@ a denial leaves its body uncalled. The base client has no runtime dependencies.
 
 ## Version and installation
 
-This source builds **Python client 2.0.2**, paired with **engine 2.0.2**.
+**Python client 2.0.2 is published**, paired with separately installed **engine 2.0.2**.
 The engine updates bundled SQLite for RUSTSEC-2026-0459. The Python client
 contains no SQLite or engine; upgrading the client alone does not patch an
-installed sidecar. This is a release candidate until each distribution is
-published and verified. Existing versions remain immutable. Check the exact
+installed sidecar. The public wheel and sdist match the tested release assets. Existing versions remain immutable. Check the exact
 version on [PyPI](https://pypi.org/project/n11-deadbolt-client/2.0.2/) before installing.
 
-In your application's virtual environment, once this version is published:
+In your application's virtual environment:
 
 ```sh
 python -m pip install 'n11-deadbolt-client==2.0.2'
