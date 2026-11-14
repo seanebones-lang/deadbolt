@@ -54,6 +54,7 @@ them tamper-proof. Back up quiescent state using the documented operations proce
 - [Integration](INTEGRATION.md) and [HTTP protocol](PROTOCOL.md)
 - [Compatibility](COMPATIBILITY.md) and [trust boundary](TRUST.md)
 - [Operations and recovery](OPERATIONS.md) and [incident evidence](INCIDENT.md)
+- Composition recipes: [durable engine](COMPOSITION-DURABLE-ENGINE.md) (restart recovery) and [sandbox](COMPOSITION-SANDBOX.md) (isolation boundary)
 - [Evaluator brief](EVALUATOR.md), [demonstration](DEMO.md) and [pilot](PILOT.md)
 
 The [published release](https://github.com/seanebones-lang/deadbolt/releases/latest)

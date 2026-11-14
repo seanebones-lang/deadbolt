@@ -101,6 +101,8 @@ not the engine. Node remains a bundled source module. [Install and verify](docs/
 | Trusted stdio MCP server | `deadbolt mcp-proxy … -- SERVER` | [MCP](docs/INTEGRATION.md#bolt-on-stdio-mcp-proxy) |
 | Desktop MCP client | Verified local bundle and private operator configuration | [Bundle and editor routes](docs/INSTALL.md#local-mcp-bundle-mcpb) |
 | Docker-launched MCP client | Source-built stdio container and trusted downstream | [Docker](docs/DOCKER-MCP.md) |
+| Durable engine behind the gate | Engine-owned completion records; the gate owns admission and revocation | [Composition: durable engine](docs/COMPOSITION-DURABLE-ENGINE.md) |
+| Sandboxed workload | Container boundary outside; gate, scoped credential and external kill inside | [Composition: sandbox](docs/COMPOSITION-SANDBOX.md) |
 
 Choose the exact bundle and matching configuration before installation. Blank
 configuration exposes two read-only setup tools and provides no active protection.
