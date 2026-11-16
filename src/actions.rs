@@ -258,6 +258,20 @@ impl Deadbolt {
             self.emit(EpistemicClass::Observed, "action_consume", payload, &[])
                 .map_err(|_| DeadboltError::StoreUnavailable)?;
         }
+        // TR-1/TR-3: the gate itself emits the admission record for this
+        // exact-action decision, keyed on the effect's natural identity
+        // (destination, amount, window) — never the grant nonce or any
+        // caller-generated request ID.
+        let amount = crate::trace::amount_from_arguments(&action.arguments);
+        let identity = EffectIdentity::at(action.dest.as_deref(), amount.as_deref(), now_secs());
+        self.emit_admission_record(
+            identity,
+            Some(fingerprint),
+            &action.agent_id,
+            &action.tool,
+            &decision,
+        )
+        .map_err(|_| DeadboltError::StoreUnavailable)?;
         self.record_decision(&action.agent_id, &action.tool, &decision)
             .map_err(|_| DeadboltError::StoreUnavailable)?;
         Ok(decision)

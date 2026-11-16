@@ -27,7 +27,13 @@ mod actions;
 pub use actions::ActionRequest;
 mod credentials;
 mod supervision;
+mod trace;
 pub use credentials::CredentialStatus;
+pub use trace::{
+    AdmissionOutcome, AdmissionRecord, EffectIdentity, ObservedEffect, ReconciliationReport,
+    TimeWindow, TraceError, TraceLog, UnmatchedEffectAlarm, WorkerSummary,
+    CANONICALIZATION_VERSION as EFFECT_CANONICALIZATION_VERSION, EFFECT_WINDOW_SECS,
+};
 mod mcp;
 mod private_state;
 mod serve;
@@ -657,6 +663,7 @@ pub struct Deadbolt {
     store: Option<Arc<JsonlSqliteSink>>,
     sink: Option<Arc<dyn EvidenceSink>>,
     witness: Option<Arc<dyn EvidenceSink>>,
+    trace: Arc<TraceLog>,
     fail_closed: bool,
     ttl: u64,
     enabled: bool,
@@ -713,6 +720,7 @@ impl Deadbolt {
                 store: None,
                 sink: None,
                 witness: None,
+                trace: Arc::new(TraceLog::new()),
                 fail_closed,
                 ttl,
                 enabled: false,
@@ -726,6 +734,7 @@ impl Deadbolt {
                     store: Some(store),
                     sink: Some(sink),
                     witness: None,
+                    trace: Arc::new(TraceLog::new()),
                     fail_closed,
                     ttl,
                     enabled: true,
@@ -735,6 +744,7 @@ impl Deadbolt {
                 store: None,
                 sink: None,
                 witness: None,
+                trace: Arc::new(TraceLog::new()),
                 fail_closed,
                 ttl,
                 enabled: true,
@@ -1099,14 +1109,23 @@ impl Deadbolt {
         }
         let decision = self.evaluate(agent_id, tool, dest, require_policy);
         let deny = matches!(decision, AdmitDecision::Deny { .. });
-        if (record_allow || deny) && self.record_decision(agent_id, tool, &decision).is_err() {
-            if keeps_deny_code(decision) {
-                return decision;
-            }
-            if self.fail_closed || require_policy {
-                return AdmitDecision::Deny {
-                    code: DenyCode::StoreUnavailable,
-                };
+        if record_allow || deny {
+            // TR-1: the gate itself emits the admission record for this
+            // decision, out-of-band from the worker, alongside the decision
+            // evidence. A worker summary can never source this record.
+            let identity = EffectIdentity::at(dest, None, now_secs());
+            let recorded = self
+                .emit_admission_record(identity, None, agent_id, tool, &decision)
+                .and_then(|_| self.record_decision(agent_id, tool, &decision));
+            if recorded.is_err() {
+                if keeps_deny_code(decision) {
+                    return decision;
+                }
+                if self.fail_closed || require_policy {
+                    return AdmitDecision::Deny {
+                        code: DenyCode::StoreUnavailable,
+                    };
+                }
             }
         }
         decision
@@ -1297,6 +1316,88 @@ impl Deadbolt {
             )?;
         }
         Ok(AdmitDecision::Allow)
+    }
+
+    /// The gate-owned trace log (TR-1 to TR-3). Admission records in it are
+    /// emitted by the gate itself; worker summaries stored through it stay
+    /// labeled Generated and are never promoted into admission records.
+    pub fn trace_log(&self) -> Arc<TraceLog> {
+        self.trace.clone()
+    }
+
+    /// All gate-emitted admission records for this gate, in decision order.
+    pub fn admission_records(&self) -> Vec<AdmissionRecord> {
+        self.trace.admissions()
+    }
+
+    /// Reconcile observed effects against this gate's admission records
+    /// (TR-2). An observed effect with no matching admission raises a
+    /// fail-closed alarm in the report and is mirrored as gate evidence;
+    /// it is never treated as a logging gap. Admissions without an
+    /// observed effect are reported, not alarmed.
+    pub fn reconcile_effects(&self, effects: &[ObservedEffect]) -> ReconciliationReport {
+        let report = self.trace.reconcile(effects);
+        for alarm in &report.alarms {
+            let _ = self.emit(
+                EpistemicClass::Observed,
+                "trace_alarm",
+                json_tokens(&[
+                    ("alarm_code", "effect_without_admission"),
+                    ("effect_fingerprint", &alarm.effect_fingerprint),
+                    ("emitter", "gate"),
+                ]),
+                &[],
+            );
+        }
+        report
+    }
+
+    /// Emit one gate admission record (TR-1) into the trace log and mirror
+    /// it into the gate's own evidence store. Only gate decision paths call
+    /// this; the record's construction is crate-private, so a worker cannot
+    /// create, complete, or replace an admission record.
+    pub(crate) fn emit_admission_record(
+        &self,
+        identity: EffectIdentity,
+        action_fingerprint: Option<String>,
+        agent_id: &str,
+        tool: &str,
+        decision: &AdmitDecision,
+    ) -> Result<(), SinkError> {
+        let record = AdmissionRecord::from_gate(
+            identity,
+            action_fingerprint.clone(),
+            *decision,
+            agent_id,
+            tool,
+        )
+        .map_err(|_| SinkError::Unavailable)?;
+        self.trace.record_admission(record.clone());
+        // Payload keys deliberately avoid `outcome`/`code`: those are the
+        // decision record's fields in exports, and an admission record must
+        // never be mistaken for (or mask) the decision row.
+        let (outcome, code) = match decision {
+            AdmitDecision::Allow => ("allow", "ok"),
+            AdmitDecision::Deny { code } => ("deny", code.as_str()),
+        };
+        let mut pairs: Vec<(&str, &str)> = vec![
+            ("agent_id", agent_id),
+            ("tool", tool),
+            ("admission_outcome", outcome),
+            ("deny_code", code),
+            ("effect_fingerprint", &record.effect_fingerprint),
+            ("emitter", "gate"),
+        ];
+        if let Some(fingerprint) = &action_fingerprint {
+            pairs.push(("action_fingerprint", fingerprint));
+        }
+        self.emit(
+            EpistemicClass::Observed,
+            "admission",
+            json_tokens(&pairs),
+            &[],
+        )?;
+        Ok(())
     }
 
     fn record_decision(

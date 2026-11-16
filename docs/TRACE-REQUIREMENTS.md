@@ -3,11 +3,41 @@
 Adopted 2026-11-10 by the owner's decision. Source: external review feedback
 from DunimeTech on "DeepSeek Built a Super Agent. We Checked It Against a
 Permission Gate" (CoderLegion, 2026-11-10). These are requirements for the
-future trace build — the gate-emitted evidence layer described in the
-company's grant work. **None of this is implemented in the 2.0 series, and
-nothing here changes 2.0.x behavior.** A requirement below is met only when
+trace build — the gate-emitted evidence layer described in the
+company's grant work. A requirement below is met only when
 its acceptance evidence exists; a design, a plan, or a passing demo of
 something else does not meet it.
+
+**Implementation status (2026-11-16, owner-authorized trace build).**
+TR-1, TR-2, and TR-3 are implemented in `src/trace.rs` and wired into the
+gate's decision paths (`Deadbolt::decide` for tool admission and
+`admit_action_inner` for exact-action admission):
+
+- TR-1: `AdmissionRecord`s are constructed only inside the crate
+  (`TraceLog::record_admission` is `pub(crate)`) and are emitted by the gate
+  at decision time, for admits and for denies (with the structured denial
+  code), mirrored into the gate's own evidence store as `admission`
+  records. Worker summaries are stored separately, always labeled
+  Generated, and are never promoted or consulted by reconciliation.
+- TR-2: `Deadbolt::reconcile_effects` / `TraceLog::reconcile` match
+  observed effects against admission records by natural-identity
+  fingerprint. An unmatched effect produces an `UnmatchedEffectAlarm`
+  (fail-closed; `reconcile_or_alarm` returns it as an error, and the gate
+  mirrors a `trace_alarm` evidence record). Admissions without an observed
+  effect are reported in `admissions_without_effect`, not alarmed.
+- TR-3: `EffectIdentity::fingerprint` is a canonicalization-versioned
+  (`deadbolt-effect-v1`) SHA-256 over canonical destination, canonical
+  amount, and the effect's time window. Request IDs and grant nonces are
+  never inputs; the idempotency key is the fingerprint by construction.
+  An identity that cannot be resolved fails closed
+  (`TraceError::UnresolvableIdentity`), and reconciliation alarms on it.
+
+Acceptance evidence: `tests/trace.rs` exercises all three requirements
+through the public gate API, including a hostile worker summary that
+cannot alter gate records or satisfy reconciliation, and
+`src/trace.rs` unit tests cover fingerprint stability and sensitivity.
+The effect window is the fixed `EFFECT_WINDOW_SECS` bucket in this build;
+mandate-scoped windows remain candidate TR-4, not implemented here.
 
 The trace build has one job: make DeadBolt's admission decisions into
 evidence that does not depend on the worker's cooperation or narration.
