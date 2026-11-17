@@ -37,7 +37,16 @@ through the public gate API, including a hostile worker summary that
 cannot alter gate records or satisfy reconciliation, and
 `src/trace.rs` unit tests cover fingerprint stability and sensitivity.
 The effect window is the fixed `EFFECT_WINDOW_SECS` bucket in this build;
-mandate-scoped windows remain candidate TR-4, not implemented here.
+mandate-scoped windows remain a candidate for a later requirement, not
+implemented here.
+
+**Second-round requirements (2026-11-17).** TR-4 and TR-5 below were
+adopted on 2026-11-17 from DunimeTech's second-round review of the merged
+trace build (CoderLegion, 2026-11-17), and the defects they name were
+verified against `src/trace.rs` as merged in PR #116. Neither is
+implemented in this build. Each states the defect as found, the
+requirement that closes it, and the acceptance evidence required — the
+same bar as TR-1 through TR-3.
 
 The trace build has one job: make DeadBolt's admission decisions into
 evidence that does not depend on the worker's cooperation or narration.
@@ -115,6 +124,68 @@ same act in the same terms, or the mismatch is itself the signal.
 - Fingerprint construction is canonicalization-versioned, so a change in
   canonical form cannot silently split one effect's identity across two
   fingerprints during an upgrade.
+
+## TR-4 — Reconciler silence is an alarm condition, not health
+
+**Requirement.** Reconciliation (`TraceLog::reconcile` /
+`reconcile_or_alarm`) is a host-invoked library call; in the current
+build nothing records that it ran, and a host that stops invoking it
+produces no signal. Every reconciliation run must stamp a persisted
+last-run record in the gate's own evidence store, carrying at minimum
+the run's time and outcome. The staleness of the last run must be
+readable by the host and the operator, and reconciliation overdue beyond
+a defined bound must raise the same fail-closed alarm class as an
+unmatched effect (TR-2). A stale reconciler is an alarm condition,
+never a quiet state indistinguishable from a clean reconciliation.
+
+**Rationale.** TR-2's invariant holds only while reconciliation actually
+runs. A crashed scheduler, an unwired deployment, or a host that simply
+stops calling reconcile leaves the trace reading as clean precisely
+when nothing is checking it — the same silent failure mode TR-2 removed
+for unwrapped routes, one level up. The audit has to be able to
+distinguish "checked and quiet" from "never checked," or its silence is
+not evidence.
+
+**Acceptance.**
+- Each reconciliation run leaves a persisted last-run record (time and
+  outcome) in the gate's evidence store, produced by the gate and
+  readable without the worker's cooperation.
+- With reconciliation running within the defined bound, no staleness
+  alarm is raised and the last-run record advances with each run.
+- With reconciliation suspended past the defined bound, the overdue
+  condition raises the fail-closed alarm, with the last-run time
+  attached; alarm output distinguishes "reconciliation overdue" from a
+  clean reconciliation and from an unmatched effect.
+
+## TR-5 — The matching window is anchored to the admission, not the wall clock
+
+**Requirement.** In the current build, `TimeWindow::containing` derives
+an effect's window from wall-clock buckets (`ts.div_euclid` over the
+fixed `EFFECT_WINDOW_SECS` bucket), and that window is an input to the
+TR-3 fingerprint. The matching window must instead be derived from the
+admission's own timestamp: an observed effect is matched against the
+window its admission defines, so a matched admission/effect pair cannot
+be split by a wall-clock bucket boundary.
+
+**Rationale.** A bucket boundary is an artifact of the clock, not of the
+act. An admission at second 299 of a bucket and its effect at second 301
+are two seconds apart and the same act, yet they fingerprint under
+different windows and never match: reconciliation reports an unmatched
+effect — a false fail-closed alarm — plus an admission without effect,
+for a pair that did match. False alarms are not free; they train
+operators to discount the alarm channel TR-2 depends on.
+
+**Acceptance.**
+- An admission and its observed effect placed just either side of a
+  wall-clock bucket boundary (seconds 299 and 301 of a 300-second
+  bucket) reconcile as a matched pair: no unmatched-effect alarm and no
+  admission-without-effect report for the pair.
+- An effect genuinely outside the admission-anchored window still fails
+  to match and alarms under TR-2, unchanged.
+- TR-3's guarantees are preserved under the anchored window: the same
+  effect retried under a fresh request ID still produces the same
+  fingerprint and deduplicates, and effects differing in destination or
+  amount still produce different fingerprints.
 
 ## Evidence labeling rule (applies to the whole trace)
 
