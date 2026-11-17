@@ -199,7 +199,7 @@ impl From<AdmitDecision> for AdmissionOutcome {
 
 /// A gate-owned admission record (TR-1). Emitted by DeadBolt itself at
 /// decision time, out-of-band from the worker. The only constructor is
-/// crate-private, and [`TraceLog::record_admission`] is `pub(crate)`, so
+/// crate-private, and `TraceLog::record_admission` is `pub(crate)`, so
 /// code outside this crate — including the worker being checked — cannot
 /// create, modify, complete, or replace one of these records.
 #[derive(Debug, Clone, PartialEq, Eq)]
