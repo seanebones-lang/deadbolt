@@ -58,6 +58,17 @@ implemented in this build. It states the defect as found, the
 requirement that closes it, and the acceptance evidence required — the
 same bar as TR-1 through TR-3.
 
+**Fourth-round requirement (2026-11-19).** TR-7 below was recorded on
+2026-11-19 as a candidate requirement from DunimeTech's fourth-round
+review (CoderLegion, 2026-11-19), and the gap it names was verified
+against TR-6 as adopted: TR-6(b) has the out-of-band observer raise the
+overdue alarm, but specifies no delivery mechanism for that alarm — an
+alarm raised by emitting a message is silent when the observer is dead,
+so the regress TR-6 closed for the reconciler reopens one layer up.
+TR-7 is not implemented in this build. It states the defect as found,
+the requirement that closes it, and the acceptance evidence required —
+the same bar as TR-1 through TR-3.
+
 The trace build has one job: make DeadBolt's admission decisions into
 evidence that does not depend on the worker's cooperation or narration.
 Witness observes effects in the world; DeadBolt decides admissions. The
@@ -234,6 +245,45 @@ applies to admission records, applied to the reconciler itself.
 - The reconciler has no code path that evaluates its own staleness or
   raises its own overdue alarm; the overdue decision is made only by the
   out-of-band observer.
+
+## TR-7 — The overdue alarm terminates in absence
+
+**Requirement.** TR-6's overdue alarm is a condition, not a message.
+(a) The alarm terminates in an absence-triggered check at the
+monitoring layer: that layer checks for the record the observer's
+completed evaluations leave behind, and a record missing past its
+deadline is itself the alarm condition — no component has to
+successfully send anything for the alarm to exist. (b) This holds at
+every level of the chain: the reconciler does not report its own
+liveness (TR-6), the observer does not report its own liveness either,
+and any component's silence is read by the next layer out as the
+overdue condition, never as health. A dead observer emits nothing, and
+under this requirement nothing is what raises the alarm.
+
+**Rationale.** TR-6 moved the staleness judgment out of the reconciler
+but left the observer raising the overdue alarm as an emission — and a
+dead observer emits nothing. The hole TR-6 closed for the reconciler
+reopens one layer up, at the observer; any design whose alarm depends
+on a live component successfully sending it has the same hole at
+whatever layer sends last. The regress terminates only when the alarm
+is an absence: a record that should exist and does not, judged by a
+checker reading against its own clock. Silence is the signal at every
+level, and no component is left reporting its own health.
+
+**Acceptance.**
+- With the observer killed before it can emit anything, the monitoring
+  layer raises the overdue condition from the missing, past-deadline
+  record alone, with no cooperation from the observer.
+- No component in the chain — reconciler, observer, or monitoring
+  layer — has a code path that reports its own health or raises its own
+  overdue alarm; every liveness judgment is made by the next layer out,
+  against that layer's own clock.
+- An evaluation record inside its deadline reads as live at the
+  monitoring layer; the same record aged past its deadline raises the
+  overdue condition with no new input from the observer.
+- The overdue condition raised by absence is the fail-closed alarm
+  (TR-2's class), carrying the identity of the record that was expected
+  and the deadline it missed.
 
 ## Evidence labeling rule (applies to the whole trace)
 
