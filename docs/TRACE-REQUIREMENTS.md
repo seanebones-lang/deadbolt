@@ -48,6 +48,16 @@ implemented in this build. Each states the defect as found, the
 requirement that closes it, and the acceptance evidence required — the
 same bar as TR-1 through TR-3.
 
+**Third-round requirement (2026-11-18).** TR-6 below was adopted on
+2026-11-18 from DunimeTech's third-round review (CoderLegion,
+2026-11-18), and the gap it names was verified against `src/trace.rs`:
+`TraceLog::reconcile` is a pure pass over the in-memory logs — it
+persists nothing and stamps nothing — and TR-4 as drafted has the
+reconciler write its own last-run record, judged by no one. TR-6 is not
+implemented in this build. It states the defect as found, the
+requirement that closes it, and the acceptance evidence required — the
+same bar as TR-1 through TR-3.
+
 The trace build has one job: make DeadBolt's admission decisions into
 evidence that does not depend on the worker's cooperation or narration.
 Witness observes effects in the world; DeadBolt decides admissions. The
@@ -186,6 +196,44 @@ operators to discount the alarm channel TR-2 depends on.
   effect retried under a fresh request ID still produces the same
   fingerprint and deduplicates, and effects differing in destination or
   amount still produce different fingerprints.
+
+## TR-6 — Liveness is judged out-of-band
+
+**Requirement.** The TR-4 last-run record is evidence, not a heartbeat.
+(a) It is written only as the final step of a completed reconciliation
+pass, and it binds to what the pass consumed — at minimum the counts of
+admissions and effects reconciled and a digest of the admission/effect
+set — so a stamp cannot exist for a pass that did not run, and a fresh
+stamp over no work is itself an alarm condition. (b) Staleness is
+evaluated by a component other than the reconciler, reading the
+persisted record against the observer's own clock. The reconciler never
+reports its own liveness and never raises its own overdue alarm.
+
+**Rationale.** TR-4 closes the "never checked reads as clean" hole by
+having reconciliation stamp a last-run record — but as drafted, the
+reconciler is the author of the only evidence that it is alive, and
+nothing judges that evidence. A reconciler that stamps without running,
+or stamps over an empty set, manufactures the appearance of health; a
+reconciler asked to evaluate its own staleness makes the judged and the
+judge the same component. Liveness has to be a byproduct of completed
+work, bound to what the work consumed, and judged out-of-band by an
+observer with its own clock — the same out-of-band principle TR-1
+applies to admission records, applied to the reconciler itself.
+
+**Acceptance.**
+- A reconciliation pass interrupted before completion leaves no new
+  last-run record; the previous record stands, and the out-of-band
+  observer raises the overdue alarm from it once it goes stale.
+- A last-run record whose bound counts or digest do not match the
+  admission/effect set it claims to cover — including a fresh stamp over
+  no work — raises the fail-closed alarm (TR-2's class), with the record
+  attached.
+- With the reconciler never invoked, the observer raises the overdue
+  alarm from the persisted record and its own clock alone, with no
+  cooperation from the reconciler.
+- The reconciler has no code path that evaluates its own staleness or
+  raises its own overdue alarm; the overdue decision is made only by the
+  out-of-band observer.
 
 ## Evidence labeling rule (applies to the whole trace)
 
