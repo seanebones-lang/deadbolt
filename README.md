@@ -16,6 +16,7 @@ lab, with their tested scopes and remaining limits.
 [![CI](https://github.com/seanebones-lang/deadbolt/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/seanebones-lang/deadbolt/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/seanebones-lang/deadbolt)](https://github.com/seanebones-lang/deadbolt/releases/latest)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![HOL trust score](https://img.shields.io/endpoint?url=https%3A%2F%2Fhol.org%2Fapi%2Fregistry%2Fbadges%2Fplugin%3Fslug%3Dseanebones-lang%252Fdeadbolt%26metric%3Dtrust)](https://hol.org/registry/plugins/seanebones-lang%2Fdeadbolt)
 
 ## SQLite security update: engine 2.0.2
 
