@@ -69,6 +69,17 @@ TR-7 is not implemented in this build. It states the defect as found,
 the requirement that closes it, and the acceptance evidence required —
 the same bar as TR-1 through TR-3.
 
+**Refinement to TR-7 (2026-11-20).** TR-7 was amended on 2026-11-20
+from DunimeTech's follow-up to the fourth-round review (CoderLegion,
+2026-11-20). As recorded, TR-7 required each layer's absence to be
+judged against the next layer's own clock, but did not require that
+clock to be independent of the watched system's timing: a deadline
+evaluation that shares the watched system's clock or scheduler is
+silently disabled by the very timing failure it exists to catch. The
+amendment pins the condition into TR-7 itself — the absence check
+terminates only when deadline evaluation is driven by an independently
+clocked external watchdog.
+
 The trace build has one job: make DeadBolt's admission decisions into
 evidence that does not depend on the worker's cooperation or narration.
 Witness observes effects in the world; DeadBolt decides admissions. The
@@ -258,7 +269,12 @@ every level of the chain: the reconciler does not report its own
 liveness (TR-6), the observer does not report its own liveness either,
 and any component's silence is read by the next layer out as the
 overdue condition, never as health. A dead observer emits nothing, and
-under this requirement nothing is what raises the alarm.
+under this requirement nothing is what raises the alarm. (c) The
+deadline evaluation is driven by an independently clocked external
+watchdog: the component that decides a record is past its deadline
+shares no clock and no scheduler with the system it watches, so a
+timing failure in the watched system cannot silently disable the check
+that judges it.
 
 **Rationale.** TR-6 moved the staleness judgment out of the reconciler
 but left the observer raising the overdue alarm as an emission — and a
@@ -268,7 +284,13 @@ on a live component successfully sending it has the same hole at
 whatever layer sends last. The regress terminates only when the alarm
 is an absence: a record that should exist and does not, judged by a
 checker reading against its own clock. Silence is the signal at every
-level, and no component is left reporting its own health.
+level, and no component is left reporting its own health. The same
+independence applies to time itself: a deadline evaluation driven by
+the watched system's own clock and scheduler is taken down by the
+timing failure it exists to catch, and the absence is never judged at
+all. The regress terminates only when the deadline is evaluated by an
+external watchdog on its own time source — no component keeps its own
+time for the check that judges it.
 
 **Acceptance.**
 - With the observer killed before it can emit anything, the monitoring
@@ -284,6 +306,10 @@ level, and no component is left reporting its own health.
 - The overdue condition raised by absence is the fail-closed alarm
   (TR-2's class), carrying the identity of the record that was expected
   and the deadline it missed.
+- With the watched system's clock halted or its scheduler stalled, the
+  independently clocked watchdog still evaluates the deadline from its
+  own time source and raises the overdue condition for a record absent
+  past it.
 
 ## Evidence labeling rule (applies to the whole trace)
 
