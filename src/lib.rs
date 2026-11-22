@@ -34,6 +34,12 @@ pub use trace::{
     TimeWindow, TraceError, TraceLog, UnmatchedEffectAlarm, WorkerSummary,
     CANONICALIZATION_VERSION as EFFECT_CANONICALIZATION_VERSION, EFFECT_WINDOW_SECS,
 };
+mod watchdog;
+pub use watchdog::{
+    spawn_watchdog_heartbeat, spawn_watchdog_heartbeat_with_interval, WatchdogEmitter,
+    WatchdogHeartbeat, WatchdogHeartbeatHandle, WatchdogHeartbeatLog, WatchdogMonitor,
+    WatchdogSilenceAlarm, WATCHDOG_HEARTBEAT_INTERVAL_SECS, WATCHDOG_SILENCE_LIMIT_SECS,
+};
 mod mcp;
 mod private_state;
 mod serve;
