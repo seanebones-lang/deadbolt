@@ -311,6 +311,60 @@ time for the check that judges it.
   own time source and raises the overdue condition for a record absent
   past it.
 
+## TR-8 — The watchdog's own silence is an alarm condition
+
+**Requirement.** TR-7's independently clocked external watchdog is
+itself watched. (a) While alive, the watchdog emits a heartbeat ping
+every 2 seconds (`WATCHDOG_HEARTBEAT_INTERVAL_SECS = 2`). (b) The
+heartbeats are judged by an independent monitor against the monitor's
+own clock — never the watchdog's — and from the time each ping is
+received, not from any timestamp the ping carries. (c) Silence of 30
+seconds or more (`WATCHDOG_SILENCE_LIMIT_SECS = 30`) is a stall or
+hang, and raises the fail-closed silence alarm
+(`WatchdogSilenceAlarm`, stable token `watchdog_silence`), carrying
+the watchdog's identity, the time it was last seen, and the length of
+the silence. (d) A watchdog that never emits at all alarms from the
+monitor's own start: there is no window in which a dead watchdog
+reads as live. (e) Replayed or stale pings cannot revive a dead
+watchdog — the monitor records receipts in sequence, and old evidence
+does not move its last-seen time forward. The watchdog never reports
+its own liveness, and its silence is never read as health.
+
+**Rationale.** TR-7 terminated the overdue regress at an external
+watchdog judging absence against its own time source — and left that
+watchdog as the one component whose liveness nothing judged. A
+watchdog that stalls or hangs takes every deadline evaluation it
+drives down with it, and under TR-7 alone it does so silently: the
+absences it exists to catch are never judged, because the judge is
+the thing that died. TR-8 applies TR-7's own rule one layer out, to
+the watchdog itself: liveness is an emitted record, judged by the
+next layer against that layer's own clock, and silence is the alarm
+condition. The regress terminates at the monitor, whose output is a
+surface an operator reads — the timestamped, human-glanced surface
+at which TR-7 already ends the chain.
+
+**Acceptance.**
+- A watchdog pinging every 2 seconds across a full minute raises no
+  alarm at any check inside the silence limit.
+- At 29 seconds of silence no alarm stands; at 30 seconds the silence
+  alarm stands, carrying the watchdog's identity, its last-seen time,
+  and a silence length of 30 seconds.
+- A watchdog that never emits raises the silence alarm judged from
+  the monitor's start time, with no last-seen time recorded.
+- A ping replayed after the watchdog has gone silent neither clears
+  nor defers the alarm; the monitor's last-seen time does not move.
+- The silence alarm is the fail-closed class (TR-2's class): it is
+  raised as an alarm, never logged as a warning or left as a silent
+  state.
+
+**Recorded (2026-11-21).** TR-8 was recorded on 2026-11-21 from
+DunimeTech's watchdog-liveness point in the fourth-round review
+follow-up (CoderLegion, 2026-11-21, thread 34134): the watchdog TR-7
+terminates the regress at needs a liveness signal of its own, or its
+silent death reopens the hole TR-7 closed. Implemented the same day
+in PR #122 as `src/watchdog.rs`, with the acceptance cases above
+covered in `tests/watchdog.rs`.
+
 ## Evidence labeling rule (applies to the whole trace)
 
 A worker's own statement about what it was allowed to do is never promoted
