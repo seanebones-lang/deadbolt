@@ -4,7 +4,7 @@
 //! the real heartbeat thread on a shortened cadence for the live case.
 
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use deadbolt::{
     spawn_watchdog_heartbeat_with_interval, WatchdogEmitter, WatchdogHeartbeatLog, WatchdogMonitor,
@@ -91,8 +91,8 @@ fn thirty_seconds_of_silence_raises_the_alarm() {
 /// TR-8 live thread: the spawned heartbeat thread pings into the shared
 /// log on its cadence; once it is stopped, the monitor — judging on its
 /// own clock, polled independently — raises the silence alarm. Runs on
-/// a shortened cadence (10 ms ping / 50 ms limit) so the case completes
-/// in well under a second.
+/// a shortened 10 ms cadence with a bounded startup wait. The monitor's
+/// silence limit is checked on its independent clock below.
 #[test]
 fn spawned_watchdog_pings_then_silence_alarms() {
     let log = Arc::new(WatchdogHeartbeatLog::new());
@@ -104,14 +104,21 @@ fn spawned_watchdog_pings_then_silence_alarms() {
     )
     .expect("valid watchdog id");
 
-    // Let the thread run: several pings must land in the log.
-    std::thread::sleep(Duration::from_millis(65));
-    let pings = log.pings_for("watchdog-live");
-    assert!(
-        pings.len() >= 3,
-        "expected at least 3 heartbeats, got {}",
-        pings.len()
-    );
+    // Observe progress instead of assuming three thread schedules fit inside
+    // 65 ms on a shared CI runner. A missing/stalled emitter still fails.
+    let startup_deadline = Instant::now() + Duration::from_secs(2);
+    let pings = loop {
+        let pings = log.pings_for("watchdog-live");
+        if pings.len() >= 3 {
+            break pings;
+        }
+        assert!(
+            Instant::now() < startup_deadline,
+            "expected at least 3 heartbeats before startup deadline, got {}",
+            pings.len()
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    };
     assert_eq!(pings[0].sequence, 1);
 
     // A monitor with a 1-second limit, judging on its own clock while

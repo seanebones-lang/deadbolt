@@ -2,12 +2,12 @@
 
 The security-fixed **engine 2.0.2** is available from the
 [native GitHub release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.2)
-and reviewed source tag. Other channels below retain their separately published
-versions until their updates are verified. Older engine copies do not include
+and the verified Cargo, Homebrew, MCP bundle and plugin routes listed in
+[distribution status](DISTRIBUTION.md). Older engine copies do not include
 the SQLite fix. A Python client update alone cannot patch an installed engine.
 
-See [distribution status](DISTRIBUTION.md) for the November 3 channel audit,
-older plugin/registry pins and the upgrade checklist. An existing installation
+See [distribution status](DISTRIBUTION.md) for the current channel matrix,
+explicitly labeled historical snapshots and the upgrade checklist. An existing installation
 does not update when a new source revision or release appears.
 
 Read [major-version migration](MIGRATING-V2.md) before upgrading an older store or
@@ -33,8 +33,8 @@ protection or configure an agent's execution routes.
 ## SQLite security update
 
 Engine 2.0.2 fixes RUSTSEC-2026-0459 and requires Rust 1.89+ for source builds.
-Published 2.0.1 engines retain the affected SQLite. Until a channel below
-publishes its 2.0.2 update, use the verified native release or source tag instead.
+Published 2.0.1 engines retain the affected SQLite. Select the explicit 2.0.2
+route below and verify the actual installed engine version after upgrading.
 Keep the normal stopped-writer backup/recovery procedure; do not discard WAL files.
 
 ## Native archive (no Rust required)
@@ -120,22 +120,27 @@ A directory listing is not a hosted operator endpoint or a certification.
 
 ## Cargo registry CLI and embedded Rust
 
-Cargo engine versions below 2.0.2 retain the affected SQLite. Check the actual
-registry version before installing; if the fixed version is unavailable, use
-the reviewed source directly with Rust 1.89+:
+[Cargo 2.0.2](https://crates.io/crates/n11-deadbolt/2.0.2) is published and not
+yanked. Engine versions below 2.0.2 retain the affected SQLite. With Rust 1.89+
+and a native C compiler/linker:
 
 ```sh
-cargo install --git https://github.com/seanebones-lang/deadbolt.git --rev 7d130e882d03b9ba82556fb072f646d4191bbe8a --locked --bin deadbolt
+cargo install n11-deadbolt --version 2.0.2 --locked --bin deadbolt
 deadbolt --version
 deadbolt drill
 ```
 
-For an embedded application, pin the same reviewed source:
+For an embedded application, pin the fixed package:
 
 ```toml
 [dependencies]
-deadbolt = { package = "n11-deadbolt", git = "https://github.com/seanebones-lang/deadbolt.git", rev = "7d130e882d03b9ba82556fb072f646d4191bbe8a" }
+deadbolt = { package = "n11-deadbolt", version = "=2.0.2" }
 ```
+
+The immutable 2.0.2 crate includes an older README with 2.0.1 commands; use the
+explicit versions above. For a source installation, the matching reviewed engine
+revision is `7d130e882d03b9ba82556fb072f646d4191bbe8a`; follow the tagged-source
+instructions below.
 
 The package is n11-deadbolt; the binary and library are deadbolt. Consumers need
 no publishing token. Commit your application's own Cargo.lock and use
