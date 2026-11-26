@@ -1,6 +1,6 @@
 # DeadBolt MCP with Docker
 
-**Source-built engine 2.0.1.** The pinned wrapper revision below retains the
+**Source-built engine 2.0.2.** The pinned wrapper revision below retains the
 patched Node base and passed ARM64/AMD64 container, supervisor and gateway
 acceptance before merge. This is a reviewed source-build route; no public
 prebuilt image or Docker MCP Catalog acceptance is claimed. Existing images
@@ -12,8 +12,8 @@ submission [#5627](https://github.com/docker/mcp-registry/pull/5627) is pending
 review.** Use the source build below; catalog acceptance and a Docker-hosted
 image are not established by the source release.
 
-The **Docker source package 2.0.1** builds engine **2.0.1** from exact source
-`e87519f700be03c27a564ed274907649224d256f`. It requires version 2 operator
+The **Docker source package 2.0.2** builds engine **2.0.2** from exact source
+`7d130e882d03b9ba82556fb072f646d4191bbe8a`. It requires version 2 operator
 configuration: a fixed future deadline, explicit renewal mode and deliberate
 offline-tool exceptions. Older packages remain historical; old configuration
 is not silently migrated.
@@ -31,7 +31,7 @@ AMD64, including Docker Desktop's Linux engine on macOS and Windows.
 ```sh
 git clone https://github.com/seanebones-lang/deadbolt-docker-mcp.git
 cd deadbolt-docker-mcp
-git checkout bf8cfeabcbe777b9bbf6fb2ee58f892be70a0958
+git checkout 28d799c5d5a8ce384ebf14fb22f06bd401f784eb
 docker build -t n11-deadbolt-docker:local .
 ```
 
@@ -72,7 +72,7 @@ verification or a security certification.
 ## Enable one protected downstream
 
 Follow the pinned package's
-[operator configuration and derived-image guide](https://github.com/seanebones-lang/deadbolt-docker-mcp/blob/v2.0.0/README.md#put-a-trusted-server-behind-the-gate).
+[operator configuration and derived-image guide](https://github.com/seanebones-lang/deadbolt-docker-mcp/blob/28d799c5d5a8ce384ebf14fb22f06bd401f784eb/README.md#put-a-trusted-server-behind-the-gate).
 Your reviewed downstream runs **inside the same container**. Supply a private
 read-only configuration mount and a separate writable state mount, outside
 agent-editable workspaces. Set actual tool names, policy and a fresh run ID
@@ -103,7 +103,7 @@ with host-native macOS/Windows processes; the supported test path keeps database
 locking and updates on the Linux side of Docker Desktop's mounts.
 
 For a runnable operator-side example, use the separate
-[stable container supervisor reference](https://github.com/seanebones-lang/deadbolt-docker-mcp/blob/v2.0.0/examples/supervisor/README.md).
+[stable container supervisor reference](https://github.com/seanebones-lang/deadbolt-docker-mcp/blob/28d799c5d5a8ce384ebf14fb22f06bd401f784eb/examples/supervisor/README.md).
 It builds an operator image with the matching checksum-pinned Python client,
 puts the authenticated sidecar socket in a private Linux volume, and mounts
 only that socket and one read-only renewal key into the finite heartbeat.

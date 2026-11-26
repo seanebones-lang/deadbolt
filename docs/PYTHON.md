@@ -1,16 +1,16 @@
 # Python client and optional OpenAI Agents SDK adapter
 
-## Engine 2.0.1 and Python client 2.0.1.post1
+## Engine 2.0.2 and Python client 2.0.2
 
-Use engine **2.0.1** from the
-[immutable GitHub release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.1)
-and client **2.0.1.post1** from PyPI. This metadata-only postrelease corrects
-the package description; its runtime modules are unchanged from client 2.0.1.
-Install the engine separately from its verified native archive or the macOS
-Homebrew stable cask. The client wheel does not include the executable or start a
-sidecar. [Migration](MIGRATING-V2.md) covers old state and Rust source compatibility.
+Use engine **2.0.2** from the
+[immutable GitHub release](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.2)
+and [client **2.0.2** from PyPI](https://pypi.org/project/n11-deadbolt-client/2.0.2/).
+The engine includes the bundled SQLite security update. Install it separately
+from its verified native archive or the macOS Homebrew stable cask. The client
+wheel does not include the executable, start a sidecar or upgrade an existing
+engine. [Migration](MIGRATING-V2.md) covers old state and Rust source compatibility.
 
-The 2.0.1 wheel includes `deadbolt_client`, `deadbolt_openai_agents`,
+The 2.0.2 wheel includes `deadbolt_client`, `deadbolt_openai_agents`,
 `deadbolt_supervisor`, `deadbolt-client`, the job-scoped `SupervisorHeartbeat`
 helper and finite `deadbolt-supervisor-heartbeat` operator command. See
 [heartbeat lifecycle](SUPERVISION.md#job-scoped-helper-rc2-source) before setup.
@@ -22,16 +22,15 @@ The base client has no third-party runtime dependencies. The optional extra pins
 In your application's virtual environment:
 
 ```sh
-python -m pip install 'n11-deadbolt-client==2.0.1.post1'
+python -m pip install 'n11-deadbolt-client==2.0.2'
 # Optional SDK adapter, Python 3.10+:
-python -m pip install 'n11-deadbolt-client[openai-agents]==2.0.1.post1'
+python -m pip install 'n11-deadbolt-client[openai-agents]==2.0.2'
 ```
 
-The [PyPI postrelease](https://pypi.org/project/n11-deadbolt-client/2.0.1.post1/)
-has corrected installation examples and the same three runtime modules as the
-original 2.0.1 package. Install the engine separately. Original package files
-remain immutable; their older long description still mentions 2.0.0.
-A registry account or publishing token is not needed to install.
+The published 2.0.2 wheel and source hashes match the tested GitHub release
+assets. Install the engine separately. Original package files remain immutable;
+use their tagged documentation if investigating a historical version. A registry
+account or publishing token is not needed to install.
 
 ## Install the verified release wheel
 
@@ -40,23 +39,22 @@ covers the native ZIPs), activate your application's virtual
 environment, then install the matching wheel:
 
 ```sh
-python -m pip install /absolute/path/to/n11_deadbolt_client-2.0.1-py3-none-any.whl
+python -m pip install /absolute/path/to/n11_deadbolt_client-2.0.2-py3-none-any.whl
 # Optional SDK adapter:
-python -m pip install '/absolute/path/to/n11_deadbolt_client-2.0.1-py3-none-any.whl[openai-agents]'
+python -m pip install '/absolute/path/to/n11_deadbolt_client-2.0.2-py3-none-any.whl[openai-agents]'
 ```
 
 The wheel runs on Python 3.9+; the optional process-cancellation reference needs
-its documented POSIX/Python runtime. Select the exact 2.0.1 package; an RC1
-registry command does not install the new heartbeat helper. No account or API key is needed
-for wheel installation or the provider-free acceptance tests.
+its documented POSIX/Python runtime. No account or API key is needed for wheel
+installation or the provider-free acceptance tests.
 
-Alternatively install the reviewed 2.0.1 source with Python 3.10+:
+Alternatively install the reviewed 2.0.2 source with Python 3.10+:
 
 ```sh
 python -m pip install /absolute/path/to/reviewed/deadbolt
 ```
 
-Use the immutable `v2.0.1` source tag and matching executable. Installing a
+Use the immutable `v2.0.2` source tag and matching executable. Installing a
 new wheel alone does not change stored renewal modes or upgrade a running sidecar.
 
 ## Operator setup, outside the agent

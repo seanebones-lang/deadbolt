@@ -7,6 +7,7 @@ The fixed 2.0.2 engine is published through:
 | Route | Verified current version |
 | --- | --- |
 | [Native downloads](https://github.com/seanebones-lang/deadbolt/releases/tag/v2.0.2) | 2.0.2; four targets, signed/notarized Macs |
+| [Cargo](https://crates.io/crates/n11-deadbolt/2.0.2) | 2.0.2, not yanked; CLI or embedded Rust library |
 | [Direct MCP bundle](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.2) | 2.0.2; SHA-256 `165db7a37a1f7686af1908416f5f417daadbce875c74b72c78185117bb58c980` |
 | [Stable Homebrew cask](https://github.com/seanebones-lang/homebrew-tap/blob/main/Casks/n11-deadbolt.rb) | 2.0.2; both Mac architectures |
 | [PyPI client](https://pypi.org/project/n11-deadbolt-client/2.0.2/) | 2.0.2; client only, verified wheel/sdist hashes match GitHub |
@@ -15,12 +16,20 @@ The fixed 2.0.2 engine is published through:
 | [Docker source](https://github.com/seanebones-lang/deadbolt-docker-mcp) | Builds engine 2.0.2; rebuild images, no prebuilt image publication claimed |
 | [Hermes plugin](https://github.com/seanebones-lang/deadbolt-hermes-plugin) | Plugin 0.1.2 recommends separately installed engine 2.0.2 |
 | [Pinned source](INSTALL.md#published-source) | 2.0.2; Rust 1.89+ |
+| [Official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.seanebones-lang%2Fdeadbolt&limit=30) | Latest active entry 2.0.2; same direct-bundle URL and SHA-256 |
 
-These engines fix RUSTSEC-2026-0459. The remaining registry and plugin routes
-have separate publication/upgrade steps; check their actual version rather
-than treating the earlier snapshot below as current security guidance. A
+These engines fix RUSTSEC-2026-0459. Each registry and plugin route has its
+own publication and installed-copy upgrade step; verify the actual version
+instead of treating the earlier snapshot below as current security guidance. A
 Python client contains no engine. Existing plugin copies and containers must
 be updated separately; installing another route does not update them.
+
+The immutable Cargo 2.0.2 archive includes an older README that still gives
+2.0.1 installation commands. Install the fixed package explicitly with
+`cargo install n11-deadbolt --version 2.0.2 --locked --bin deadbolt`, or use
+`deadbolt = { package = "n11-deadbolt", version = "=2.0.2" }` in an application's
+manifest. The current [installation guide](INSTALL.md) supersedes those old
+commands; correcting source documentation cannot replace published crate bytes.
 
 ## Earlier channel snapshot — 2.0.1
 

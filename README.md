@@ -76,17 +76,17 @@ deadbolt --version
 deadbolt drill
 ```
 
-The matching [Python client 2.0.1.post1](https://pypi.org/project/n11-deadbolt-client/2.0.1.post1/) is published.
-The matching [Rust package 2.0.1](https://crates.io/crates/n11-deadbolt/2.0.1) is also published.
+The matching [Python client 2.0.2](https://pypi.org/project/n11-deadbolt-client/2.0.2/) is published.
+The matching [Rust package 2.0.2](https://crates.io/crates/n11-deadbolt/2.0.2) is also published.
 Install the CLI from Cargo, or the Python client in your application environment:
 
 ```sh
-cargo install n11-deadbolt --version 2.0.1 --locked --bin deadbolt
+cargo install n11-deadbolt --version 2.0.2 --locked --bin deadbolt
 # In your application's virtual environment:
-python -m pip install 'n11-deadbolt-client==2.0.1.post1'
+python -m pip install 'n11-deadbolt-client==2.0.2'
 ```
 
-For embedded Rust, use `deadbolt = { package = "n11-deadbolt", version = "=2.0.1" }`
+For embedded Rust, use `deadbolt = { package = "n11-deadbolt", version = "=2.0.2" }`
 and commit your application's own lockfile. The Python wheel contains the client,
 not the engine. Node remains a bundled source module. [Install and verify](docs/INSTALL.md).
 
@@ -112,9 +112,9 @@ require a fixed deadline, deliberate renewal mode and reviewed offline exception
 The bundle uses broad one-shot tool approvals; it does not provision exact-action
 grants. [Configuration](dist/mcpb/README.md) · [Editor guide](docs/EDITORS-V2.md).
 
-Download the current bundle from the [explicit 2.0.1 release](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.1).
+Download the current bundle from the [explicit 2.0.2 release](https://github.com/seanebones-lang/deadbolt/releases/tag/mcpb-v2.0.2).
 The [official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.seanebones-lang%2Fdeadbolt&limit=10)
-now publishes 2.0.1 with the matching bundle checksum. Verify the entry's actual
+publishes 2.0.2 with the matching bundle checksum. Verify the entry's actual
 version and checksum before installing. Discovery is not hosted operator access,
 marketplace acceptance of another submission, or an endorsement.
 
